@@ -1,0 +1,39 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 240" role="img" aria-label="GCash QR placeholder">
+  <rect width="240" height="240" fill="#fff"/>
+  <rect x="10" y="10" width="220" height="220" rx="10" fill="#f8fafc" stroke="#0f172a" stroke-width="4"/>
+  <g fill="#07142f">
+    <rect x="26" y="26" width="54" height="54"/>
+    <rect x="38" y="38" width="30" height="30" fill="#fff"/>
+    <rect x="48" y="48" width="10" height="10"/>
+    <rect x="160" y="26" width="54" height="54"/>
+    <rect x="172" y="38" width="30" height="30" fill="#fff"/>
+    <rect x="182" y="48" width="10" height="10"/>
+    <rect x="26" y="160" width="54" height="54"/>
+    <rect x="38" y="172" width="30" height="30" fill="#fff"/>
+    <rect x="48" y="182" width="10" height="10"/>
+    <rect x="98" y="30" width="12" height="12"/>
+    <rect x="122" y="30" width="12" height="12"/>
+    <rect x="98" y="54" width="36" height="12"/>
+    <rect x="146" y="54" width="12" height="12"/>
+    <rect x="94" y="94" width="12" height="12"/>
+    <rect x="118" y="94" width="36" height="12"/>
+    <rect x="166" y="94" width="24" height="12"/>
+    <rect x="202" y="94" width="12" height="12"/>
+    <rect x="94" y="118" width="36" height="12"/>
+    <rect x="142" y="118" width="12" height="12"/>
+    <rect x="178" y="118" width="36" height="12"/>
+    <rect x="94" y="142" width="12" height="12"/>
+    <rect x="118" y="142" width="24" height="12"/>
+    <rect x="154" y="142" width="12" height="12"/>
+    <rect x="190" y="142" width="24" height="12"/>
+    <rect x="94" y="166" width="24" height="12"/>
+    <rect x="130" y="166" width="12" height="12"/>
+    <rect x="154" y="166" width="36" height="12"/>
+    <rect x="202" y="166" width="12" height="12"/>
+    <rect x="94" y="190" width="12" height="12"/>
+    <rect x="118" y="190" width="36" height="12"/>
+    <rect x="166" y="190" width="12" height="12"/>
+    <rect x="190" y="190" width="24" height="12"/>
+  </g>
+  <text x="120" y="126" text-anchor="middle" font-family="Arial, sans-serif" font-size="16" font-weight="700" fill="#0b8f7a">GCash</text>
+</svg>

@@ -1,0 +1,17 @@
+Options -Indexes
+DirectoryIndex index.php ui/index.php
+
+RewriteEngine On
+RewriteRule ^$ ui/index.php [L]
+RewriteRule ^ui/?$ ui/index.php [L]
+RewriteRule ^admin/?$ admin/dashboard.php [L]
+
+RewriteRule ^(index|about|gallery|booking|open-play|payment|contact|rules|register|login|member-login|member)\.php$ ui/$1.php [L]
+RewriteRule ^admin\.php$ admin/dashboard.php [L]
+RewriteRule ^admin-bookings\.php$ admin/bookings.php [L]
+RewriteRule ^admin-court-blockings\.php$ admin/court-blockings.php [L]
+RewriteRule ^admin-rates\.php$ admin/rates.php [L]
+RewriteRule ^admin-payment\.php$ admin/payment.php [L]
+RewriteRule ^admin-members\.php$ admin/members.php [L]
+RewriteRule ^logout\.php$ admin/logout.php [L]
+RewriteRule ^setup\.php$ admin/setup.php [L]

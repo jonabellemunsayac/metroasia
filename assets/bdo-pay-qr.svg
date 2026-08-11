@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="240" height="240" viewBox="0 0 240 240" role="img" aria-labelledby="title desc">
+  <title id="title">BDO Pay QR placeholder</title>
+  <desc id="desc">Configurable BDO Pay QR placeholder for Metro Asia payments.</desc>
+  <rect width="240" height="240" rx="18" fill="#ffffff"/>
+  <rect x="10" y="10" width="220" height="220" rx="14" fill="#f8fafc" stroke="#1d4ed8" stroke-width="4"/>
+  <g fill="#0f172a">
+    <rect x="28" y="28" width="58" height="58" rx="6"/>
+    <rect x="154" y="28" width="58" height="58" rx="6"/>
+    <rect x="28" y="154" width="58" height="58" rx="6"/>
+  </g>
+  <g fill="#ffffff">
+    <rect x="42" y="42" width="30" height="30" rx="3"/>
+    <rect x="168" y="42" width="30" height="30" rx="3"/>
+    <rect x="42" y="168" width="30" height="30" rx="3"/>
+  </g>
+  <g fill="#1d4ed8">
+    <rect x="102" y="30" width="14" height="14"/>
+    <rect x="122" y="30" width="24" height="14"/>
+    <rect x="102" y="52" width="34" height="14"/>
+    <rect x="96" y="82" width="20" height="20"/>
+    <rect x="126" y="82" width="14" height="36"/>
+    <rect x="154" y="102" width="20" height="20"/>
+    <rect x="184" y="102" width="28" height="14"/>
+    <rect x="104" y="132" width="42" height="14"/>
+    <rect x="158" y="136" width="14" height="34"/>
+    <rect x="184" y="142" width="28" height="20"/>
+    <rect x="104" y="160" width="20" height="20"/>
+    <rect x="132" y="174" width="34" height="14"/>
+    <rect x="178" y="184" width="34" height="28"/>
+  </g>
+  <rect x="88" y="202" width="64" height="18" rx="9" fill="#0f172a"/>
+  <text x="120" y="216" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" font-weight="700" fill="#ffffff">BDO PAY</text>
+</svg>
