@@ -2,13 +2,14 @@
 $pageTitle = 'Book a Court | Multi-Sport Court Scheduling & Reservation';
 $active = 'booking';
 include __DIR__ . '/../includes/header.php';
+$siteConfig = site_config();
 ?>
 <main data-needs-state class="public-page">
     <section class="grid gap-6 lg:grid-cols-[360px_minmax(0,1fr)]">
         <aside class="grid content-start gap-5">
             <article class="venue-card">
                 <div class="relative">
-                    <img src="<?php echo htmlspecialchars(app_url('assets/courts-preview.png')); ?>" alt="Covered Metro Asia courts" class="h-[270px] w-full object-cover">
+                    <img src="<?php echo htmlspecialchars(site_asset_url((string) $siteConfig['contact_image_path'])); ?>" alt="Covered Metro Asia courts" class="h-[270px] w-full object-cover">
                     <span class="absolute bottom-4 left-4 rounded-full bg-ink/85 px-4 py-2 text-sm font-black text-white">2 / 4</span>
                 </div>
                 <div class="p-4">
@@ -17,7 +18,7 @@ include __DIR__ . '/../includes/header.php';
                             <h1 class="text-xl font-black leading-tight text-ink">Metro Asia</h1>
                             <p class="mt-2 flex gap-2 text-sm font-semibold leading-5 text-muted">
                                 <i data-lucide="map-pin" class="mt-0.5 h-4 w-4 shrink-0"></i>
-                                JV Ayala Avenue Prk 1B, Tagum City, Davao del Norte
+                                <?php echo htmlspecialchars((string) $siteConfig['address']); ?>
                             </p>
                         </div>
                         <p class="shrink-0 text-xl font-black text-primary">PHP 265<span class="text-sm font-semibold text-muted">/hr</span></p>
@@ -39,20 +40,11 @@ include __DIR__ . '/../includes/header.php';
             <article class="public-card p-4">
                 <h2 class="text-sm font-black text-ink">About</h2>
                 <p class="mt-3 text-sm font-semibold leading-6 text-muted">
-                    Metro Asia brings premium indoor pickleball, basketball, and volleyball to Tagum City with bright covered courts, smooth gameplay, and simple receipt-based reservations.
+                    Metro Asia brings premium indoor pickleball, basketball, and volleyball to Pasig with bright covered courts, smooth gameplay, and simple receipt-based reservations.
                 </p>
                     <p class="mt-4 text-sm font-semibold leading-6 text-muted">
-                    Miami is a parent multi-sport court. Wooden Courts 5, 6 and 7 sit inside Miami, so Miami basketball or volleyball blocks all Wooden Courts, while any Wooden Court booking blocks Miami basketball and volleyball.
+                    Each listed court is scheduled independently. Lakers and Miami handle full-size sports, while Pickleball Pro and Wooden courts have their own pickleball availability.
                 </p>
-                <div class="mt-5 border-t border-line pt-4">
-                    <h3 class="text-sm font-black text-ink">Amenities</h3>
-                    <div class="mt-3 flex flex-wrap gap-x-4 gap-y-2 text-sm font-semibold text-primary">
-                        <span>Free Parking</span>
-                        <span>Restrooms</span>
-                        <span>Pro Shop</span>
-                        <span>Equipment Rental</span>
-                    </div>
-                </div>
             </article>
 
         </aside>
@@ -60,7 +52,6 @@ include __DIR__ . '/../includes/header.php';
         <section class="booking-panel">
             <div class="flex items-center gap-3 border-b border-line px-4">
                 <a href="<?php echo htmlspecialchars(app_url('ui/booking.php')); ?>" class="public-tab public-tab-active">Book</a>
-                <a href="<?php echo htmlspecialchars(app_url('ui/open-play.php')); ?>" class="public-tab">Open Plays</a>
                 <a href="<?php echo htmlspecialchars(app_url('ui/payment.php')); ?>" class="public-tab">Payment</a>
             </div>
 
@@ -80,7 +71,7 @@ include __DIR__ . '/../includes/header.php';
                         </div>
                     </div>
                     <div class="rounded-lg bg-amber-50 px-3 py-2 text-xs font-bold leading-5 text-amber-900 sm:max-w-[240px]">
-                        Miami and Wooden Courts 5-7 cannot overlap.
+                        Past dates and times cannot be booked.
                     </div>
                 </div>
 
@@ -113,6 +104,14 @@ include __DIR__ . '/../includes/header.php';
 
                 <div class="mt-4 overflow-x-auto rounded-lg border border-line bg-white">
                     <div id="bookingGrid" class="booking-grid grid"></div>
+                </div>
+
+                <div id="bookingSelectionBar" class="booking-selection-bar hidden">
+                    <div>
+                        <p class="booking-selection-title">Selected slots</p>
+                        <p id="bookingSelectionSummary" class="booking-selection-summary"></p>
+                    </div>
+                    <button id="bookingSelectionBookNow" type="button" class="btn btn-primary">Book Now</button>
                 </div>
             </div>
         </section>

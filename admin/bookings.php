@@ -26,13 +26,13 @@ include __DIR__ . '/../includes/header.php';
         </div>
         <div class="col-6 col-lg-3">
             <div class="stat-card h-100">
-                <p class="mb-1 small text-secondary fw-bold text-uppercase">Confirmed</p>
+                <p class="mb-1 small text-secondary fw-bold text-uppercase">Booked</p>
                 <p id="adminBookedCount" class="mb-0 stat-number">0</p>
             </div>
         </div>
         <div class="col-6 col-lg-3">
             <div class="stat-card h-100">
-                <p class="mb-1 small text-secondary fw-bold text-uppercase">Cancelled / Rejected</p>
+                <p class="mb-1 small text-secondary fw-bold text-uppercase">Available</p>
                 <p id="adminCancelledCount" class="mb-0 stat-number">0</p>
             </div>
         </div>
@@ -52,12 +52,10 @@ include __DIR__ . '/../includes/header.php';
                     <h2 class="mt-1 mb-0 fw-black">Payments and booking actions</h2>
                 </div>
                 <div class="btn-group flex-wrap admin-filter-group" role="group" aria-label="Reservation filter">
-                    <button class="btn btn-primary btn-sm" data-admin-filter="Payment Submitted">Payment Submitted</button>
-                    <button class="btn btn-outline-secondary btn-sm" data-admin-filter="Under Review">Under Review</button>
-                    <button class="btn btn-outline-secondary btn-sm" data-admin-filter="Payment Pending">Payment Pending</button>
+                    <button class="btn btn-primary btn-sm" data-admin-filter="Pending Payment">Pending Payment</button>
                     <button class="btn btn-outline-secondary btn-sm" data-admin-filter="Held">Held</button>
-                    <button class="btn btn-outline-secondary btn-sm" data-admin-filter="Confirmed">Confirmed</button>
-                    <button class="btn btn-outline-secondary btn-sm" data-admin-filter="Cancelled">Cancelled</button>
+                    <button class="btn btn-outline-secondary btn-sm" data-admin-filter="Booked">Booked</button>
+                    <button class="btn btn-outline-secondary btn-sm" data-admin-filter="Available">Available</button>
                     <button class="btn btn-outline-secondary btn-sm" data-admin-filter="All">All</button>
                 </div>
             </div>

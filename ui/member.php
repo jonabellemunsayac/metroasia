@@ -9,22 +9,16 @@ $error = null;
 
 function member_court_name(int $courtId, string $sport): string
 {
-    if ($sport === 'Pickleball') {
-        return match ($courtId) {
-            1 => 'Pickleball Pro Court 1',
-            2 => 'Pickleball Pro Court 2',
-            3 => 'Pickleball Pro Court 3',
-            4 => 'Pickleball Pro Court 4',
-            5 => 'Wooden Court 5',
-            6 => 'Wooden Court 6',
-            7 => 'Wooden Court 7',
-            default => 'Court ' . $courtId,
-        };
-    }
-
     return match ($courtId) {
         1 => 'Lakers',
         2 => 'Miami',
+        3 => 'Pickleball Pro Court 1',
+        4 => 'Pickleball Pro Court 2',
+        5 => 'Pickleball Pro Court 3',
+        6 => 'Pickleball Pro Court 4',
+        7 => 'Wooden Court 5',
+        8 => 'Wooden Court 6',
+        9 => 'Wooden Court 7',
         default => 'Court ' . $courtId,
     };
 }
@@ -67,12 +61,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         [$type, $rawId] = array_pad(explode(':', $reservation, 2), 2, '');
         $id = (int) $rawId;
         $receipt = save_member_receipt();
-        if (!$receipt || $id <= 0 || !in_array($type, ['court', 'openplay'], true)) {
+        if (!$receipt || $id <= 0 || $type !== 'court') {
             throw new RuntimeException('Choose a reservation and upload a valid receipt.');
         }
 
-        $table = $type === 'court' ? 'court_bookings' : 'open_play_reservations';
-        $stmt = db()->prepare("UPDATE {$table} SET receipt_path = ?, status = 'Payment Submitted' WHERE id = ? AND member_id = ? AND status IN ('Payment Pending','Held')");
+        $stmt = db()->prepare("UPDATE court_bookings SET receipt_path = ?, status = 'Held' WHERE id = ? AND member_id = ? AND status IN ('Pending Payment','Held')");
         $stmt->execute([$receipt, $id, (int) $member['id']]);
         if ($stmt->rowCount() === 0) {
             throw new RuntimeException('Reservation was not found or no longer accepts receipt upload.');
@@ -93,16 +86,7 @@ $courtStmt = $pdo->prepare(
      WHERE cb.member_id = ?"
 );
 $courtStmt->execute([(int) $member['id']]);
-$openStmt = $pdo->prepare(
-    "SELECT CONCAT('openplay:', opr.id) AS id, 'openplay' AS type, ops.session_date AS date,
-            ops.session_time AS time, NULL AS court, 'Open Play' AS sport, ops.title, opr.status,
-            opr.payment_method, opr.receipt_path, opr.final_amount, opr.created_at
-     FROM open_play_reservations opr
-     JOIN open_play_sessions ops ON ops.id = opr.session_id
-     WHERE opr.member_id = ?"
-);
-$openStmt->execute([(int) $member['id']]);
-$reservations = array_merge($courtStmt->fetchAll(), $openStmt->fetchAll());
+$reservations = $courtStmt->fetchAll();
 usort($reservations, static fn (array $a, array $b): int => strcmp((string) $b['created_at'], (string) $a['created_at']));
 
 $pageTitle = 'My Bookings | Multi-Sport Court Scheduling & Reservation';
@@ -146,10 +130,8 @@ include __DIR__ . '/../includes/header.php';
                 <?php endif; ?>
                 <?php foreach ($reservations as $reservation): ?>
                     <?php
-                    $title = $reservation['type'] === 'court'
-                        ? member_court_name((int) $reservation['court'], (string) $reservation['sport']) . ' - ' . $reservation['sport']
-                        : (string) $reservation['title'];
-                    $canUpload = in_array($reservation['status'], ['Payment Pending', 'Held'], true);
+                    $title = member_court_name((int) $reservation['court'], (string) $reservation['sport']) . ' - ' . $reservation['sport'];
+                    $canUpload = in_array($reservation['status'], ['Pending Payment', 'Held'], true);
                     ?>
                     <article class="rounded-lg border border-line bg-white p-4">
                         <div class="flex flex-wrap items-start justify-between gap-3">
@@ -158,7 +140,7 @@ include __DIR__ . '/../includes/header.php';
                                 <p class="mt-1 text-sm font-semibold text-muted"><?php echo htmlspecialchars($reservation['date'] . ' - ' . $reservation['time']); ?></p>
                                 <p class="mt-1 text-sm font-semibold text-muted"><?php echo htmlspecialchars($reservation['payment_method']); ?> · PHP <?php echo number_format((float) $reservation['final_amount'], 0); ?></p>
                                 <?php if ($reservation['receipt_path']): ?>
-                                    <a href="<?php echo htmlspecialchars($reservation['receipt_path']); ?>" target="_blank" class="mt-3 inline-flex text-sm font-black text-primary">View receipt</a>
+                                    <a href="<?php echo htmlspecialchars(app_url((string) $reservation['receipt_path'])); ?>" target="_blank" class="mt-3 inline-flex text-sm font-black text-primary">View receipt</a>
                                 <?php endif; ?>
                             </div>
                             <?php if ($canUpload): ?>

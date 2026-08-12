@@ -37,53 +37,41 @@ CREATE TABLE IF NOT EXISTS courts (
     is_active TINYINT(1) NOT NULL DEFAULT 1
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
-CREATE TABLE IF NOT EXISTS rates (
+CREATE TABLE IF NOT EXISTS time_slots (
     id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-    label VARCHAR(80) NOT NULL,
+    period VARCHAR(80) NOT NULL,
+    label VARCHAR(80) NOT NULL UNIQUE,
+    starts_at TIME NOT NULL,
+    ends_at TIME NOT NULL,
     price DECIMAL(10,2) NOT NULL,
-    display_time VARCHAR(80) NOT NULL,
     sort_order INT NOT NULL DEFAULT 0
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
-CREATE TABLE IF NOT EXISTS rate_rules (
+CREATE TABLE IF NOT EXISTS rates (
     id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-    name VARCHAR(140) NOT NULL,
-    court_id INT UNSIGNED NULL,
-    sport ENUM('Pickleball','Basketball','Volleyball') NULL,
-    day_type ENUM('Any','Weekday','Weekend') NOT NULL DEFAULT 'Any',
-    day_pattern VARCHAR(80) NOT NULL DEFAULT 'Any',
-    starts_at TIME NOT NULL,
-    ends_at TIME NOT NULL,
-    duration_minutes INT UNSIGNED NULL,
-    price_per_hour DECIMAL(10,2) NOT NULL,
-    member_price_per_hour DECIMAL(10,2) NULL,
-    effective_from DATE NULL,
-    effective_to DATE NULL,
-    priority INT NOT NULL DEFAULT 0,
-    is_active TINYINT(1) NOT NULL DEFAULT 1,
-    created_by INT UNSIGNED NULL,
-    updated_by INT UNSIGNED NULL,
-    change_reason VARCHAR(255) NULL,
+    court_id INT UNSIGNED NOT NULL,
+    sport ENUM('Pickleball','Basketball','Volleyball') NOT NULL,
+    time_slot_id INT UNSIGNED NOT NULL,
+    rate_per_hour DECIMAL(10,2) NOT NULL,
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    INDEX idx_rate_lookup (court_id, sport, day_type, starts_at, ends_at, is_active),
-    INDEX idx_rate_pattern_lookup (court_id, sport, day_pattern, starts_at, ends_at, duration_minutes, is_active),
-    CONSTRAINT fk_rate_rule_court FOREIGN KEY (court_id) REFERENCES courts(id),
-    CONSTRAINT fk_rate_rule_created_by FOREIGN KEY (created_by) REFERENCES admin_users(id),
-    CONSTRAINT fk_rate_rule_updated_by FOREIGN KEY (updated_by) REFERENCES admin_users(id)
+    UNIQUE KEY uniq_rate_lookup (court_id, sport, time_slot_id),
+    INDEX idx_rates_lookup (court_id, sport, time_slot_id),
+    CONSTRAINT fk_rate_court FOREIGN KEY (court_id) REFERENCES courts(id),
+    CONSTRAINT fk_rate_time_slot FOREIGN KEY (time_slot_id) REFERENCES time_slots(id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS rate_audit_logs (
     id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-    rate_rule_id INT UNSIGNED NULL,
+    rate_id INT UNSIGNED NULL,
     admin_id INT UNSIGNED NULL,
     action VARCHAR(40) NOT NULL,
     previous_payload JSON NULL,
     new_payload JSON NULL,
     reason VARCHAR(255) NULL,
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    INDEX idx_rate_audit_rule (rate_rule_id, created_at),
-    CONSTRAINT fk_rate_audit_rule FOREIGN KEY (rate_rule_id) REFERENCES rate_rules(id),
+    INDEX idx_rate_audit_rate (rate_id, created_at),
+    CONSTRAINT fk_rate_audit_rate FOREIGN KEY (rate_id) REFERENCES rates(id) ON DELETE SET NULL,
     CONSTRAINT fk_rate_audit_admin FOREIGN KEY (admin_id) REFERENCES admin_users(id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
@@ -103,14 +91,15 @@ CREATE TABLE IF NOT EXISTS payment_channels (
     updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
-CREATE TABLE IF NOT EXISTS time_slots (
-    id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-    period VARCHAR(80) NOT NULL,
-    label VARCHAR(80) NOT NULL UNIQUE,
-    starts_at TIME NOT NULL,
-    ends_at TIME NOT NULL,
-    price DECIMAL(10,2) NOT NULL,
-    sort_order INT NOT NULL DEFAULT 0
+CREATE TABLE IF NOT EXISTS site_config (
+    config_key VARCHAR(80) PRIMARY KEY,
+    config_value TEXT NULL,
+    label VARCHAR(120) NOT NULL,
+    field_type ENUM('text','textarea','url','image') NOT NULL DEFAULT 'text',
+    sort_order INT NOT NULL DEFAULT 0,
+    updated_by INT UNSIGNED NULL,
+    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    CONSTRAINT fk_site_config_updated_by FOREIGN KEY (updated_by) REFERENCES admin_users(id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS court_blocks (
@@ -149,12 +138,13 @@ CREATE TABLE IF NOT EXISTS override_logs (
 
 CREATE TABLE IF NOT EXISTS court_bookings (
     id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    booking_reference VARCHAR(40) NULL UNIQUE,
     member_id INT UNSIGNED NULL,
     booking_date DATE NOT NULL,
     time_slot_id INT UNSIGNED NOT NULL,
     court_id INT UNSIGNED NOT NULL,
     sport ENUM('Pickleball','Basketball','Volleyball') NOT NULL DEFAULT 'Pickleball',
-    status ENUM('Held','Payment Pending','Payment Submitted','Under Review','Confirmed','Cancelled','Rejected','Expired','Completed','No Show') NOT NULL DEFAULT 'Payment Pending',
+    status ENUM('Available','Pending Payment','Held','Booked') NOT NULL DEFAULT 'Pending Payment',
     customer_name VARCHAR(160) NOT NULL,
     customer_email VARCHAR(190) NULL,
     customer_phone VARCHAR(60) NOT NULL,
@@ -196,7 +186,7 @@ CREATE TABLE IF NOT EXISTS open_play_reservations (
     id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     member_id INT UNSIGNED NULL,
     session_id INT UNSIGNED NOT NULL,
-    status ENUM('Held','Payment Pending','Payment Submitted','Under Review','Confirmed','Cancelled','Rejected','Expired','Completed','No Show') NOT NULL DEFAULT 'Payment Pending',
+    status ENUM('Available','Pending Payment','Held','Booked') NOT NULL DEFAULT 'Pending Payment',
     customer_name VARCHAR(160) NOT NULL,
     customer_email VARCHAR(190) NULL,
     customer_phone VARCHAR(60) NOT NULL,

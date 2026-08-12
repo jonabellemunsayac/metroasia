@@ -7,9 +7,9 @@ include __DIR__ . '/../includes/header.php';
     <section class="grid gap-6 lg:grid-cols-[360px_minmax(0,1fr)]">
         <aside class="public-card p-5">
             <p class="section-kicker">Policies</p>
-            <h1 class="mt-2 font-display text-3xl font-black leading-tight">Clear rules for booking, payment, and shared courts.</h1>
+            <h1 class="mt-2 font-display text-3xl font-black leading-tight">Clear rules for booking, payment, and court use.</h1>
             <p class="mt-4 text-sm font-semibold leading-7 text-muted">
-                These policies help keep reservations fair while admin staff reviews payment receipts and court conflicts.
+                These policies help keep reservations fair while admin staff reviews payment receipts and booking changes.
             </p>
             <a href="<?php echo htmlspecialchars(app_url('ui/booking.php')); ?>" class="btn btn-primary mt-5 w-full">Book a Court</a>
         </aside>
@@ -19,9 +19,9 @@ include __DIR__ . '/../includes/header.php';
                 <div class="flex items-start gap-3">
                     <i data-lucide="git-branch" class="mt-1 h-5 w-5 text-primary"></i>
                     <div>
-                        <h2 class="text-xl font-black">Miami and Wooden Courts</h2>
+                        <h2 class="text-xl font-black">Court Availability</h2>
                         <p class="mt-2 text-sm font-semibold leading-6 text-muted">
-                            Miami basketball or volleyball occupies the full Miami space, so Wooden Courts 5, 6, and 7 become unavailable for the same slot. A Wooden Court booking blocks Miami basketball and volleyball, but does not block the other Wooden Courts.
+                            Each court listing has its own schedule. A booking only blocks the selected court for that time slot.
                         </p>
                     </div>
                 </div>

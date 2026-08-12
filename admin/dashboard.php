@@ -1,6 +1,6 @@
 <?php
 require_once __DIR__ . '/../includes/auth.php';
-$admin = require_admin();
+require_admin();
 $pageTitle = 'Admin | Multi-Sport Court Scheduling & Reservation';
 $active = 'admin';
 include __DIR__ . '/../includes/header.php';
@@ -9,30 +9,12 @@ include __DIR__ . '/../includes/header.php';
     <section class="admin-hero card border-0 mb-3">
         <div class="card-body p-3 p-lg-4">
             <div class="row g-3 align-items-center">
-                <div class="col-lg-8">
+                <div class="col-12">
                     <span class="section-kicker">Operations Dashboard</span>
                     <h2 class="mt-2 mb-2 fw-black">Multi-sport schedule board</h2>
-                    <p class="mb-3 text-secondary fw-semibold">
+                    <p class="mb-0 text-secondary fw-semibold">
                         Click any time slot in the court matrix to create a booking or override a conflict. Use dedicated admin pages for payments, cancellations, rates, users, and court blocking.
                     </p>
-                    <div class="d-flex flex-wrap gap-2">
-                        <a href="#schedule-dashboard" class="btn btn-light btn-sm"><i data-lucide="table-2" class="icon-sm"></i>Court Matrix</a>
-                        <a href="<?php echo htmlspecialchars(app_url('admin/bookings.php')); ?>" class="btn btn-outline-light btn-sm"><i data-lucide="calendar-check" class="icon-sm"></i>Bookings</a>
-                        <a href="<?php echo htmlspecialchars(app_url('admin/court-blockings.php')); ?>" class="btn btn-outline-light btn-sm"><i data-lucide="shield-alert" class="icon-sm"></i>Court Blockings</a>
-                        <a href="<?php echo htmlspecialchars(app_url('admin/rates.php')); ?>" class="btn btn-outline-light btn-sm"><i data-lucide="badge-dollar-sign" class="icon-sm"></i>Rates</a>
-                        <a href="<?php echo htmlspecialchars(app_url('admin/payment.php')); ?>" class="btn btn-outline-light btn-sm"><i data-lucide="credit-card" class="icon-sm"></i>Payment Setup</a>
-                        <a href="<?php echo htmlspecialchars(app_url('admin/members.php')); ?>" class="btn btn-outline-light btn-sm"><i data-lucide="users" class="icon-sm"></i>Users / Members</a>
-                    </div>
-                </div>
-                <div class="col-lg-4">
-                    <div class="admin-profile-card">
-                        <span class="admin-avatar"><?php echo htmlspecialchars(strtoupper(substr($admin['name'], 0, 1))); ?></span>
-                        <div class="min-w-0">
-                            <p class="mb-0 fw-black text-white"><?php echo htmlspecialchars($admin['name']); ?></p>
-                            <p class="mb-0 small text-white-50 text-truncate"><?php echo htmlspecialchars($admin['email']); ?></p>
-                        </div>
-                        <a href="<?php echo htmlspecialchars(app_url('admin/logout.php')); ?>" class="btn btn-light btn-sm ms-auto">Logout</a>
-                    </div>
                 </div>
             </div>
         </div>
@@ -48,14 +30,14 @@ include __DIR__ . '/../includes/header.php';
                     </div>
                     <span class="metric-icon bg-warning-subtle text-warning"><i data-lucide="timer" class="icon-sm"></i></span>
                 </div>
-                <p class="mb-0 mt-2 small text-secondary fw-semibold">Payment pending or under review</p>
+                        <p class="mb-0 mt-2 small text-secondary fw-semibold">Pending payment or held</p>
             </div>
         </div>
         <div class="col-6 col-lg-3">
             <div class="stat-card h-100">
                 <div class="d-flex align-items-start justify-content-between gap-3">
                     <div>
-                        <p class="mb-1 small text-secondary fw-bold text-uppercase">Confirmed</p>
+                        <p class="mb-1 small text-secondary fw-bold text-uppercase">Booked</p>
                         <p id="adminBookedCount" class="mb-0 stat-number">0</p>
                     </div>
                     <span class="metric-icon bg-success-subtle text-success"><i data-lucide="badge-check" class="icon-sm"></i></span>
@@ -67,12 +49,12 @@ include __DIR__ . '/../includes/header.php';
             <div class="stat-card h-100">
                 <div class="d-flex align-items-start justify-content-between gap-3">
                     <div>
-                        <p class="mb-1 small text-secondary fw-bold text-uppercase">Cancelled</p>
+                        <p class="mb-1 small text-secondary fw-bold text-uppercase">Available</p>
                         <p id="adminCancelledCount" class="mb-0 stat-number">0</p>
                     </div>
                     <span class="metric-icon bg-danger-subtle text-danger"><i data-lucide="ban" class="icon-sm"></i></span>
                 </div>
-                <p class="mb-0 mt-2 small text-secondary fw-semibold">Staff cancellations</p>
+                        <p class="mb-0 mt-2 small text-secondary fw-semibold">Released reservations</p>
             </div>
         </div>
         <div class="col-6 col-lg-3">
@@ -96,7 +78,7 @@ include __DIR__ . '/../includes/header.php';
             <div>
                 <span class="section-kicker">Multi-Sport Schedule Dashboard</span>
                 <h2 class="mt-1 mb-1 fw-black">Daily court matrix</h2>
-                <p class="mb-0 small text-secondary fw-semibold">Click a cell to book or override that slot. Miami cells explain Wooden Court conflicts.</p>
+                <p class="mb-0 small text-secondary fw-semibold">Click a cell to book or override that court and time slot.</p>
             </div>
             <div class="btn-group btn-group-sm">
                 <button id="adminSchedulePrev" class="btn btn-outline-secondary" type="button" aria-label="Previous schedule date">
@@ -115,7 +97,7 @@ include __DIR__ . '/../includes/header.php';
             <span class="text-primary">Click any cell to book or override.</span>
             <span><span class="legend-dot bg-light border"></span>Available/Open</span>
             <span><span class="legend-dot bg-warning-subtle border border-warning-subtle"></span>Temporary block</span>
-            <span><span class="legend-dot bg-success-subtle border border-success-subtle"></span>Confirmed</span>
+            <span><span class="legend-dot bg-success-subtle border border-success-subtle"></span>Booked</span>
             <span><span class="legend-dot bg-danger-subtle border border-danger-subtle"></span>Conflict/block</span>
         </div>
     </section>
@@ -153,10 +135,9 @@ include __DIR__ . '/../includes/header.php';
                             </label>
                             <label class="col-md-6 small fw-bold">Status
                                 <select name="status" class="form-select">
-                                    <option value="Confirmed">Confirmed</option>
+                                    <option value="Booked">Booked</option>
                                     <option value="Held">Held</option>
-                                    <option value="Payment Pending">Payment Pending</option>
-                                    <option value="Under Review">Under Review</option>
+                                    <option value="Pending Payment">Pending Payment</option>
                                 </select>
                             </label>
                             <label class="col-md-6 small fw-bold">Payment

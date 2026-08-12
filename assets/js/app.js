@@ -6,14 +6,17 @@ const rootUrl = window.appConfig?.rootUrl || '';
 let state = null;
 let selectedDate = new Date();
 let adminScheduleDate = new Date();
-let adminFilter = 'Payment Submitted';
+let adminFilter = 'Pending Payment';
 let selectedSport = 'Pickleball';
+let selectedBookingSlots = [];
+let activeBookingSlots = [];
+let bookingModalStep = 0;
+let bookingModalCloseUnlocked = false;
 
 const els = {
     rates: document.getElementById('rateCards'),
     grid: document.getElementById('bookingGrid'),
     dateLabel: document.getElementById('bookingDateLabel'),
-    openPlay: document.getElementById('openPlayCards'),
     admin: document.getElementById('adminRows'),
     modal: document.getElementById('bookingModal'),
     modalTitle: document.getElementById('modalTitle'),
@@ -21,8 +24,18 @@ const els = {
     modalKicker: document.getElementById('modalKicker'),
     form: document.getElementById('paymentForm'),
     formMessage: document.getElementById('formMessage'),
+    bookingReviewSummary: document.getElementById('bookingReviewSummary'),
+    bookingReferencePanel: document.getElementById('bookingReferencePanel'),
+    bookingStepPanels: document.querySelectorAll('[data-booking-step-panel]'),
+    bookingStepItems: document.querySelectorAll('[data-booking-step]'),
+    modalBackButton: document.getElementById('modalBackButton'),
+    modalNextButton: document.getElementById('modalNextButton'),
+    modalSubmitButton: document.getElementById('modalSubmitButton'),
     paymentMethod: document.getElementById('paymentMethodSelect'),
     paymentInstructions: document.getElementById('paymentInstructions'),
+    bookingSelectionBar: document.getElementById('bookingSelectionBar'),
+    bookingSelectionSummary: document.getElementById('bookingSelectionSummary'),
+    bookingSelectionBookNow: document.getElementById('bookingSelectionBookNow'),
     paymentPageChannels: document.getElementById('paymentPageChannels'),
     adminPaymentChannels: document.getElementById('adminPaymentChannels'),
     adminRateSummary: document.getElementById('adminRateSummary'),
@@ -33,6 +46,7 @@ const els = {
     adminRateId: document.getElementById('adminRateId'),
     adminRateCourt: document.getElementById('adminRateCourt'),
     adminRateSport: document.getElementById('adminRateSport'),
+    adminRateTimeSlot: document.getElementById('adminRateTimeSlot'),
     adminRateDay: document.getElementById('adminRateDay'),
     adminRateStart: document.getElementById('adminRateStart'),
     adminRateEnd: document.getElementById('adminRateEnd'),
@@ -93,7 +107,7 @@ async function loadState() {
 }
 
 function showLoadError(message) {
-    const target = els.grid || els.openPlay || els.admin;
+    const target = els.grid || els.admin;
     if (target) {
         target.innerHTML = `<div class="rounded-lg border border-rose-200 bg-rose-50 p-5 text-sm font-bold text-rose-700">${message}</div>`;
     }
@@ -116,23 +130,21 @@ function resourceUrl(path) {
 }
 
 function isActiveReservation(status) {
-    return ['Held', 'Payment Pending', 'Payment Submitted', 'Under Review', 'Confirmed'].includes(status);
+    return ['Pending Payment', 'Held', 'Booked'].includes(status);
 }
 
 function statusTone(status) {
     if (status === 'Available') return 'available';
-    if (['Confirmed', 'Completed'].includes(status)) return 'booked';
-    if (['Cancelled', 'Rejected', 'Expired', 'No Show'].includes(status)) return 'cancelled';
+    if (status === 'Booked') return 'booked';
     if (status === 'Blocked') return 'blocked';
     return 'pending';
 }
 
 function compactStatusLabel(status) {
     return {
-        'Payment Pending': 'Pending',
-        'Payment Submitted': 'Submitted',
-        'Under Review': 'Review',
-        Confirmed: 'Confirmed',
+        'Pending Payment': 'Pending Payment',
+        Available: 'Available',
+        Booked: 'Booked',
         Held: 'Held',
         Blocked: 'Blocked'
     }[status] || status;
@@ -141,7 +153,6 @@ function compactStatusLabel(status) {
 function renderAll() {
     renderRates();
     renderBookingGrid();
-    renderOpenPlay();
     renderAdmin();
     renderAdminSchedule();
     renderAdminOverrideBookingForm();
@@ -158,20 +169,17 @@ function renderAll() {
 }
 
 function defaultRateRule() {
+    const firstCourtInfo = state?.courts?.[0] || null;
+    const firstCourt = firstCourtInfo?.id || '';
+    const firstSlot = Object.values(state?.slotDetails || {})[0]?.id || '';
     return {
         id: '',
         name: '',
-        courtId: '',
-        sport: 'Pickleball',
-        dayPattern: 'Monday-Friday',
-        startsAt: '08:00',
-        endsAt: '17:00',
-        durationMinutes: 60,
+        courtId: firstCourt,
+        sport: firstCourtInfo?.sports?.[0] || 'Pickleball',
+        timeSlotId: firstSlot,
         pricePerHour: 400,
         memberPricePerHour: '',
-        effectiveFrom: '',
-        effectiveTo: '',
-        priority: 0,
         isActive: true,
         changeReason: 'Regular rate'
     };
@@ -206,18 +214,52 @@ function setSelectOptions(select, options, selected) {
 
 function populateAdminRateOptions(rule) {
     setSelectOptions(els.adminRateCourt, [
-        ['', 'All courts'],
         ...(state?.courts || []).map(court => [court.id, court.name])
     ], rule.courtId ?? '');
     setSelectOptions(els.adminRateSport, [
-        ['', 'All sports'],
         ['Pickleball', 'Pickleball'],
         ['Basketball', 'Basketball'],
         ['Volleyball', 'Volleyball']
     ], rule.sport ?? '');
-    setSelectOptions(els.adminRateDay, ['Any', 'Monday-Friday', 'Saturday-Sunday', 'Weekday', 'Weekend', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'], rule.dayPattern || rule.dayType || 'Any');
-    setSelectOptions(els.adminRateDuration, [30, 60, 90, 120, 180, 240].map(minutes => [minutes, `${minutes} min`]), rule.durationMinutes || 60);
-    setSelectOptions(els.adminRateReason, rateReasonList(rule.changeReason), rule.changeReason || 'Regular rate');
+    setSelectOptions(els.adminRateTimeSlot, Object.values(state?.slotDetails || {}).map(slot => [
+        slot.id,
+        compactTime(slot.label)
+    ]), rule.timeSlotId ?? '');
+    if (els.adminRateReason) els.adminRateReason.value = rule.changeReason || 'Regular rate';
+}
+
+function currentRateRuleName() {
+    const court = els.adminRateCourt?.selectedOptions?.[0]?.textContent || 'All courts';
+    const sport = els.adminRateSport?.value || 'All sports';
+    const slot = els.adminRateTimeSlot?.selectedOptions?.[0]?.textContent || '';
+    return `${court} ${sport} ${slot}`.trim();
+}
+
+function simpleRateDay(value) {
+    const day = String(value || '');
+    if (day === 'Monday-Friday') return 'Monday - Friday';
+    if (day === 'Saturday-Sunday') return 'Saturday - Sunday';
+    if (day === 'Any') return 'All days';
+    return ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'].includes(day) ? day : 'All days';
+}
+
+function expandedRateDays(selection) {
+    if (selection === 'Monday-Friday') return ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
+    if (selection === 'Saturday-Sunday') return ['Saturday', 'Sunday'];
+    return [selection || 'Monday'];
+}
+
+function matchingRateRuleId(formData, day, fallbackId = '') {
+    const courtId = String(formData.get('courtId') || '');
+    const sport = String(formData.get('sport') || '');
+    const timeSlotId = String(formData.get('timeSlotId') || '');
+    const match = (state?.adminRateRules || []).find(rule =>
+        String(rule.courtId ?? '') === courtId &&
+        String(rule.sport ?? '') === sport &&
+        String(rule.timeSlotId || '') === timeSlotId
+    );
+
+    return match?.id || fallbackId || '';
 }
 
 function openAdminRateModal(ruleId = '') {
@@ -231,6 +273,8 @@ function openAdminRateModal(ruleId = '') {
     if (els.adminRateName) els.adminRateName.value = rule.name || '';
     if (els.adminRateStart) els.adminRateStart.value = rule.startsAt || '08:00';
     if (els.adminRateEnd) els.adminRateEnd.value = rule.endsAt || '17:00';
+    if (els.adminRateDuration) els.adminRateDuration.value = '60';
+    if (els.adminRateTimeSlot) els.adminRateTimeSlot.value = rule.timeSlotId || '';
     if (els.adminRatePrice) els.adminRatePrice.value = rule.pricePerHour || '';
     if (els.adminRateMemberPrice) els.adminRateMemberPrice.value = rule.memberPricePerHour || '';
     if (els.adminRatePriority) els.adminRatePriority.value = rule.priority || 0;
@@ -271,16 +315,26 @@ function renderPaymentInstructions(method) {
     }
 
     els.paymentInstructions.classList.remove('hidden');
+    const messengerUrl = String(state?.siteConfig?.messenger_url || '').trim();
+    const messengerText = messengerUrl
+        ? `<a href="${escapeHtml(messengerUrl)}" target="_blank" rel="noopener" class="text-primary">Facebook Messenger</a>`
+        : 'Facebook Messenger';
     const proofNote = state?.member
         ? 'Registered members can upload payment proof directly on the website. Admin confirms payment after review.'
-        : 'After payment, non-members should send proof through Facebook Messenger with the reservation name, date, sport, court, and time.';
+        : `After payment, non-members should send proof through ${messengerText} with the reservation name, date, sport, court, and time.`;
+    const qrImage = details.qrPath
+        ? `<img src="${escapeHtml(resourceUrl(details.qrPath))}" alt="${escapeHtml(details.name)} payment QR code" class="h-32 w-32 rounded-md border border-slate-200 bg-white p-2" onerror="this.classList.add('hidden'); this.nextElementSibling.classList.remove('hidden');"><div class="hidden grid h-32 w-32 place-items-center rounded-md border border-dashed border-slate-300 bg-white p-2 text-center text-xs font-bold text-slate-500">QR image not found</div>`
+        : '<div class="grid h-32 w-32 place-items-center rounded-md border border-dashed border-slate-300 bg-white p-2 text-center text-xs font-bold text-slate-500">No QR uploaded</div>';
+    const downloadLink = details.qrPath
+        ? `<a href="${escapeHtml(resourceUrl(details.qrPath))}" download class="inline-flex w-32 justify-center rounded-md border border-line bg-white px-3 py-2 text-xs font-black text-primary">Download QR</a>`
+        : '';
 
     if (details.type === 'qr') {
         els.paymentInstructions.innerHTML = `
             <div class="grid gap-4 sm:grid-cols-[132px_1fr]">
                 <div class="grid gap-2">
-                    ${details.qrPath ? `<img src="${escapeHtml(resourceUrl(details.qrPath))}" alt="${escapeHtml(details.name)} payment QR code" class="h-32 w-32 rounded-md border border-slate-200 bg-white p-2">` : '<div class="grid h-32 w-32 place-items-center rounded-md border border-dashed border-slate-300 bg-white p-2 text-center text-xs font-bold text-slate-500">No QR uploaded</div>'}
-                    ${details.qrPath ? `<a href="${escapeHtml(resourceUrl(details.qrPath))}" download class="inline-flex w-32 justify-center rounded-md border border-line bg-white px-3 py-2 text-xs font-black text-primary">Download QR</a>` : ''}
+                    ${qrImage}
+                    ${downloadLink}
                 </div>
                 <div>
                     <p class="text-sm font-black uppercase tracking-[.14em] text-court">${escapeHtml(details.name)} QR</p>
@@ -300,8 +354,8 @@ function renderPaymentInstructions(method) {
     els.paymentInstructions.innerHTML = `
         <div class="grid gap-4 sm:grid-cols-[132px_1fr]">
             <div class="grid gap-2">
-                ${details.qrPath ? `<img src="${escapeHtml(resourceUrl(details.qrPath))}" alt="${escapeHtml(details.name)} payment QR code" class="h-32 w-32 rounded-md border border-slate-200 bg-white p-2">` : '<div class="grid h-32 w-32 place-items-center rounded-md border border-dashed border-slate-300 bg-white p-2 text-center text-xs font-bold text-slate-500">No QR uploaded</div>'}
-                ${details.qrPath ? `<a href="${escapeHtml(resourceUrl(details.qrPath))}" download class="inline-flex w-32 justify-center rounded-md border border-line bg-white px-3 py-2 text-xs font-black text-primary">Download QR</a>` : ''}
+                ${qrImage}
+                ${downloadLink}
             </div>
             <div>
                 <p class="text-sm font-black uppercase tracking-[.14em] text-court">${escapeHtml(details.bankName || details.name)}</p>
@@ -327,7 +381,7 @@ function renderPaymentOptions() {
 
 function paymentChannelCard(channel) {
     const qrPanel = channel.qrPath
-        ? `<div class="grid gap-2"><img src="${escapeHtml(resourceUrl(channel.qrPath))}" alt="${escapeHtml(channel.name)} payment QR code" class="h-32 w-32 rounded-md border border-slate-200 bg-slate-50 p-2"><a href="${escapeHtml(resourceUrl(channel.qrPath))}" download class="inline-flex w-32 justify-center rounded-md border border-line px-3 py-2 text-xs font-black text-primary">Download QR</a></div>`
+        ? `<div class="grid gap-2"><img src="${escapeHtml(resourceUrl(channel.qrPath))}" alt="${escapeHtml(channel.name)} payment QR code" class="h-32 w-32 rounded-md border border-slate-200 bg-slate-50 p-2" onerror="this.classList.add('hidden'); this.nextElementSibling.classList.remove('hidden');"><div class="hidden grid h-32 w-32 place-items-center rounded-md border border-dashed border-slate-300 bg-slate-50 p-2 text-center text-xs font-bold text-slate-500">QR image not found</div><a href="${escapeHtml(resourceUrl(channel.qrPath))}" download class="inline-flex w-32 justify-center rounded-md border border-line px-3 py-2 text-xs font-black text-primary">Download QR</a></div>`
         : '<div class="grid h-32 w-32 place-items-center rounded-md border border-dashed border-slate-300 bg-slate-50 p-2 text-center text-xs font-bold text-slate-500">No QR uploaded</div>';
 
     if (channel.type === 'qr') {
@@ -393,7 +447,10 @@ function courtDisplayName(courtInfo) {
 
 function courtsForSelectedSport() {
     if (!state?.courts) return [];
-    return state.courts.filter(court => court.sports.includes(selectedSport));
+    return state.courts.filter(court => {
+        if (!court.sports.includes(selectedSport)) return false;
+        return !(selectedSport === 'Pickleball' && Number(court.id) === 2);
+    });
 }
 
 function relatedConflictFor(date, time, courtInfo) {
@@ -406,32 +463,6 @@ function relatedConflictFor(date, time, courtInfo) {
             shortLabel: compactStatusLabel(direct.status),
             message: `${courtDisplayName(courtInfo)} is already ${direct.status} for ${direct.sport} during ${time}.`
         };
-    }
-
-    const bookings = Object.values(state.bookings).filter(item => item.date === date && item.time === time);
-
-    if (['Basketball', 'Volleyball'].includes(selectedSport) && court === 2) {
-        const wooden = bookings.find(item => [5, 6, 7].includes(Number(item.court)));
-        if (wooden) {
-            return {
-                status: 'Blocked',
-                sport: wooden.sport,
-                shortLabel: `Wooden ${wooden.court}`,
-                message: `Miami is unavailable because Wooden Court ${wooden.court} is ${wooden.status} for Pickleball during ${time}.`
-            };
-        }
-    }
-
-    if (selectedSport === 'Pickleball' && [5, 6, 7].includes(court)) {
-        const miami = bookings.find(item => Number(item.court) === 2 && ['Basketball', 'Volleyball'].includes(item.sport));
-        if (miami) {
-            return {
-                status: 'Blocked',
-                sport: miami.sport,
-                shortLabel: 'Miami',
-                message: `Miami is reserved for ${miami.sport} during ${time}. Wooden Courts 5, 6 and 7 are unavailable during this period.`
-            };
-        }
     }
 
     const block = blockConflictFor(date, time, court, selectedSport);
@@ -447,16 +478,7 @@ function courtBlockApplies(blockCourtId, blockSport, courtId, sport) {
     if (blockCourt === null) return true;
 
     if (blockCourt === court) {
-        if (!blockSport || blockSport === sport) return true;
-        return [1, 2].includes(court);
-    }
-
-    if (court === 2 && ['Basketball', 'Volleyball'].includes(sport)) {
-        return [5, 6, 7].includes(blockCourt) && (!blockSport || blockSport === 'Pickleball');
-    }
-
-    if ([5, 6, 7].includes(court) && sport === 'Pickleball') {
-        return blockCourt === 2 && (!blockSport || ['Basketball', 'Volleyball'].includes(blockSport));
+        return !blockSport || blockSport === sport || [1, 2].includes(court);
     }
 
     return false;
@@ -490,13 +512,15 @@ function directBookingAt(date, time, courtId) {
 
 function adminScheduleColumns() {
     return [
-        { key: 'lakers', label: 'LAKERS', kind: 'lakers' },
-        { key: 'miami', label: 'MIAMI', kind: 'miami' },
-        { key: 'pb1', label: 'PB1', court: 1, sport: 'Pickleball', openLabel: 'OPEN' },
-        { key: 'pb2', label: 'PB2', court: 2, sport: 'Pickleball', openLabel: 'OPEN' },
-        { key: 'w5', label: 'WOODEN 5', court: 5, sport: 'Pickleball', openLabel: 'OPEN' },
-        { key: 'w6', label: 'WOODEN 6', court: 6, sport: 'Pickleball', openLabel: 'OPEN' },
-        { key: 'w7', label: 'WOODEN 7', court: 7, sport: 'Pickleball', openLabel: 'OPEN' }
+        { key: 'lakers', label: 'LAKERS', court: 1, sport: 'Basketball', openLabel: 'AVAILABLE' },
+        { key: 'miami', label: 'MIAMI', court: 2, sport: 'Basketball', openLabel: 'AVAILABLE' },
+        { key: 'pb1', label: 'PB1', court: 3, sport: 'Pickleball', openLabel: 'OPEN' },
+        { key: 'pb2', label: 'PB2', court: 4, sport: 'Pickleball', openLabel: 'OPEN' },
+        { key: 'pb3', label: 'PB3', court: 5, sport: 'Pickleball', openLabel: 'OPEN' },
+        { key: 'pb4', label: 'PB4', court: 6, sport: 'Pickleball', openLabel: 'OPEN' },
+        { key: 'w5', label: 'WOODEN 5', court: 7, sport: 'Pickleball', openLabel: 'OPEN' },
+        { key: 'w6', label: 'WOODEN 6', court: 8, sport: 'Pickleball', openLabel: 'OPEN' },
+        { key: 'w7', label: 'WOODEN 7', court: 9, sport: 'Pickleball', openLabel: 'OPEN' }
     ];
 }
 
@@ -516,7 +540,7 @@ function adminBookingLabel(booking, pickleballLabel = 'BOOKED') {
     if (booking.sport === 'Basketball' || booking.sport === 'Volleyball') {
         return booking.sport.toUpperCase();
     }
-    if (booking.status === 'Confirmed') return pickleballLabel;
+    if (booking.status === 'Booked') return pickleballLabel;
     return compactStatusLabel(booking.status).toUpperCase();
 }
 
@@ -525,14 +549,6 @@ function scheduleCell(label, status = 'Available', sub = '', title = '') {
 }
 
 function adminColumnSelection(column, cell) {
-    if (column.kind === 'lakers') {
-        const sport = cell?.label === 'PB1' ? 'Pickleball' : (cell?.label === 'VOLLEYBALL' ? 'Volleyball' : 'Basketball');
-        return { courtId: 1, sport };
-    }
-    if (column.kind === 'miami') {
-        const sport = cell?.label === 'PB2' ? 'Pickleball' : (cell?.label === 'VOLLEYBALL' ? 'Volleyball' : 'Basketball');
-        return { courtId: 2, sport };
-    }
     return { courtId: Number(column.court), sport: column.sport || 'Pickleball' };
 }
 
@@ -554,42 +570,6 @@ function blockCell(date, time, courtId, sport) {
 }
 
 function adminScheduleCell(date, time, column) {
-    const slotBookings = bookingsAt(date, time);
-
-    if (column.kind === 'lakers') {
-        const direct = directBookingAt(date, time, 1);
-        if (direct) {
-            const label = adminBookingLabel(direct, 'PB1');
-            return scheduleCell(label, direct.status, direct.status, `${label}: ${direct.customerName || 'Reserved'}`);
-        }
-        return blockCell(date, time, 1, 'Basketball')
-            || blockCell(date, time, 1, 'Volleyball')
-            || blockCell(date, time, 1, 'Pickleball')
-            || scheduleCell('AVAILABLE', 'Available', '', 'Lakers is available');
-    }
-
-    if (column.kind === 'miami') {
-        const miamiSport = slotBookings.find(item => Number(item.court) === 2 && ['Basketball', 'Volleyball'].includes(item.sport));
-        if (miamiSport) {
-            return scheduleCell(miamiSport.sport.toUpperCase(), miamiSport.status, miamiSport.status, `Miami reserved for ${miamiSport.sport}`);
-        }
-
-        const wooden = slotBookings.find(item => [5, 6, 7].includes(Number(item.court)));
-        if (wooden) {
-            const label = `WOODEN ${wooden.court}`;
-            return scheduleCell(label, 'Blocked', 'Miami unavailable', `${label} is occupied, so Miami basketball and volleyball are unavailable.`);
-        }
-
-        const miamiPickleball = slotBookings.find(item => Number(item.court) === 2 && item.sport === 'Pickleball');
-        if (miamiPickleball) {
-            return scheduleCell(adminBookingLabel(miamiPickleball, 'PB2'), miamiPickleball.status, miamiPickleball.status, 'Pickleball Pro Court 2 is reserved.');
-        }
-
-        return blockCell(date, time, 2, 'Basketball')
-            || blockCell(date, time, 2, 'Volleyball')
-            || scheduleCell('AVAILABLE', 'Available', '', 'Miami is available');
-    }
-
     const direct = directBookingAt(date, time, column.court);
     if (direct) {
         const isSameSport = direct.sport === column.sport;
@@ -597,13 +577,6 @@ function adminScheduleCell(date, time, column) {
         const status = isSameSport ? direct.status : 'Blocked';
         const sub = isSameSport ? direct.status : `Uses ${column.label}`;
         return scheduleCell(label, status, sub, `${column.label}: ${direct.sport} ${direct.status}`);
-    }
-
-    if ([5, 6, 7].includes(Number(column.court))) {
-        const miami = slotBookings.find(item => Number(item.court) === 2 && ['Basketball', 'Volleyball'].includes(item.sport));
-        if (miami) {
-            return scheduleCell(miami.sport.toUpperCase(), 'Blocked', 'Miami active', `Miami is reserved for ${miami.sport}, so Wooden Courts 5-7 are unavailable.`);
-        }
     }
 
     const block = blockCell(date, time, column.court, column.sport);
@@ -707,7 +680,7 @@ function openAdminCalendarBooking(button) {
     if (els.adminOverrideTime) els.adminOverrideTime.value = button.dataset.timeSlotId || '';
     if (els.adminOverrideCourt) els.adminOverrideCourt.value = courtId;
     updateAdminOverrideSports(sport);
-    form.querySelector('[name="status"]').value = status === 'Available' ? 'Confirmed' : 'Confirmed';
+    form.querySelector('[name="status"]').value = 'Booked';
     form.querySelector('[name="paymentMethod"]').value = 'Admin Override';
     form.querySelector('[name="overrideReason"]').value = status === 'Available'
         ? 'Admin calendar booking'
@@ -764,32 +737,24 @@ function slotDuration(slot) {
     return Math.max(0.25, (end - start) / 60);
 }
 
+function slotIsPast(date, time) {
+    const slot = state?.slotDetails?.[time];
+    if (!slot?.startsAt) return date < isoDate(new Date());
+    return new Date(`${date}T${slot.startsAt}:00`) <= new Date();
+}
+
 function rateForSlot(time, courtId = null, sport = selectedSport, date = isoDate(selectedDate)) {
     const slot = state?.slotDetails?.[time];
     const rules = state?.rateRules || [];
     const selectedCourtId = Number(courtId || courtsForSelectedSport()[0]?.id || 0);
-
-    const matches = rules.filter(rule => {
-        if (rule.courtId && Number(rule.courtId) !== selectedCourtId) return false;
-        if (rule.sport && rule.sport !== sport) return false;
-        if (!dayPatternMatches(rule.dayPattern || rule.dayType, date)) return false;
-        if (slot && timeToMinutes(rule.startsAt) > timeToMinutes(slot.startsAt)) return false;
-        if (slot && timeToMinutes(rule.endsAt) < timeToMinutes(slot.endsAt)) return false;
-        if (slot && rule.durationMinutes && Number(rule.durationMinutes) !== Math.round(slotDuration(slot) * 60)) return false;
-        if (rule.effectiveFrom && rule.effectiveFrom > date) return false;
-        if (rule.effectiveTo && rule.effectiveTo < date) return false;
-        return true;
-    }).sort((a, b) => {
-        if (Number(b.priority) !== Number(a.priority)) return Number(b.priority) - Number(a.priority);
-        if (Boolean(b.courtId) !== Boolean(a.courtId)) return Number(Boolean(b.courtId)) - Number(Boolean(a.courtId));
-        if (Boolean(b.sport) !== Boolean(a.sport)) return Number(Boolean(b.sport)) - Number(Boolean(a.sport));
-        return Number(b.id) - Number(a.id);
-    });
-
     const duration = slotDuration(slot);
-    const rule = matches[0];
+    const rule = rules.find(item =>
+        Number(item.courtId) === selectedCourtId &&
+        item.sport === sport &&
+        Number(item.timeSlotId) === Number(slot?.id)
+    );
     if (rule) {
-        const hourly = state?.member && rule.memberPricePerHour ? Number(rule.memberPricePerHour) : Number(rule.pricePerHour);
+        const hourly = Number(rule.pricePerHour);
         return {
             amount: hourly * duration,
             hourly,
@@ -811,27 +776,297 @@ function slotPrice(time, courtId = null, sport = selectedSport, date = isoDate(s
     return rateForSlot(time, courtId, sport, date).amount;
 }
 
+function bookingSlotKey(slot) {
+    return `${slot.date}|${slot.time}|${slot.court}|${slot.sport}`;
+}
+
+function selectedBookingTotal() {
+    return selectedBookingSlots.reduce((total, slot) => total + slotPrice(slot.time, slot.court, slot.sport, slot.date), 0);
+}
+
+function clearBookingSelection() {
+    selectedBookingSlots = [];
+    renderBookingSelectionBar();
+}
+
+function toggleBookingSelection(data) {
+    const slot = {
+        date: data.bookDate,
+        time: data.bookTime,
+        court: Number(data.bookCourt),
+        courtName: data.bookCourtName || `Court ${data.bookCourt}`,
+        sport: data.bookSport || selectedSport
+    };
+    const key = bookingSlotKey(slot);
+    const index = selectedBookingSlots.findIndex(item => bookingSlotKey(item) === key);
+    if (index >= 0) {
+        selectedBookingSlots.splice(index, 1);
+    } else {
+        selectedBookingSlots.push(slot);
+    }
+    renderBookingGrid();
+}
+
+function renderBookingSelectionBar() {
+    if (!els.bookingSelectionBar || !els.bookingSelectionSummary) return;
+    if (selectedBookingSlots.length === 0) {
+        els.bookingSelectionBar.classList.add('hidden');
+        els.bookingSelectionSummary.textContent = '';
+        return;
+    }
+
+    els.bookingSelectionBar.classList.remove('hidden');
+    const sorted = [...selectedBookingSlots].sort((a, b) =>
+        `${a.date} ${a.time} ${a.court}`.localeCompare(`${b.date} ${b.time} ${b.court}`)
+    );
+    const slotsText = sorted.map(slot => `${compactTime(slot.time)} ${slot.courtName}`).join(', ');
+    els.bookingSelectionSummary.textContent = `${selectedBookingSlots.length} slot${selectedBookingSlots.length === 1 ? '' : 's'} selected - ${slotsText} - Total ${peso.format(selectedBookingTotal())}`;
+}
+
+function openSelectedBookingModal() {
+    if (selectedBookingSlots.length === 0) return;
+    const first = selectedBookingSlots[0];
+    openCourtModal({
+        bookDate: first.date,
+        bookTime: first.time,
+        bookCourt: first.court,
+        bookCourtName: first.courtName,
+        bookSport: first.sport
+    });
+}
+
+function bookingModalSteps() {
+    return state?.member ? ['review', 'payment', 'proof'] : ['info', 'review', 'payment', 'proof'];
+}
+
+function bookingModalStepTitle(key) {
+    return {
+        info: 'Player Information',
+        review: 'Review Booking',
+        payment: 'Payment Instructions',
+        proof: state?.member ? 'Upload Payment Proof' : 'Booking Reference'
+    }[key] || key;
+}
+
+function bookingSlotSummaryRows(slots = activeBookingSlots) {
+    return slots.map(slot => {
+        const amount = slotPrice(slot.time, slot.court, slot.sport, slot.date);
+        return `
+            <tr>
+                <td>${escapeHtml(niceDate(slot.date))}</td>
+                <td>${escapeHtml(compactTime(slot.time))}</td>
+                <td>${escapeHtml(slot.courtName || `Court ${slot.court}`)}</td>
+                <td>${escapeHtml(slot.sport)}</td>
+                <td class="text-end">${peso.format(amount)}</td>
+            </tr>
+        `;
+    }).join('');
+}
+
+function bookingDetailsTable(slots = activeBookingSlots, compact = false) {
+    const total = slots.reduce((sum, slot) => sum + slotPrice(slot.time, slot.court, slot.sport, slot.date), 0);
+    return `
+        <div class="booking-review-card">
+            <table class="booking-review-table ${compact ? 'booking-review-table-compact' : ''}">
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Time</th>
+                        <th>Court</th>
+                        <th>Sport</th>
+                        <th class="text-end">Amount</th>
+                    </tr>
+                </thead>
+                <tbody>${bookingSlotSummaryRows(slots)}</tbody>
+                <tfoot>
+                    <tr>
+                        <td colspan="4">Overall Total</td>
+                        <td class="text-end">${peso.format(total)}</td>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+    `;
+}
+
+function slotStartMinutes(slot) {
+    return timeToMinutes(state?.slotDetails?.[slot.time]?.startsAt || '00:00');
+}
+
+function slotEndMinutes(slot) {
+    const details = state?.slotDetails?.[slot.time];
+    if (!details) return slotStartMinutes(slot);
+    let end = timeToMinutes(details.endsAt);
+    const start = timeToMinutes(details.startsAt);
+    if (end <= start) end += 1440;
+    return end;
+}
+
+function minutesToDisplay(minutes) {
+    const normalized = ((minutes % 1440) + 1440) % 1440;
+    const hours24 = Math.floor(normalized / 60);
+    const mins = normalized % 60;
+    const suffix = hours24 >= 12 ? 'PM' : 'AM';
+    const hours12 = hours24 % 12 || 12;
+    return `${hours12}:${String(mins).padStart(2, '0')} ${suffix}`;
+}
+
+function formatHours(hours) {
+    const value = Number(hours);
+    const label = Number.isInteger(value) ? String(value) : value.toFixed(2).replace(/0+$/, '').replace(/\.$/, '');
+    return `${label} hour${value === 1 ? '' : 's'}`;
+}
+
+function bookingReferencePrefix(date = new Date()) {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const hours = String(date.getHours()).padStart(2, '0');
+    const minutes = String(date.getMinutes()).padStart(2, '0');
+    const seconds = String(date.getSeconds()).padStart(2, '0');
+    return `MA${year}${month}-${hours}${minutes}${seconds}`;
+}
+
+function bookingSummaryBreakdown(slots = activeBookingSlots) {
+    const sorted = [...slots].sort((a, b) => {
+        if (a.date !== b.date) return a.date.localeCompare(b.date);
+        if (slotStartMinutes(a) !== slotStartMinutes(b)) return slotStartMinutes(a) - slotStartMinutes(b);
+        return Number(a.court) - Number(b.court);
+    });
+    const dates = [...new Set(sorted.map(slot => slot.date))];
+    const sports = [...new Set(sorted.map(slot => slot.sport))];
+    const courts = [...new Set(sorted.map(slot => slot.courtName || `Court ${slot.court}`))];
+    const totalDuration = sorted.reduce((sum, slot) => sum + slotDuration(state?.slotDetails?.[slot.time]), 0);
+    const subtotal = sorted.reduce((sum, slot) => sum + slotPrice(slot.time, slot.court, slot.sport, slot.date), 0);
+    const discount = 0;
+    const total = subtotal - discount;
+    const hourlyRates = sorted.map(slot => rateForSlot(slot.time, slot.court, slot.sport, slot.date).hourly);
+    const uniqueRates = [...new Set(hourlyRates.map(rate => Number(rate)))];
+    const rateLabel = uniqueRates.length === 1
+        ? `${peso.format(uniqueRates[0])}/hour`
+        : `${peso.format(subtotal / Math.max(totalDuration, 1))}/hour average`;
+    const dateLabel = dates.length === 1
+        ? new Date(`${dates[0]}T00:00:00`).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
+        : dates.map(date => niceDate(date)).join(', ');
+    const start = Math.min(...sorted.map(slotStartMinutes));
+    const end = Math.max(...sorted.map(slotEndMinutes));
+    const times = [`${minutesToDisplay(start)}-${minutesToDisplay(end)}`];
+
+    return `
+        <div class="booking-summary-list">
+            <article class="booking-summary-card">
+                <h5>Booking Summary</h5>
+                <dl class="booking-summary-meta">
+                    <div><dt>Court:</dt><dd>${escapeHtml(courts.join(', '))}</dd></div>
+                    <div><dt>Sport:</dt><dd>${escapeHtml(sports.join(', '))}</dd></div>
+                    <div><dt>Date:</dt><dd>${escapeHtml(dateLabel)}</dd></div>
+                    <div><dt>Time:</dt><dd>${escapeHtml(times.join(', '))}</dd></div>
+                    <div><dt>Duration:</dt><dd>${formatHours(totalDuration)}</dd></div>
+                </dl>
+                <table class="booking-breakdown-table">
+                    <thead>
+                        <tr><th>Description</th><th class="text-end">Amount</th></tr>
+                    </thead>
+                    <tbody>
+                        <tr><td>Court Rate</td><td class="text-end">${escapeHtml(rateLabel)}</td></tr>
+                        <tr><td>Duration</td><td class="text-end">${formatHours(totalDuration)}</td></tr>
+                        <tr><td>Subtotal</td><td class="text-end">${peso.format(subtotal)}</td></tr>
+                        <tr><td>Discount</td><td class="text-end">${peso.format(discount)}</td></tr>
+                    </tbody>
+                    <tfoot>
+                        <tr><td>Overall Total</td><td class="text-end">${peso.format(total)}</td></tr>
+                    </tfoot>
+                </table>
+            </article>
+        </div>
+    `;
+}
+
+function renderBookingReviewSummary() {
+    if (!els.bookingReviewSummary) return;
+    els.bookingReviewSummary.innerHTML = bookingSummaryBreakdown(activeBookingSlots);
+}
+
+function setBookingModalStep(nextStep) {
+    const steps = bookingModalSteps();
+    bookingModalStep = Math.max(0, Math.min(nextStep, steps.length - 1));
+    const currentKey = steps[bookingModalStep];
+    const isFinalStep = bookingModalStep === steps.length - 1;
+
+    els.bookingStepPanels?.forEach(panel => {
+        panel.classList.toggle('hidden', panel.dataset.bookingStepPanel !== currentKey);
+    });
+
+    els.bookingStepItems?.forEach(item => {
+        const itemIndex = steps.indexOf(item.dataset.bookingStep);
+        item.classList.toggle('hidden', itemIndex < 0);
+        item.classList.toggle('is-active', itemIndex === bookingModalStep);
+        item.classList.toggle('is-complete', itemIndex >= 0 && itemIndex < bookingModalStep);
+    });
+
+    if (els.modalBackButton) els.modalBackButton.classList.toggle('hidden', bookingModalStep === 0 || isFinalStep);
+    if (els.modalNextButton) els.modalNextButton.classList.toggle('hidden', isFinalStep);
+    if (els.modalSubmitButton) els.modalSubmitButton.classList.toggle('hidden', !isFinalStep);
+    const closeButton = document.getElementById('closeModal');
+    if (closeButton) {
+        const closeLocked = !bookingModalCloseUnlocked || Boolean(els.modalSubmitButton?.dataset.done === '1');
+        closeButton.disabled = closeLocked;
+        closeButton.classList.toggle('is-locked', closeLocked);
+        closeButton.title = closeLocked ? 'Click Done to finish this booking process' : 'Close payment form';
+    }
+    if (els.modalKicker) els.modalKicker.textContent = bookingModalStepTitle(currentKey);
+}
+
+function validateModalStep() {
+    const key = bookingModalSteps()[bookingModalStep];
+    if (key === 'info') {
+        const fields = [els.form?.querySelector('[name="name"]'), els.form?.querySelector('[name="phone"]')].filter(Boolean);
+        const invalid = fields.find(field => !field.checkValidity());
+        if (invalid) {
+            invalid.reportValidity();
+            return false;
+        }
+    }
+    if (key === 'payment' && !els.paymentMethod?.value) {
+        showFormMessage('Choose GCash or BDO Online to continue.', false);
+        els.paymentMethod?.focus();
+        return false;
+    }
+    showFormMessage('', true, true);
+    return true;
+}
+
+function proceedBookingModal() {
+    if (!validateModalStep()) return;
+    bookingModalCloseUnlocked = true;
+    setBookingModalStep(bookingModalStep + 1);
+}
+
+function backBookingModal() {
+    setBookingModalStep(bookingModalStep - 1);
+}
+
 function renderBookingGrid() {
     if (!els.grid || !state) return;
     const date = isoDate(selectedDate);
     const today = isoDate(new Date());
     const courts = courtsForSelectedSport();
     els.dateLabel.textContent = `${niceDate(date)}${date === today ? ' - Today' : ''}`;
+    const prevButton = document.getElementById('prevDate');
+    if (prevButton) {
+        prevButton.disabled = date <= today;
+        prevButton.classList.toggle('opacity-50', date <= today);
+    }
     els.grid.style.gridTemplateColumns = `minmax(118px, 128px) repeat(${courts.length}, minmax(54px, 1fr))`;
     els.grid.style.minWidth = courts.length > 2 ? `${118 + courts.length * 56}px` : '';
 
     const header = ['Time', ...courts];
     const headerHtml = header.map((item, index) => `
         <div class="border-b border-slate-200 bg-slate-50 p-2.5 text-xs font-black ${index === 0 ? '' : 'text-center'}">
-            ${index === 0 ? item : courtDisplayName(item)}${index > 0 ? `<p class="text-[10px] font-medium text-slate-500">${item.surface || item.type}</p>` : ''}
+            ${index === 0 ? item : courtDisplayName(item)}
         </div>
     `).join('');
 
-    const rows = Object.entries(state.timeSlots).map(([period, slots]) => {
-        const periodRow = `
-            <div class="border-b border-slate-200 bg-slate-200/70 p-2.5 text-xs font-black text-slate-600">${period}</div>
-            <div style="grid-column: span ${courts.length} / span ${courts.length}" class="border-b border-slate-200 bg-slate-100"></div>
-        `;
+    const rows = Object.values(state.timeSlots).map(slots => {
         const slotRows = slots.map(time => {
             const first = `
                 <div class="border-b border-slate-200 bg-white p-2 text-[11px] font-black leading-4">
@@ -842,11 +1077,36 @@ function renderBookingGrid() {
                 const court = courtInfo.id;
                 const conflict = relatedConflictFor(date, time, courtInfo);
                 const status = conflict?.status || 'Available';
+                const isPast = slotIsPast(date, time);
                 const tone = statusTone(status);
-                const css = tone === 'booked' ? 'status-booked' : tone === 'pending' ? 'status-pending' : tone === 'blocked' ? 'status-blocked' : 'status-available hover:border-court hover:bg-emerald-50 hover:text-court';
-                const disabled = status !== 'Available' ? 'disabled' : '';
-                const label = status === 'Available' ? '' : '<span class="sr-only">Unavailable</span>';
-                const help = status === 'Available'
+                const slotData = {
+                    date,
+                    time,
+                    court,
+                    courtName: courtDisplayName(courtInfo),
+                    sport: selectedSport
+                };
+                const isSelected = selectedBookingSlots.some(item => bookingSlotKey(item) === bookingSlotKey(slotData));
+                const css = isSelected
+                    ? 'booking-slot-selected'
+                    : isPast
+                    ? 'booking-slot-unavailable'
+                    : tone === 'booked' || tone === 'pending'
+                    ? 'booking-slot-booked'
+                    : tone === 'blocked'
+                    ? 'booking-slot-unavailable'
+                    : 'booking-slot-available';
+                const disabled = status !== 'Available' || isPast ? 'disabled' : '';
+                const label = isSelected
+                    ? 'Selected'
+                    : status === 'Available' && !isPast
+                    ? 'Select'
+                    : tone === 'blocked' || isPast
+                    ? ''
+                    : compactStatusLabel(status);
+                const help = isPast
+                    ? 'Past dates and time slots cannot be booked.'
+                    : status === 'Available'
                     ? `Select ${courtDisplayName(courtInfo)} ${selectedSport} slot`
                     : `${courtDisplayName(courtInfo)} is unavailable for this time.`;
                 return `
@@ -857,55 +1117,26 @@ function renderBookingGrid() {
                         data-book-court-name="${courtDisplayName(courtInfo)}"
                         data-book-sport="${selectedSport}"
                         title="${escapeHtml(help)}"
-                        class="slot m-0.5 rounded-md border px-1.5 py-1.5 text-[11px] font-black transition ${css}">
-                        ${label || '<span class="sr-only">Available</span>'}
+                        class="slot booking-slot m-0.5 rounded-md border px-1.5 py-1.5 text-[11px] transition ${css}">
+                        <span class="slot-label">${escapeHtml(label)}</span>
                     </button>
                 `;
             }).join('');
             return first + courtCells;
         }).join('');
-        return periodRow + slotRows;
+        return slotRows;
     }).join('');
 
     els.grid.innerHTML = headerHtml + rows;
     els.grid.querySelectorAll('[data-book-date]').forEach(button => {
-        button.addEventListener('click', () => openCourtModal(button.dataset));
+        button.addEventListener('click', () => toggleBookingSelection(button.dataset));
     });
-}
-
-function renderOpenPlay() {
-    if (!els.openPlay || !state) return;
-    els.openPlay.innerHTML = state.openPlays.map(session => {
-        const reserved = state.openPlayReservations.filter(item => item.sessionId === session.id && isActiveReservation(item.status)).length;
-        const left = Math.max(0, Number(session.capacity) - reserved);
-        return `
-            <article class="public-card p-4">
-                <div class="flex items-start justify-between gap-4">
-                    <div>
-                        <p class="text-sm font-black text-primary">${niceDate(session.date)} - ${session.time}</p>
-                        <h3 class="mt-2 text-lg font-black">${session.title}</h3>
-                    </div>
-                    <span class="rounded-full bg-limevolt px-3 py-2 text-sm font-black text-ink">${peso.format(Number(session.price))}</span>
-                </div>
-                <p class="mt-3 text-sm font-bold text-slate-500">${session.level}</p>
-                <p class="mt-3 min-h-[60px] text-sm leading-6 text-slate-600">${session.description}</p>
-                <div class="mt-5 flex items-center justify-between gap-4">
-                    <p class="text-sm font-black">${left} spots left</p>
-                    <button data-openplay="${session.id}" ${left === 0 ? 'disabled' : ''} class="btn btn-primary disabled:cursor-not-allowed disabled:bg-slate-300">Join</button>
-                </div>
-            </article>
-        `;
-    }).join('');
-
-    els.openPlay.querySelectorAll('[data-openplay]').forEach(button => {
-        const session = state.openPlays.find(item => item.id === button.dataset.openplay);
-        button.addEventListener('click', () => openPlayModal(session));
-    });
+    renderBookingSelectionBar();
 }
 
 function renderAdmin() {
     if (!state) return;
-    const allRows = state.adminReservations || [];
+    const allRows = (state.adminReservations || []).filter(item => item.type === 'court');
     renderAdminStats(allRows);
     if (!els.admin) return;
     const rows = allRows.filter(item => adminFilter === 'All' || item.status === adminFilter);
@@ -918,8 +1149,8 @@ function renderAdmin() {
     els.admin.innerHTML = rows.sort((a, b) => a.createdAt < b.createdAt ? 1 : -1).map(item => `
         <tr>
             <td>
-                <p class="mb-1 fw-black text-ink">${item.type === 'court' ? `${niceDate(item.date)} - ${item.time}` : escapeHtml(item.sessionTitle)}</p>
-                <p class="mb-0 text-xs text-secondary">${item.type === 'court' ? `Court ${item.court} - ${item.sport}` : `Open Play - ${niceDate(item.date)} - ${item.time}`}</p>
+                <p class="mb-1 fw-black text-ink">${niceDate(item.date)} - ${item.time}</p>
+                <p class="mb-0 text-xs text-secondary">Court ${item.court} - ${item.sport}</p>
             </td>
             <td>
                 <p class="mb-1 fw-black">${escapeHtml(item.customerName)}</p>
@@ -941,12 +1172,10 @@ function renderAdmin() {
             </td>
             <td class="text-end">
                 <div class="d-inline-flex flex-wrap justify-content-end gap-1">
-                    <button data-admin-id="${item.id}" data-status="Confirmed" class="btn btn-success btn-sm">Confirm</button>
-                    <button data-admin-id="${item.id}" data-status="Under Review" class="btn btn-secondary btn-sm">Review</button>
-                    <button data-admin-id="${item.id}" data-status="Completed" class="btn btn-secondary btn-sm">Complete</button>
-                    <button data-admin-id="${item.id}" data-status="Cancelled" class="btn btn-danger btn-sm">Cancel</button>
-                    <button data-admin-id="${item.id}" data-status="Rejected" class="btn btn-warning btn-sm">Reject</button>
-                    <button data-admin-id="${item.id}" data-status="No Show" class="btn btn-warning btn-sm">No Show</button>
+                    <button data-admin-id="${item.id}" data-status="Booked" class="btn btn-success btn-sm">Booked</button>
+                    <button data-admin-id="${item.id}" data-status="Held" class="btn btn-secondary btn-sm">Held</button>
+                    <button data-admin-id="${item.id}" data-status="Pending Payment" class="btn btn-outline-secondary btn-sm">Pending Payment</button>
+                    <button data-admin-id="${item.id}" data-status="Available" class="btn btn-outline-danger btn-sm">Available</button>
                 </div>
             </td>
         </tr>
@@ -959,7 +1188,7 @@ function renderAdmin() {
 
 function adminStatusClass(status) {
     if (statusTone(status) === 'pending') return 'status-badge-pending';
-    if (statusTone(status) === 'cancelled') return 'status-badge-cancelled';
+    if (statusTone(status) === 'available') return 'status-badge-available';
     return 'status-badge-booked';
 }
 
@@ -971,9 +1200,9 @@ function renderAdminStats(rows) {
     const pending = document.getElementById('adminPendingCount');
     const booked = document.getElementById('adminBookedCount');
     const cancelled = document.getElementById('adminCancelledCount');
-    if (pending) pending.textContent = (counts.Held || 0) + (counts['Payment Pending'] || 0) + (counts['Payment Submitted'] || 0) + (counts['Under Review'] || 0);
-    if (booked) booked.textContent = counts.Confirmed || 0;
-    if (cancelled) cancelled.textContent = (counts.Cancelled || 0) + (counts.Rejected || 0);
+    if (pending) pending.textContent = (counts.Held || 0) + (counts['Pending Payment'] || 0);
+    if (booked) booked.textContent = counts.Booked || 0;
+    if (cancelled) cancelled.textContent = counts.Available || 0;
 }
 
 function renderAdminPaymentChannels() {
@@ -1055,7 +1284,6 @@ function renderAdminRateSummary() {
     if (!els.adminRateSummary || !state) return;
     bindAdminRateForm();
     const rows = (state.adminRateRules || [])
-        .filter(rule => rule.isActive)
         .sort((a, b) => {
             const courtCompare = String(a.courtName || 'All courts').localeCompare(String(b.courtName || 'All courts'));
             if (courtCompare) return courtCompare;
@@ -1065,7 +1293,7 @@ function renderAdminRateSummary() {
         });
 
     if (rows.length === 0) {
-        els.adminRateSummary.innerHTML = '<tr><td colspan="6" class="text-secondary">No active rates configured.</td></tr>';
+        els.adminRateSummary.innerHTML = '<tr><td colspan="5" class="text-secondary">No rates configured.</td></tr>';
         return;
     }
 
@@ -1073,19 +1301,26 @@ function renderAdminRateSummary() {
         <tr>
             <td>${escapeHtml(rule.courtName || 'All courts')}</td>
             <td>${escapeHtml(rule.sport || 'All sports')}</td>
-            <td>${escapeHtml(rule.dayPattern || rule.dayType || 'Any')}</td>
             <td>${formatRuleTime(rule.startsAt)}-${formatRuleTime(rule.endsAt)}</td>
-            <td class="text-end">${peso.format(Number(rule.pricePerHour || 0))}/hr</td>
+            <td class="text-end">${peso.format(Number(rule.pricePerHour || 0))}</td>
             <td class="text-end">
-                <button type="button" class="btn btn-outline-primary btn-sm" data-admin-rate-edit="${rule.id}">
-                    Edit
-                </button>
+                <div class="d-inline-flex gap-1">
+                    <button type="button" class="btn btn-outline-primary btn-sm" data-admin-rate-edit="${rule.id}">
+                        Edit
+                    </button>
+                    <button type="button" class="btn btn-outline-danger btn-sm" data-admin-rate-delete="${rule.id}" data-admin-rate-label="${escapeHtml(`${rule.courtName || 'All courts'} ${rule.sport || 'All sports'} ${formatRuleTime(rule.startsAt)}-${formatRuleTime(rule.endsAt)}`)}">
+                        Delete
+                    </button>
+                </div>
             </td>
         </tr>
     `).join('');
 
     els.adminRateSummary.querySelectorAll('[data-admin-rate-edit]').forEach(button => {
         button.addEventListener('click', () => openAdminRateModal(button.dataset.adminRateEdit));
+    });
+    els.adminRateSummary.querySelectorAll('[data-admin-rate-delete]').forEach(button => {
+        button.addEventListener('click', () => deleteRateRule(button));
     });
 }
 
@@ -1127,13 +1362,15 @@ function renderAdminCourtBlocks() {
     const blockScopeOptions = selected => {
         const value = blockScopeValue(selected);
         return [
-            ['2|', 'Entire Miami facility'],
-            ['5|Pickleball', 'Wooden Court 5'],
-            ['6|Pickleball', 'Wooden Court 6'],
-            ['7|Pickleball', 'Wooden Court 7'],
             ['1|', 'Lakers'],
-            ['1|Pickleball', 'Pickleball Pro Court 1'],
-            ['2|Pickleball', 'Pickleball Pro Court 2']
+            ['2|', 'Miami'],
+            ['3|Pickleball', 'Pickleball Pro Court 1'],
+            ['4|Pickleball', 'Pickleball Pro Court 2'],
+            ['5|Pickleball', 'Pickleball Pro Court 3'],
+            ['6|Pickleball', 'Pickleball Pro Court 4'],
+            ['7|Pickleball', 'Wooden Court 5'],
+            ['8|Pickleball', 'Wooden Court 6'],
+            ['9|Pickleball', 'Wooden Court 7']
         ].map(([scope, label]) => `<option value="${scope}" ${scope === value ? 'selected' : ''}>${label}</option>`).join('');
     };
     const slotOptions = selected => slots.map(slot =>
@@ -1213,68 +1450,146 @@ function renderAdminOverrideLogs() {
 
 function openCourtModal(data) {
     if (!els.modal) return;
+    const slots = selectedBookingSlots.length > 0 ? selectedBookingSlots : [{
+        date: data.bookDate,
+        time: data.bookTime,
+        court: Number(data.bookCourt),
+        courtName: data.bookCourtName || `Court ${data.bookCourt}`,
+        sport: data.bookSport || selectedSport
+    }];
+    activeBookingSlots = [...slots];
+    const first = slots[0];
+    bookingModalCloseUnlocked = false;
     els.modalKicker.textContent = 'Court Booking Payment';
-    els.modalTitle.textContent = `${data.bookCourtName || `Court ${data.bookCourt}`} - ${data.bookSport || selectedSport}`;
-    const rate = rateForSlot(data.bookTime, Number(data.bookCourt), data.bookSport || selectedSport, data.bookDate);
-    els.modalMeta.textContent = `${niceDate(data.bookDate)} - ${data.bookTime} - ${peso.format(rate.amount)} (${rate.ruleName})`;
+    els.modalTitle.textContent = slots.length === 1
+        ? `${first.courtName} - ${first.sport}`
+        : `${slots.length} selected court slots`;
+    els.modalMeta.innerHTML = bookingDetailsTable(slots, true);
     showModal();
     document.getElementById('actionType').value = 'book';
-    document.getElementById('formDate').value = data.bookDate;
-    document.getElementById('formTime').value = data.bookTime;
-    document.getElementById('formCourt').value = data.bookCourt;
-    document.getElementById('formSport').value = data.bookSport || selectedSport;
+    document.getElementById('formDate').value = first.date;
+    document.getElementById('formTime').value = first.time;
+    document.getElementById('formCourt').value = first.court;
+    document.getElementById('formSport').value = first.sport;
     document.getElementById('formSessionId').value = '';
-}
-
-function openPlayModal(session) {
-    if (!els.modal) return;
-    els.modalKicker.textContent = 'Open Play Payment';
-    els.modalTitle.textContent = session.title;
-    els.modalMeta.textContent = `${niceDate(session.date)} - ${session.time} - ${peso.format(Number(session.price))}`;
-    showModal();
-    document.getElementById('actionType').value = 'openplay';
-    document.getElementById('formDate').value = session.date;
-    document.getElementById('formTime').value = session.time;
-    document.getElementById('formCourt').value = '';
-    document.getElementById('formSport').value = '';
-    document.getElementById('formSessionId').value = session.id;
+    renderBookingReviewSummary();
+    setBookingModalStep(0);
 }
 
 function showModal() {
     els.form.reset();
+    if (els.modalSubmitButton) {
+        els.modalSubmitButton.disabled = false;
+        els.modalSubmitButton.type = 'submit';
+        els.modalSubmitButton.textContent = 'Submit Reservation';
+        delete els.modalSubmitButton.dataset.done;
+    }
     renderPaymentInstructions('');
-    els.formMessage.className = 'hidden rounded-md p-3 text-sm font-bold';
+    if (els.bookingReferencePanel) {
+        els.bookingReferencePanel.classList.add('hidden');
+        els.bookingReferencePanel.innerHTML = '';
+    }
+    showFormMessage('', true, true);
     els.modal.classList.remove('hidden');
     els.modal.classList.add('flex');
     document.body.classList.add('modal-open');
 }
 
 function closeModal() {
+    if (els.modalSubmitButton?.dataset.done === '1') {
+        showFormMessage('Please click Done to finish this booking process.', false);
+        return;
+    }
+    if (!bookingModalCloseUnlocked) {
+        showFormMessage('Please click Proceed before closing this booking process.', false);
+        return;
+    }
     els.modal.classList.add('hidden');
     els.modal.classList.remove('flex');
     document.body.classList.remove('modal-open');
+    activeBookingSlots = [];
+    bookingModalCloseUnlocked = false;
 }
 
-function showFormMessage(message, ok) {
+function showFormMessage(message, ok, hide = false) {
+    if (!els.formMessage) return;
+    if (hide || !message) {
+        els.formMessage.textContent = '';
+        els.formMessage.className = 'hidden modal-message';
+        return;
+    }
     els.formMessage.textContent = message;
-    els.formMessage.className = `rounded-md p-3 text-sm font-bold ${ok ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-700'}`;
+    els.formMessage.className = `modal-message ${ok ? 'modal-message-ok' : 'modal-message-error'}`;
 }
 
 async function submitPayment(event) {
     event.preventDefault();
-    const actionType = document.getElementById('actionType').value;
-    const formData = new FormData(els.form);
-    const endpoint = actionType === 'openplay' ? 'openplay' : 'book';
-    formData.append('action', endpoint);
+    if (!validateModalStep()) return;
+    if (els.modalSubmitButton) els.modalSubmitButton.disabled = true;
+    const endpoint = 'book';
+    const slots = activeBookingSlots.length > 0 ? [...activeBookingSlots] : [{
+        date: document.getElementById('formDate').value,
+        time: document.getElementById('formTime').value,
+        court: Number(document.getElementById('formCourt').value),
+        sport: document.getElementById('formSport').value
+    }];
+    let saved = 0;
+    let lastPayload = null;
+    const references = [];
+    const referencePrefix = bookingReferencePrefix();
 
-    const response = await fetch(`${api}?action=${endpoint}`, { method: 'POST', body: formData });
-    const payload = await response.json();
-    showFormMessage(payload.message || 'Saved.', payload.ok);
+    for (const [index, slot] of slots.entries()) {
+        const formData = new FormData(els.form);
+        formData.set('action', endpoint);
+        formData.set('date', slot.date);
+        formData.set('time', slot.time);
+        formData.set('court', slot.court);
+        formData.set('sport', slot.sport);
+        formData.set('bookingReference', `${referencePrefix}-${String(index + 1).padStart(4, '0')}`);
 
-    if (payload.ok) {
+        const response = await fetch(`${api}?action=${endpoint}`, { method: 'POST', body: formData });
+        const payload = await response.json();
+        lastPayload = payload;
+        if (!payload.ok) {
+            showFormMessage(`${saved} of ${slots.length} saved. ${payload.message || 'Could not save one of the selected slots.'}`, false);
+            if (payload.state) state = payload.state;
+            renderAll();
+            if (els.modalSubmitButton) els.modalSubmitButton.disabled = false;
+            return;
+        }
+        saved += 1;
+        if (payload.bookingReference) references.push(payload.bookingReference);
         state = payload.state;
+    }
+
+    if (els.bookingReferencePanel && references.length > 0) {
+        bookingModalCloseUnlocked = true;
+        setBookingModalStep(bookingModalStep);
+        const messengerUrl = String(state?.siteConfig?.messenger_url || '').trim();
+        const messengerText = messengerUrl
+            ? `<a href="${escapeHtml(messengerUrl)}" target="_blank" rel="noopener" class="text-primary">Facebook Messenger</a>`
+            : 'Facebook Messenger';
+        els.bookingReferencePanel.classList.remove('hidden');
+        els.bookingReferencePanel.innerHTML = `
+            <p class="modal-info-title">Booking reference${references.length === 1 ? '' : 's'} generated</p>
+            <ul class="booking-reference-list">
+                ${references.map(reference => `<li><strong>${escapeHtml(reference)}</strong></li>`).join('')}
+            </ul>
+            ${state?.member ? '<p>Admin will verify your uploaded proof and confirm the booking.</p>' : `<p>Send these references with your payment proof through ${messengerText}.</p>`}
+        `;
+    }
+    showFormMessage(slots.length > 1 ? `${saved} slots submitted. Admin will review the reservation details.` : (lastPayload?.message || 'Saved.'), true);
+
+    if (saved === slots.length) {
+        clearBookingSelection();
         renderAll();
-        setTimeout(closeModal, 900);
+        if (els.modalSubmitButton) {
+            els.modalSubmitButton.disabled = false;
+            els.modalSubmitButton.type = 'button';
+            els.modalSubmitButton.textContent = 'Done';
+            els.modalSubmitButton.dataset.done = '1';
+            setBookingModalStep(bookingModalStep);
+        }
     }
 }
 
@@ -1295,8 +1610,7 @@ function renderAdminMembers() {
                         <th scope="col">Member</th>
                         <th scope="col">Contact</th>
                         <th scope="col" class="text-center">Courts</th>
-                        <th scope="col" class="text-center">Open Play</th>
-                        <th scope="col" class="text-center">Confirmed</th>
+                        <th scope="col" class="text-center">Booked</th>
                         <th scope="col">Activity</th>
                         <th scope="col">Status</th>
                         <th scope="col" class="text-end">Action</th>
@@ -1314,7 +1628,6 @@ function renderAdminMembers() {
                                 <div class="text-xs font-semibold text-muted">${escapeHtml(member.phone || 'No phone')}</div>
                             </td>
                             <td class="text-center fw-black text-primary">${member.courtBookingsCount || 0}</td>
-                            <td class="text-center fw-black text-primary">${member.openPlayCount || 0}</td>
                             <td class="text-center fw-black text-primary">${member.confirmedCount || 0}</td>
                             <td class="text-sm fw-semibold text-secondary">
                                 ${member.lastLoginAt ? `Last login ${new Date(member.lastLoginAt).toLocaleDateString()}` : `Joined ${new Date(member.createdAt).toLocaleDateString()}`}
@@ -1467,10 +1780,10 @@ async function updateStatus(id, status) {
     const formData = new FormData();
     formData.append('id', id);
     formData.append('status', status);
-    if (['Cancelled', 'Rejected', 'No Show'].includes(status)) {
-        const reason = window.prompt(`Reason for ${status.toLowerCase()}?`, `${status} by admin`);
+    if (status === 'Available') {
+        const reason = window.prompt('Reason for marking this reservation available?', 'Marked available by admin');
         if (reason === null) return;
-        formData.append('reason', reason.trim() || `${status} by admin`);
+        formData.append('reason', reason.trim() || 'Marked available by admin');
     }
 
     const response = await fetch(`${api}?action=admin-status`, { method: 'POST', body: formData });
@@ -1508,20 +1821,42 @@ async function submitRateRule(event) {
     const form = event.currentTarget;
     const message = form.querySelector('[data-rate-rule-message]');
     const formData = new FormData(form);
-    formData.set('isActive', form.querySelector('[name="isActive"]').checked ? '1' : '0');
+    formData.set('reason', formData.get('reason') || 'Regular rate');
+    formData.set('name', currentRateRuleName());
 
     const response = await fetch(`${api}?action=admin-rate-rule`, { method: 'POST', body: formData });
     const payload = await response.json();
-    message.textContent = payload.message || 'Saved.';
-    message.className = `rounded-md p-3 text-sm font-bold ${payload.ok ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-700'}`;
 
-    if (payload.ok) {
+    message.textContent = payload?.ok ? 'Rate saved.' : (payload?.message || 'Could not save rate.');
+    message.className = `rounded-md p-3 text-sm font-bold ${payload?.ok ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-700'}`;
+
+    if (payload?.ok) {
         state = payload.state;
         renderAll();
         if (window.bootstrap && els.adminRateModal) {
             bootstrap.Modal.getInstance(els.adminRateModal)?.hide();
         }
     }
+}
+
+async function deleteRateRule(button) {
+    const id = button.dataset.adminRateDelete;
+    const label = button.dataset.adminRateLabel || 'this rate';
+    if (!id) return;
+    if (!window.confirm(`Delete ${label}? This cannot be undone.`)) return;
+
+    const formData = new FormData();
+    formData.set('id', id);
+    const response = await fetch(`${api}?action=admin-rate-delete`, { method: 'POST', body: formData });
+    const payload = await response.json();
+
+    if (!payload.ok) {
+        window.alert(payload.message || 'Could not delete rate.');
+        return;
+    }
+
+    state = payload.state;
+    renderAll();
 }
 
 async function submitCourtBlock(event) {
@@ -1598,12 +1933,15 @@ async function saveAdminOverrideBooking(form, confirmedOverride = false) {
 }
 
 document.getElementById('prevDate')?.addEventListener('click', () => {
+    if (isoDate(selectedDate) <= isoDate(new Date())) return;
     selectedDate.setDate(selectedDate.getDate() - 1);
+    clearBookingSelection();
     renderBookingGrid();
 });
 
 document.getElementById('nextDate')?.addEventListener('click', () => {
     selectedDate.setDate(selectedDate.getDate() + 1);
+    clearBookingSelection();
     renderBookingGrid();
 });
 
@@ -1621,6 +1959,15 @@ document.getElementById('closeModal')?.addEventListener('click', closeModal);
 els.modal?.addEventListener('click', event => {
     if (event.target === els.modal) closeModal();
 });
+els.modalBackButton?.addEventListener('click', backBookingModal);
+els.modalNextButton?.addEventListener('click', proceedBookingModal);
+els.modalSubmitButton?.addEventListener('click', () => {
+    if (els.modalSubmitButton?.dataset.done === '1') {
+        delete els.modalSubmitButton.dataset.done;
+        bookingModalCloseUnlocked = true;
+        closeModal();
+    }
+});
 els.form?.addEventListener('submit', submitPayment);
 els.adminOverrideBookingForm?.addEventListener('submit', submitAdminOverrideBooking);
 els.adminOverrideCourt?.addEventListener('change', () => updateAdminOverrideSports());
@@ -1629,6 +1976,7 @@ els.adminScheduleGrid?.addEventListener('click', event => {
     if (button) openAdminCalendarBooking(button);
 });
 els.paymentMethod?.addEventListener('change', event => renderPaymentInstructions(event.target.value));
+els.bookingSelectionBookNow?.addEventListener('click', openSelectedBookingModal);
 
 document.querySelectorAll('[data-admin-filter]').forEach(button => {
     button.addEventListener('click', () => {
@@ -1644,6 +1992,7 @@ document.querySelectorAll('[data-admin-filter]').forEach(button => {
 document.querySelectorAll('[data-sport]').forEach(button => {
     button.addEventListener('click', () => {
         selectedSport = button.dataset.sport;
+        clearBookingSelection();
         document.querySelectorAll('[data-sport]').forEach(item => {
             item.className = 'sport-option btn w-100 justify-content-start';
         });

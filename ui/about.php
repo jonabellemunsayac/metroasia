@@ -8,7 +8,7 @@ include __DIR__ . '/../includes/header.php';
         <article class="venue-card">
             <div class="relative">
                 <img src="<?php echo htmlspecialchars(app_url('assets/hero-pickleball.png')); ?>" alt="Players at Metro Asia" class="h-[320px] w-full object-cover">
-                <span class="absolute bottom-4 left-4 rounded-full bg-ink/85 px-4 py-2 text-sm font-black text-white">Tagum City</span>
+                <span class="absolute bottom-4 left-4 rounded-full bg-ink/85 px-4 py-2 text-sm font-black text-white">Pasig City</span>
             </div>
             <div class="p-5">
                 <p class="section-kicker">About Us</p>
@@ -22,9 +22,9 @@ include __DIR__ . '/../includes/header.php';
         <section class="grid content-start gap-5">
             <div class="public-card p-6">
                 <p class="section-kicker">Facility</p>
-                <h2 class="mt-2 font-display text-3xl font-black">Seven public court listings, one shared-resource booking engine.</h2>
+                <h2 class="mt-2 font-display text-3xl font-black">Clear court listings for every sport.</h2>
                 <p class="mt-4 max-w-3xl text-sm font-semibold leading-7 text-muted">
-                    Lakers and Miami support full-size basketball and volleyball reservations. Pickleball Pro Courts 1-2 are USAPA-style pickleball listings mapped to those shared courts, while Wooden Courts 5-7 are pickleball layouts inside Miami.
+                    Lakers and Miami support full-size basketball and volleyball reservations. Miami, Pickleball Pro Courts, and Wooden Courts are listed independently for pickleball booking.
                 </p>
                 <div class="mt-5 grid gap-3 md:grid-cols-3">
                     <div class="rounded-lg bg-slate-50 p-4">
@@ -33,11 +33,11 @@ include __DIR__ . '/../includes/header.php';
                     </div>
                     <div class="rounded-lg bg-slate-50 p-4">
                         <p class="text-sm font-black text-primary">Miami</p>
-                        <p class="mt-2 text-sm font-semibold leading-6 text-muted">Parent multi-sport court for basketball, volleyball, and pickleball operations.</p>
+                        <p class="mt-2 text-sm font-semibold leading-6 text-muted">Full-size court for basketball, volleyball, and pickleball reservations.</p>
                     </div>
                     <div class="rounded-lg bg-slate-50 p-4">
                         <p class="text-sm font-black text-primary">Wooden Courts</p>
-                        <p class="mt-2 text-sm font-semibold leading-6 text-muted">Courts 5-7 sit inside Miami and follow shared-resource availability rules.</p>
+                        <p class="mt-2 text-sm font-semibold leading-6 text-muted">Courts 5-7 are listed with their own pickleball availability.</p>
                     </div>
                 </div>
             </div>

@@ -9,7 +9,6 @@
                 <span>Metro Asia Multi-Sport Court Scheduling & Reservation.</span>
                 <?php if (!$useAdminShell): ?>
                     <nav class="d-flex flex-wrap align-items-center gap-3 small fw-bold" aria-label="Secondary links">
-                        <a href="<?php echo htmlspecialchars(app_url('ui/open-play.php')); ?>">Open Play</a>
                         <a href="<?php echo htmlspecialchars(app_url('ui/payment.php')); ?>">Payment</a>
                         <a href="<?php echo htmlspecialchars(app_url('ui/rules.php')); ?>">Rules</a>
                         <a href="<?php echo htmlspecialchars(app_url('ui/contact.php')); ?>">Contact Admin</a>
