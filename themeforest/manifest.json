@@ -1,0 +1,1765 @@
+{
+    "manifest_version": "1.0.23",
+    "title": "Pickyard",
+    "page_builder": "elementor",
+    "kit_version": "3.32.2",
+    "templates": [
+        {
+            "name": "About Us",
+            "screenshot": "screenshots\/about-us.jpg",
+            "source": "templates\/about-us.json",
+            "preview_url": "https:\/\/demo.zaktheme.web.id\/Pickyard\/template-kit\/about-us\/",
+            "type": "page",
+            "category": "page",
+            "metadata": {
+                "template_type": "single-page",
+                "include_in_zip": "1",
+                "elementor_pro_required": null
+            },
+            "elementor_pro_required": false
+        },
+        {
+            "name": "Facilities",
+            "screenshot": "screenshots\/facilities.jpg",
+            "source": "templates\/facilities.json",
+            "preview_url": "https:\/\/demo.zaktheme.web.id\/Pickyard\/template-kit\/facilities\/",
+            "type": "page",
+            "category": "page",
+            "metadata": {
+                "template_type": "single-page",
+                "include_in_zip": "1",
+                "elementor_pro_required": null
+            },
+            "elementor_pro_required": false
+        },
+        {
+            "name": "Global Kit Styles",
+            "screenshot": "screenshots\/global-kit-styles.jpg",
+            "source": "templates\/global.json",
+            "preview_url": "https:\/\/demo.zaktheme.web.id\/Pickyard",
+            "type": "section",
+            "category": "page",
+            "metadata": {
+                "template_type": "global-styles",
+                "include_in_zip": "1",
+                "elementor_pro_required": null,
+                "additional_template_information": [
+                    "These are the global theme styles configured through the Elementor Theme Styles area."
+                ]
+            },
+            "elementor_pro_required": false
+        },
+        {
+            "name": "Membership",
+            "screenshot": "screenshots\/membership.jpg",
+            "source": "templates\/membership.json",
+            "preview_url": "https:\/\/demo.zaktheme.web.id\/Pickyard\/template-kit\/membership\/",
+            "type": "page",
+            "category": "page",
+            "metadata": {
+                "template_type": "single-page",
+                "include_in_zip": "1",
+                "elementor_pro_required": null
+            },
+            "elementor_pro_required": false
+        },
+        {
+            "name": "Group Training",
+            "screenshot": "screenshots\/group-training.jpg",
+            "source": "templates\/group-training.json",
+            "preview_url": "https:\/\/demo.zaktheme.web.id\/Pickyard\/template-kit\/group-training\/",
+            "type": "page",
+            "category": "page",
+            "metadata": {
+                "template_type": "single-page",
+                "include_in_zip": "1",
+                "elementor_pro_required": null
+            },
+            "elementor_pro_required": false
+        },
+        {
+            "name": "Private Coaching",
+            "screenshot": "screenshots\/private-coaching.jpg",
+            "source": "templates\/private-coaching.json",
+            "preview_url": "https:\/\/demo.zaktheme.web.id\/Pickyard\/template-kit\/private-coaching\/",
+            "type": "page",
+            "category": "page",
+            "metadata": {
+                "template_type": "single-page",
+                "include_in_zip": "1",
+                "elementor_pro_required": null
+            },
+            "elementor_pro_required": false
+        },
+        {
+            "name": "Blog",
+            "screenshot": "screenshots\/blog.jpg",
+            "source": "templates\/blog.json",
+            "preview_url": "https:\/\/demo.zaktheme.web.id\/Pickyard\/template-kit\/blog\/",
+            "type": "page",
+            "category": "page",
+            "metadata": {
+                "template_type": "single-page",
+                "include_in_zip": "1",
+                "elementor_pro_required": null
+            },
+            "elementor_pro_required": false
+        },
+        {
+            "name": "Beginner Sessions",
+            "screenshot": "screenshots\/beginner-sessions.jpg",
+            "source": "templates\/beginner-sessions.json",
+            "preview_url": "https:\/\/demo.zaktheme.web.id\/Pickyard\/template-kit\/beginner-sessions\/",
+            "type": "page",
+            "category": "page",
+            "metadata": {
+                "template_type": "single-page",
+                "include_in_zip": "1",
+                "elementor_pro_required": null
+            },
+            "elementor_pro_required": false
+        },
+        {
+            "name": "Single Post",
+            "screenshot": "screenshots\/single-post.jpg",
+            "source": "templates\/single-post.json",
+            "preview_url": "https:\/\/demo.zaktheme.web.id\/Pickyard\/template-kit\/single-post\/",
+            "type": "page",
+            "category": "page",
+            "metadata": {
+                "template_type": "single-post",
+                "include_in_zip": "1",
+                "elementor_pro_required": null
+            },
+            "elementor_pro_required": false
+        },
+        {
+            "name": "Event Detail",
+            "screenshot": "screenshots\/event-detail.jpg",
+            "source": "templates\/event-detail.json",
+            "preview_url": "https:\/\/demo.zaktheme.web.id\/Pickyard\/template-kit\/event-detail\/",
+            "type": "page",
+            "category": "page",
+            "metadata": {
+                "template_type": "single-page",
+                "include_in_zip": "1",
+                "elementor_pro_required": null
+            },
+            "elementor_pro_required": false
+        },
+        {
+            "name": "Home",
+            "screenshot": "screenshots\/home.jpg",
+            "source": "templates\/home.json",
+            "preview_url": "https:\/\/demo.zaktheme.web.id\/Pickyard\/template-kit\/home\/",
+            "type": "page",
+            "category": "page",
+            "metadata": {
+                "template_type": "single-page",
+                "include_in_zip": "1",
+                "elementor_pro_required": null
+            },
+            "elementor_pro_required": false
+        },
+        {
+            "name": "Junior Programs",
+            "screenshot": "screenshots\/junior-programs.jpg",
+            "source": "templates\/junior-programs.json",
+            "preview_url": "https:\/\/demo.zaktheme.web.id\/Pickyard\/template-kit\/junior-programs\/",
+            "type": "page",
+            "category": "page",
+            "metadata": {
+                "template_type": "single-page",
+                "include_in_zip": "1",
+                "elementor_pro_required": null
+            },
+            "elementor_pro_required": false
+        },
+        {
+            "name": "Events",
+            "screenshot": "screenshots\/events.jpg",
+            "source": "templates\/events.json",
+            "preview_url": "https:\/\/demo.zaktheme.web.id\/Pickyard\/template-kit\/events\/",
+            "type": "page",
+            "category": "page",
+            "metadata": {
+                "template_type": "single-page",
+                "include_in_zip": "1",
+                "elementor_pro_required": null
+            },
+            "elementor_pro_required": false
+        },
+        {
+            "name": "404",
+            "screenshot": "screenshots\/404.jpg",
+            "source": "templates\/404.json",
+            "preview_url": "https:\/\/demo.zaktheme.web.id\/Pickyard\/template-kit\/404\/",
+            "type": "page",
+            "category": "page",
+            "metadata": {
+                "template_type": "single-404",
+                "include_in_zip": "1",
+                "elementor_pro_required": null
+            },
+            "elementor_pro_required": false
+        },
+        {
+            "name": "Contact Us",
+            "screenshot": "screenshots\/contact-us.jpg",
+            "source": "templates\/contact-us.json",
+            "preview_url": "https:\/\/demo.zaktheme.web.id\/Pickyard\/template-kit\/contact-us\/",
+            "type": "page",
+            "category": "page",
+            "metadata": {
+                "template_type": "single-page",
+                "include_in_zip": "1",
+                "elementor_pro_required": null
+            },
+            "elementor_pro_required": false
+        },
+        {
+            "name": "Booking Form",
+            "screenshot": "screenshots\/booking-form.png",
+            "source": "templates\/booking-form.json",
+            "preview_url": "https:\/\/demo.zaktheme.web.id\/Pickyard\/template-kit\/booking-form\/",
+            "type": "section",
+            "category": "section",
+            "metadata": {
+                "template_type": "section-other",
+                "include_in_zip": "1",
+                "elementor_pro_required": null
+            },
+            "elementor_pro_required": false
+        },
+        {
+            "name": "Contact Form",
+            "screenshot": "screenshots\/contact-form.png",
+            "source": "templates\/contact-form.json",
+            "preview_url": "https:\/\/demo.zaktheme.web.id\/Pickyard\/template-kit\/contact-form\/",
+            "type": "section",
+            "category": "section",
+            "metadata": {
+                "template_type": "section-contact",
+                "include_in_zip": "1",
+                "elementor_pro_required": null
+            },
+            "elementor_pro_required": false
+        },
+        {
+            "name": "Event Form",
+            "screenshot": "screenshots\/event-form.png",
+            "source": "templates\/event-form.json",
+            "preview_url": "https:\/\/demo.zaktheme.web.id\/Pickyard\/template-kit\/event-form\/",
+            "type": "section",
+            "category": "section",
+            "metadata": {
+                "template_type": "section-other",
+                "include_in_zip": "1",
+                "elementor_pro_required": null
+            },
+            "elementor_pro_required": false
+        },
+        {
+            "name": "Newsletter Form",
+            "screenshot": "screenshots\/newsletter-form.png",
+            "source": "templates\/newsletter-form.json",
+            "preview_url": "https:\/\/demo.zaktheme.web.id\/Pickyard\/template-kit\/newsletter-form\/",
+            "type": "section",
+            "category": "section",
+            "metadata": {
+                "template_type": "section-other",
+                "include_in_zip": "1",
+                "elementor_pro_required": null
+            },
+            "elementor_pro_required": false
+        },
+        {
+            "name": "Header",
+            "screenshot": "screenshots\/header.png",
+            "source": "templates\/header.json",
+            "preview_url": "https:\/\/demo.zaktheme.web.id\/Pickyard\/template-kit\/header\/",
+            "type": "section",
+            "category": "section",
+            "metadata": {
+                "template_type": "section-header",
+                "include_in_zip": "1",
+                "elementor_pro_required": null
+            },
+            "elementor_pro_required": false
+        },
+        {
+            "name": "Footer",
+            "screenshot": "screenshots\/footer.png",
+            "source": "templates\/footer.json",
+            "preview_url": "https:\/\/demo.zaktheme.web.id\/Pickyard\/template-kit\/footer\/",
+            "type": "section",
+            "category": "section",
+            "metadata": {
+                "template_type": "section-footer",
+                "include_in_zip": "1",
+                "elementor_pro_required": null
+            },
+            "elementor_pro_required": false
+        }
+    ],
+    "required_plugins": [
+        {
+            "name": "Elementor",
+            "version": "3.33.1",
+            "file": "elementor\/elementor.php",
+            "author": "Elementor.com"
+        },
+        {
+            "name": "Jeg Kit for Elementor",
+            "version": "3.0.1",
+            "file": "jeg-elementor-kit\/jeg-elementor-kit.php",
+            "author": "Jegtheme"
+        },
+        {
+            "name": "MetForm",
+            "version": "4.0.6",
+            "file": "metform\/metform.php",
+            "author": "Wpmet"
+        }
+    ],
+    "images": [
+        {
+            "filename": "young-athletic-woman-playing-padel-doubles-on-outd-2024-12-13-16-50-20-utc.webp",
+            "thumbnail_url": "https:\/\/demo.zaktheme.web.id\/Pickyard\/wp-content\/uploads\/2025\/11\/young-athletic-woman-playing-padel-doubles-on-outd-2024-12-13-16-50-20-utc-800x533.webp",
+            "templates": [
+                {
+                    "source": "templates\/about-us.json",
+                    "name": "About Us"
+                }
+            ],
+            "filesize": 171702,
+            "dimensions": [
+                1920,
+                1280
+            ],
+            "image_source": "envato_elements",
+            "image_urls": "https:\/\/elements.envato.com\/young-athletic-woman-playing-padel-doubles-on-outd-SKA9CG9"
+        },
+        {
+            "filename": "testi-image-16.jpg",
+            "thumbnail_url": "https:\/\/demo.zaktheme.web.id\/Pickyard\/wp-content\/uploads\/2025\/11\/testi-image-16.jpg",
+            "templates": [
+                {
+                    "source": "templates\/about-us.json",
+                    "name": "About Us"
+                },
+                {
+                    "source": "templates\/private-coaching.json",
+                    "name": "Private Coaching"
+                },
+                {
+                    "source": "templates\/home.json",
+                    "name": "Home"
+                }
+            ],
+            "filesize": 8089,
+            "dimensions": [
+                150,
+                150
+            ],
+            "image_source": "envato_elements",
+            "image_urls": "https:\/\/elements.envato.com\/collection-of-portraits-with-cheerful-millennials--P3RKYH9"
+        },
+        {
+            "filename": "multiracial-group-of-athletes-playing-paddle-tenni-2024-12-13-16-42-59-utc.webp",
+            "thumbnail_url": "https:\/\/demo.zaktheme.web.id\/Pickyard\/wp-content\/uploads\/2025\/11\/multiracial-group-of-athletes-playing-paddle-tenni-2024-12-13-16-42-59-utc-800x533.webp",
+            "templates": [
+                {
+                    "source": "templates\/about-us.json",
+                    "name": "About Us"
+                },
+                {
+                    "source": "templates\/group-training.json",
+                    "name": "Group Training"
+                },
+                {
+                    "source": "templates\/home.json",
+                    "name": "Home"
+                }
+            ],
+            "filesize": 200438,
+            "dimensions": [
+                1920,
+                1280
+            ],
+            "image_source": "envato_elements",
+            "image_urls": "https:\/\/elements.envato.com\/multiracial-group-of-athletes-playing-paddle-tenni-SNHZS26"
+        },
+        {
+            "filename": "Pickleball-Court-white.png",
+            "thumbnail_url": "https:\/\/demo.zaktheme.web.id\/Pickyard\/wp-content\/uploads\/2025\/11\/Pickleball-Court-white.png",
+            "templates": [
+                {
+                    "source": "templates\/about-us.json",
+                    "name": "About Us"
+                }
+            ],
+            "filesize": 1159,
+            "dimensions": [
+                150,
+                150
+            ],
+            "image_source": "envato_elements",
+            "image_urls": "https:\/\/elements.envato.com\/pickleball-icon-pack-SSTP72G"
+        },
+        {
+            "filename": "Pickleball-Player-white-v2.png",
+            "thumbnail_url": "https:\/\/demo.zaktheme.web.id\/Pickyard\/wp-content\/uploads\/2025\/11\/Pickleball-Player-white-v2.png",
+            "templates": [
+                {
+                    "source": "templates\/about-us.json",
+                    "name": "About Us"
+                }
+            ],
+            "filesize": 4157,
+            "dimensions": [
+                150,
+                150
+            ],
+            "image_source": "envato_elements",
+            "image_urls": "https:\/\/elements.envato.com\/pickleball-icon-pack-SSTP72G"
+        },
+        {
+            "filename": "Pickleball-Community-white-v2.png",
+            "thumbnail_url": "https:\/\/demo.zaktheme.web.id\/Pickyard\/wp-content\/uploads\/2025\/11\/Pickleball-Community-white-v2.png",
+            "templates": [
+                {
+                    "source": "templates\/about-us.json",
+                    "name": "About Us"
+                }
+            ],
+            "filesize": 5326,
+            "dimensions": [
+                150,
+                150
+            ],
+            "image_source": "envato_elements",
+            "image_urls": "https:\/\/elements.envato.com\/pickleball-icon-pack-SSTP72G"
+        },
+        {
+            "filename": "Pickleball-Tournament-white-v2.png",
+            "thumbnail_url": "https:\/\/demo.zaktheme.web.id\/Pickyard\/wp-content\/uploads\/2025\/11\/Pickleball-Tournament-white-v2.png",
+            "templates": [
+                {
+                    "source": "templates\/about-us.json",
+                    "name": "About Us"
+                }
+            ],
+            "filesize": 3061,
+            "dimensions": [
+                150,
+                150
+            ],
+            "image_source": "envato_elements",
+            "image_urls": "https:\/\/elements.envato.com\/pickleball-icon-pack-SSTP72G"
+        },
+        {
+            "filename": "Pickleball-Games-white-v2.png",
+            "thumbnail_url": "https:\/\/demo.zaktheme.web.id\/Pickyard\/wp-content\/uploads\/2025\/11\/Pickleball-Games-white-v2.png",
+            "templates": [
+                {
+                    "source": "templates\/about-us.json",
+                    "name": "About Us"
+                }
+            ],
+            "filesize": 4866,
+            "dimensions": [
+                150,
+                150
+            ],
+            "image_source": "envato_elements",
+            "image_urls": "https:\/\/elements.envato.com\/pickleball-icon-pack-SSTP72G"
+        },
+        {
+            "filename": "Serve-white.png",
+            "thumbnail_url": "https:\/\/demo.zaktheme.web.id\/Pickyard\/wp-content\/uploads\/2025\/11\/Serve-white.png",
+            "templates": [
+                {
+                    "source": "templates\/about-us.json",
+                    "name": "About Us"
+                }
+            ],
+            "filesize": 5056,
+            "dimensions": [
+                150,
+                150
+            ],
+            "image_source": "envato_elements",
+            "image_urls": "https:\/\/elements.envato.com\/pickleball-icon-pack-SSTP72G"
+        },
+        {
+            "filename": "team-4.jpg",
+            "thumbnail_url": "https:\/\/demo.zaktheme.web.id\/Pickyard\/wp-content\/uploads\/2025\/11\/team-4.jpg",
+            "templates": [
+                {
+                    "source": "templates\/about-us.json",
+                    "name": "About Us"
+                }
+            ],
+            "filesize": 74794,
+            "dimensions": [
+                600,
+                700
+            ],
+            "image_source": "envato_elements",
+            "image_urls": "https:\/\/elements.envato.com\/happy-paddle-tennis-player-on-outdoor-court-lookin-ZY4ZYT9"
+        },
+        {
+            "filename": "team-2.jpg",
+            "thumbnail_url": "https:\/\/demo.zaktheme.web.id\/Pickyard\/wp-content\/uploads\/2025\/11\/team-2.jpg",
+            "templates": [
+                {
+                    "source": "templates\/about-us.json",
+                    "name": "About Us"
+                }
+            ],
+            "filesize": 75144,
+            "dimensions": [
+                600,
+                700
+            ],
+            "image_source": "envato_elements",
+            "image_urls": "https:\/\/elements.envato.com\/happy-black-athletic-woman-enjoying-in-playing-pad-ZXYKW5B"
+        },
+        {
+            "filename": "team-5.jpg",
+            "thumbnail_url": "https:\/\/demo.zaktheme.web.id\/Pickyard\/wp-content\/uploads\/2025\/11\/team-5.jpg",
+            "templates": [
+                {
+                    "source": "templates\/about-us.json",
+                    "name": "About Us"
+                }
+            ],
+            "filesize": 48101,
+            "dimensions": [
+                600,
+                700
+            ],
+            "image_source": "envato_elements",
+            "image_urls": "https:\/\/elements.envato.com\/happy-paddle-tennis-player-on-the-court-looking-at-MSMY6R6"
+        },
+        {
+            "filename": "team-6.jpg",
+            "thumbnail_url": "https:\/\/demo.zaktheme.web.id\/Pickyard\/wp-content\/uploads\/2025\/11\/team-6.jpg",
+            "templates": [
+                {
+                    "source": "templates\/about-us.json",
+                    "name": "About Us"
+                }
+            ],
+            "filesize": 72740,
+            "dimensions": [
+                600,
+                700
+            ],
+            "image_source": "envato_elements",
+            "image_urls": "https:\/\/elements.envato.com\/young-athletic-woman-playing-paddle-tennis-on-outd-WUP7D6S"
+        },
+        {
+            "filename": "team-3.jpg",
+            "thumbnail_url": "https:\/\/demo.zaktheme.web.id\/Pickyard\/wp-content\/uploads\/2025\/11\/team-3.jpg",
+            "templates": [
+                {
+                    "source": "templates\/about-us.json",
+                    "name": "About Us"
+                }
+            ],
+            "filesize": 66078,
+            "dimensions": [
+                600,
+                700
+            ],
+            "image_source": "envato_elements",
+            "image_urls": "https:\/\/elements.envato.com\/happy-black-sportswoman-playing-paddle-tennis-and--GL2Z6TW"
+        },
+        {
+            "filename": "team-1.jpg",
+            "thumbnail_url": "https:\/\/demo.zaktheme.web.id\/Pickyard\/wp-content\/uploads\/2025\/11\/team-1.jpg",
+            "templates": [
+                {
+                    "source": "templates\/about-us.json",
+                    "name": "About Us"
+                }
+            ],
+            "filesize": 64795,
+            "dimensions": [
+                600,
+                700
+            ],
+            "image_source": "envato_elements",
+            "image_urls": "https:\/\/elements.envato.com\/happy-athletic-woman-playing-padel-on-outdoor-cour-BD2ZBCY"
+        },
+        {
+            "filename": "below-view-of-female-paddle-tennis-player-during-t-2024-12-13-17-00-53-utc.webp",
+            "thumbnail_url": "https:\/\/demo.zaktheme.web.id\/Pickyard\/wp-content\/uploads\/2025\/11\/below-view-of-female-paddle-tennis-player-during-t-2024-12-13-17-00-53-utc-800x533.webp",
+            "templates": [
+                {
+                    "source": "templates\/about-us.json",
+                    "name": "About Us"
+                },
+                {
+                    "source": "templates\/membership.json",
+                    "name": "Membership"
+                },
+                {
+                    "source": "templates\/beginner-sessions.json",
+                    "name": "Beginner Sessions"
+                }
+            ],
+            "filesize": 81164,
+            "dimensions": [
+                1920,
+                1280
+            ],
+            "image_source": "envato_elements",
+            "image_urls": "https:\/\/elements.envato.com\/below-view-of-female-paddle-tennis-player-during-t-U9MUDZJ"
+        },
+        {
+            "filename": "paddle-tennis-equipment-on-the-ground-at-outdoor-c-2024-12-13-18-15-20-utc-1.webp",
+            "thumbnail_url": "https:\/\/demo.zaktheme.web.id\/Pickyard\/wp-content\/uploads\/2025\/11\/paddle-tennis-equipment-on-the-ground-at-outdoor-c-2024-12-13-18-15-20-utc-1-800x533.webp",
+            "templates": [
+                {
+                    "source": "templates\/facilities.json",
+                    "name": "Facilities"
+                },
+                {
+                    "source": "templates\/home.json",
+                    "name": "Home"
+                },
+                {
+                    "source": "templates\/404.json",
+                    "name": "404"
+                }
+            ],
+            "filesize": 206802,
+            "dimensions": [
+                1920,
+                1280
+            ],
+            "image_source": "envato_elements",
+            "image_urls": "https:\/\/elements.envato.com\/paddle-tennis-equipment-on-the-ground-at-outdoor-c-KCWW6QF"
+        },
+        {
+            "filename": "young-woman-playing-tennis-2025-02-21-19-55-53-utc.jpg",
+            "thumbnail_url": "https:\/\/demo.zaktheme.web.id\/Pickyard\/wp-content\/uploads\/2025\/11\/young-woman-playing-tennis-2025-02-21-19-55-53-utc-800x533.jpg",
+            "templates": [
+                {
+                    "source": "templates\/facilities.json",
+                    "name": "Facilities"
+                }
+            ],
+            "filesize": 190677,
+            "dimensions": [
+                1440,
+                960
+            ],
+            "image_source": "envato_elements",
+            "image_urls": "https:\/\/elements.envato.com\/young-woman-playing-tennis-9QZ6NTG"
+        },
+        {
+            "filename": "sportsman-playing-padel-game-2024-10-18-07-07-57-utc.jpg",
+            "thumbnail_url": "https:\/\/demo.zaktheme.web.id\/Pickyard\/wp-content\/uploads\/2025\/11\/sportsman-playing-padel-game-2024-10-18-07-07-57-utc-800x534.jpg",
+            "templates": [
+                {
+                    "source": "templates\/facilities.json",
+                    "name": "Facilities"
+                }
+            ],
+            "filesize": 193032,
+            "dimensions": [
+                1440,
+                962
+            ],
+            "image_source": "envato_elements",
+            "image_urls": "https:\/\/elements.envato.com\/sportsman-playing-padel-game-SULDQK8"
+        },
+        {
+            "filename": "padel-blade-racket-hanging-on-the-net-2024-10-18-06-56-02-utc.jpg",
+            "thumbnail_url": "https:\/\/demo.zaktheme.web.id\/Pickyard\/wp-content\/uploads\/2025\/11\/padel-blade-racket-hanging-on-the-net-2024-10-18-06-56-02-utc-800x534.jpg",
+            "templates": [
+                {
+                    "source": "templates\/facilities.json",
+                    "name": "Facilities"
+                }
+            ],
+            "filesize": 198126,
+            "dimensions": [
+                1440,
+                961
+            ],
+            "image_source": "envato_elements",
+            "image_urls": "https:\/\/elements.envato.com\/padel-blade-racket-hanging-on-the-net-HBFDLPX"
+        },
+        {
+            "filename": "tennis-court-2025-03-08-05-14-42-utc.jpg",
+            "thumbnail_url": "https:\/\/demo.zaktheme.web.id\/Pickyard\/wp-content\/uploads\/2025\/11\/tennis-court-2025-03-08-05-14-42-utc-800x533.jpg",
+            "templates": [
+                {
+                    "source": "templates\/facilities.json",
+                    "name": "Facilities"
+                }
+            ],
+            "filesize": 228752,
+            "dimensions": [
+                1440,
+                960
+            ],
+            "image_source": "envato_elements",
+            "image_urls": "https:\/\/elements.envato.com\/tennis-court-Q6H3VD6"
+        },
+        {
+            "filename": "modern-gym-interior-with-sport-and-fitness-equipme-2025-01-08-14-22-15-utc.jpg",
+            "thumbnail_url": "https:\/\/demo.zaktheme.web.id\/Pickyard\/wp-content\/uploads\/2025\/11\/modern-gym-interior-with-sport-and-fitness-equipme-2025-01-08-14-22-15-utc-800x600.jpg",
+            "templates": [
+                {
+                    "source": "templates\/facilities.json",
+                    "name": "Facilities"
+                }
+            ],
+            "filesize": 241371,
+            "dimensions": [
+                1440,
+                1080
+            ],
+            "image_source": "envato_elements",
+            "image_urls": "https:\/\/elements.envato.com\/modern-gym-interior-with-sport-and-fitness-equipme-7RNAR2Z"
+        },
+        {
+            "filename": "modern-fitness-center-with-gym-equipment-decoratio-2024-10-22-12-23-02-utc.jpg",
+            "thumbnail_url": "https:\/\/demo.zaktheme.web.id\/Pickyard\/wp-content\/uploads\/2025\/11\/modern-fitness-center-with-gym-equipment-decoratio-2024-10-22-12-23-02-utc-800x533.jpg",
+            "templates": [
+                {
+                    "source": "templates\/facilities.json",
+                    "name": "Facilities"
+                }
+            ],
+            "filesize": 180593,
+            "dimensions": [
+                1440,
+                960
+            ],
+            "image_source": "envato_elements",
+            "image_urls": "https:\/\/elements.envato.com\/modern-fitness-center-with-gym-equipment-decoratio-W94S8HZ"
+        },
+        {
+            "filename": "devices-for-exercising-in-gym-2025-03-15-20-47-12-utc.jpg",
+            "thumbnail_url": "https:\/\/demo.zaktheme.web.id\/Pickyard\/wp-content\/uploads\/2025\/11\/devices-for-exercising-in-gym-2025-03-15-20-47-12-utc-800x533.jpg",
+            "templates": [
+                {
+                    "source": "templates\/facilities.json",
+                    "name": "Facilities"
+                }
+            ],
+            "filesize": 145007,
+            "dimensions": [
+                1440,
+                960
+            ],
+            "image_source": "envato_elements",
+            "image_urls": "https:\/\/elements.envato.com\/devices-for-exercising-in-gym-FRM5NFD"
+        },
+        {
+            "filename": "testi-image-7.jpg",
+            "thumbnail_url": "https:\/\/demo.zaktheme.web.id\/Pickyard\/wp-content\/uploads\/2025\/11\/testi-image-7.jpg",
+            "templates": [
+                {
+                    "source": "templates\/facilities.json",
+                    "name": "Facilities"
+                }
+            ],
+            "filesize": 8325,
+            "dimensions": [
+                150,
+                150
+            ],
+            "image_source": "envato_elements",
+            "image_urls": "https:\/\/elements.envato.com\/collection-of-portraits-with-cheerful-millennials--P3RKYH9"
+        },
+        {
+            "filename": "blue-bag-with-tennis-padel-racket-and-ball-on-gras-2025-01-09-18-46-59-utc.jpg",
+            "thumbnail_url": "https:\/\/demo.zaktheme.web.id\/Pickyard\/wp-content\/uploads\/2025\/11\/blue-bag-with-tennis-padel-racket-and-ball-on-gras-2025-01-09-18-46-59-utc-800x545.jpg",
+            "templates": [
+                {
+                    "source": "templates\/facilities.json",
+                    "name": "Facilities"
+                }
+            ],
+            "filesize": 240800,
+            "dimensions": [
+                1440,
+                981
+            ],
+            "image_source": "envato_elements",
+            "image_urls": "https:\/\/elements.envato.com\/blue-bag-with-tennis-padel-racket-and-ball-on-gras-ZUUKPXT"
+        },
+        {
+            "filename": "padel-blade-racket-on-the-floor-2024-10-11-11-30-57-utc.jpg",
+            "thumbnail_url": "https:\/\/demo.zaktheme.web.id\/Pickyard\/wp-content\/uploads\/2025\/11\/padel-blade-racket-on-the-floor-2024-10-11-11-30-57-utc.jpg",
+            "templates": [
+                {
+                    "source": "templates\/facilities.json",
+                    "name": "Facilities"
+                }
+            ],
+            "filesize": 149360,
+            "dimensions": [
+                600,
+                400
+            ],
+            "image_source": "envato_elements",
+            "image_urls": "https:\/\/elements.envato.com\/padel-blade-racket-on-the-floor-5HENKL2"
+        },
+        {
+            "filename": "close-up-of-man-serving-during-padel-tennis-match-2024-12-13-18-48-42-utc.webp",
+            "thumbnail_url": "https:\/\/demo.zaktheme.web.id\/Pickyard\/wp-content\/uploads\/2025\/11\/close-up-of-man-serving-during-padel-tennis-match-2024-12-13-18-48-42-utc-800x533.webp",
+            "templates": [
+                {
+                    "source": "templates\/facilities.json",
+                    "name": "Facilities"
+                },
+                {
+                    "source": "templates\/blog.json",
+                    "name": "Blog"
+                },
+                {
+                    "source": "templates\/home.json",
+                    "name": "Home"
+                },
+                {
+                    "source": "templates\/events.json",
+                    "name": "Events"
+                }
+            ],
+            "filesize": 113930,
+            "dimensions": [
+                1920,
+                1280
+            ],
+            "image_source": "envato_elements",
+            "image_urls": "https:\/\/elements.envato.com\/close-up-of-man-serving-during-padel-tennis-match-2G93VP5"
+        },
+        {
+            "filename": "empty-lounge-meeting-area-area-in-modern-business-2024-10-19-10-48-37-utc.jpg",
+            "thumbnail_url": "https:\/\/demo.zaktheme.web.id\/Pickyard\/wp-content\/uploads\/2025\/11\/empty-lounge-meeting-area-area-in-modern-business-2024-10-19-10-48-37-utc-800x533.jpg",
+            "templates": [
+                {
+                    "source": "templates\/facilities.json",
+                    "name": "Facilities"
+                }
+            ],
+            "filesize": 124484,
+            "dimensions": [
+                1440,
+                960
+            ],
+            "image_source": "envato_elements",
+            "image_urls": "https:\/\/elements.envato.com\/empty-lounge-meeting-area-area-in-modern-business--PP29ZK5"
+        },
+        {
+            "filename": "elegant-wooden-home-winter-terrace-2025-01-08-02-55-08-utc.jpg",
+            "thumbnail_url": "https:\/\/demo.zaktheme.web.id\/Pickyard\/wp-content\/uploads\/2025\/11\/elegant-wooden-home-winter-terrace-2025-01-08-02-55-08-utc-800x533.jpg",
+            "templates": [
+                {
+                    "source": "templates\/facilities.json",
+                    "name": "Facilities"
+                }
+            ],
+            "filesize": 90529,
+            "dimensions": [
+                1440,
+                960
+            ],
+            "image_source": "envato_elements",
+            "image_urls": "https:\/\/elements.envato.com\/elegant-wooden-home-winter-terrace-P5U2RXC"
+        },
+        {
+            "filename": "breakfast-or-brunch-with-a-cup-of-coffee-and-crois-2025-01-08-17-24-46-utc.jpg",
+            "thumbnail_url": "https:\/\/demo.zaktheme.web.id\/Pickyard\/wp-content\/uploads\/2025\/11\/breakfast-or-brunch-with-a-cup-of-coffee-and-crois-2025-01-08-17-24-46-utc-800x538.jpg",
+            "templates": [
+                {
+                    "source": "templates\/facilities.json",
+                    "name": "Facilities"
+                }
+            ],
+            "filesize": 77035,
+            "dimensions": [
+                1440,
+                968
+            ],
+            "image_source": "envato_elements",
+            "image_urls": "https:\/\/elements.envato.com\/breakfast-or-brunch-with-a-cup-of-coffee-and-crois-WPTFMUZ"
+        },
+        {
+            "filename": "selective-focus-four-paddle-tennis-balls-on-a-blu-2025-02-09-03-06-16-utc.jpg",
+            "thumbnail_url": "https:\/\/demo.zaktheme.web.id\/Pickyard\/wp-content\/uploads\/2025\/11\/selective-focus-four-paddle-tennis-balls-on-a-blu-2025-02-09-03-06-16-utc-800x533.jpg",
+            "templates": [
+                {
+                    "source": "templates\/membership.json",
+                    "name": "Membership"
+                },
+                {
+                    "source": "templates\/junior-programs.json",
+                    "name": "Junior Programs"
+                }
+            ],
+            "filesize": 188418,
+            "dimensions": [
+                1920,
+                1280
+            ],
+            "image_source": "envato_elements",
+            "image_urls": "https:\/\/elements.envato.com\/two-kids-padel-players-team-on-the-outdoor-court-PHYVD8N"
+        },
+        {
+            "filename": "happy-female-paddle-tennis-player-during-mixed-dou-2024-12-13-18-18-57-utc.webp",
+            "thumbnail_url": "https:\/\/demo.zaktheme.web.id\/Pickyard\/wp-content\/uploads\/2025\/11\/happy-female-paddle-tennis-player-during-mixed-dou-2024-12-13-18-18-57-utc-800x533.webp",
+            "templates": [
+                {
+                    "source": "templates\/membership.json",
+                    "name": "Membership"
+                },
+                {
+                    "source": "templates\/events.json",
+                    "name": "Events"
+                }
+            ],
+            "filesize": 151500,
+            "dimensions": [
+                1920,
+                1280
+            ],
+            "image_source": "envato_elements",
+            "image_urls": "https:\/\/elements.envato.com\/happy-female-paddle-tennis-player-during-mixed-dou-QMCADNB"
+        },
+        {
+            "filename": "testi-image-11.jpg",
+            "thumbnail_url": "https:\/\/demo.zaktheme.web.id\/Pickyard\/wp-content\/uploads\/2025\/11\/testi-image-11.jpg",
+            "templates": [
+                {
+                    "source": "templates\/membership.json",
+                    "name": "Membership"
+                },
+                {
+                    "source": "templates\/private-coaching.json",
+                    "name": "Private Coaching"
+                }
+            ],
+            "filesize": 9914,
+            "dimensions": [
+                150,
+                150
+            ],
+            "image_source": "envato_elements",
+            "image_urls": "https:\/\/elements.envato.com\/collection-of-portraits-with-cheerful-millennials--P3RKYH9"
+        },
+        {
+            "filename": "black-woman-serving-the-ball-while-playing-paddle-2024-12-13-18-33-41-utc.jpg",
+            "thumbnail_url": "https:\/\/demo.zaktheme.web.id\/Pickyard\/wp-content\/uploads\/2025\/11\/black-woman-serving-the-ball-while-playing-paddle-2024-12-13-18-33-41-utc-800x533.jpg",
+            "templates": [
+                {
+                    "source": "templates\/membership.json",
+                    "name": "Membership"
+                },
+                {
+                    "source": "templates\/beginner-sessions.json",
+                    "name": "Beginner Sessions"
+                },
+                {
+                    "source": "templates\/home.json",
+                    "name": "Home"
+                }
+            ],
+            "filesize": 240645,
+            "dimensions": [
+                1920,
+                1280
+            ],
+            "image_source": "envato_elements",
+            "image_urls": "https:\/\/elements.envato.com\/black-woman-serving-the-ball-while-playing-paddle--3GTGSQB"
+        },
+        {
+            "filename": "female-paddle-tennis-player-hitting-the-ball-durin-2024-12-13-18-20-43-utc.webp",
+            "thumbnail_url": "https:\/\/demo.zaktheme.web.id\/Pickyard\/wp-content\/uploads\/2025\/11\/female-paddle-tennis-player-hitting-the-ball-durin-2024-12-13-18-20-43-utc-800x533.webp",
+            "templates": [
+                {
+                    "source": "templates\/group-training.json",
+                    "name": "Group Training"
+                },
+                {
+                    "source": "templates\/home.json",
+                    "name": "Home"
+                }
+            ],
+            "filesize": 139124,
+            "dimensions": [
+                1920,
+                1280
+            ],
+            "image_source": "envato_elements",
+            "image_urls": "https:\/\/elements.envato.com\/female-paddle-tennis-player-hitting-the-ball-durin-YW6LA64"
+        },
+        {
+            "filename": "young-athletic-man-playing-padel-on-outdoor-tennis-2024-12-13-17-16-04-utc.webp",
+            "thumbnail_url": "https:\/\/demo.zaktheme.web.id\/Pickyard\/wp-content\/uploads\/2025\/11\/young-athletic-man-playing-padel-on-outdoor-tennis-2024-12-13-17-16-04-utc-800x533.webp",
+            "templates": [
+                {
+                    "source": "templates\/group-training.json",
+                    "name": "Group Training"
+                },
+                {
+                    "source": "templates\/beginner-sessions.json",
+                    "name": "Beginner Sessions"
+                }
+            ],
+            "filesize": 120688,
+            "dimensions": [
+                1920,
+                1280
+            ],
+            "image_source": "envato_elements",
+            "image_urls": "https:\/\/elements.envato.com\/young-athletic-man-playing-padel-on-outdoor-tennis-SYE4M6Q"
+        },
+        {
+            "filename": "male-athlete-playing-mixed-doubles-on-paddle-tenni-2024-12-13-18-45-30-utc.jpg",
+            "thumbnail_url": "https:\/\/demo.zaktheme.web.id\/Pickyard\/wp-content\/uploads\/2025\/11\/male-athlete-playing-mixed-doubles-on-paddle-tenni-2024-12-13-18-45-30-utc-800x534.jpg",
+            "templates": [
+                {
+                    "source": "templates\/group-training.json",
+                    "name": "Group Training"
+                },
+                {
+                    "source": "templates\/private-coaching.json",
+                    "name": "Private Coaching"
+                },
+                {
+                    "source": "templates\/home.json",
+                    "name": "Home"
+                }
+            ],
+            "filesize": 231881,
+            "dimensions": [
+                1920,
+                1281
+            ],
+            "image_source": "envato_elements",
+            "image_urls": "https:\/\/elements.envato.com\/male-athlete-playing-mixed-doubles-on-paddle-tenni-UVG65KX"
+        },
+        {
+            "filename": "happy-athletic-woman-enjoying-in-playing-paddle-te-2024-12-13-18-15-44-utc.webp",
+            "thumbnail_url": "https:\/\/demo.zaktheme.web.id\/Pickyard\/wp-content\/uploads\/2025\/11\/happy-athletic-woman-enjoying-in-playing-paddle-te-2024-12-13-18-15-44-utc-800x533.webp",
+            "templates": [
+                {
+                    "source": "templates\/group-training.json",
+                    "name": "Group Training"
+                },
+                {
+                    "source": "templates\/beginner-sessions.json",
+                    "name": "Beginner Sessions"
+                },
+                {
+                    "source": "templates\/home.json",
+                    "name": "Home"
+                }
+            ],
+            "filesize": 229120,
+            "dimensions": [
+                1920,
+                1280
+            ],
+            "image_source": "envato_elements",
+            "image_urls": "https:\/\/elements.envato.com\/happy-athletic-woman-enjoying-in-playing-paddle-te-NV3MG6Z"
+        },
+        {
+            "filename": "testi-image-17.jpg",
+            "thumbnail_url": "https:\/\/demo.zaktheme.web.id\/Pickyard\/wp-content\/uploads\/2025\/11\/testi-image-17.jpg",
+            "templates": [
+                {
+                    "source": "templates\/group-training.json",
+                    "name": "Group Training"
+                }
+            ],
+            "filesize": 8676,
+            "dimensions": [
+                150,
+                150
+            ],
+            "image_source": "envato_elements",
+            "image_urls": "https:\/\/elements.envato.com\/collection-of-portraits-with-cheerful-millennials--P3RKYH9"
+        },
+        {
+            "filename": "paddle-tennis-instructor-and-female-athlete-having-2024-12-13-19-46-12-utc.webp",
+            "thumbnail_url": "https:\/\/demo.zaktheme.web.id\/Pickyard\/wp-content\/uploads\/2025\/11\/paddle-tennis-instructor-and-female-athlete-having-2024-12-13-19-46-12-utc-800x533.webp",
+            "templates": [
+                {
+                    "source": "templates\/private-coaching.json",
+                    "name": "Private Coaching"
+                },
+                {
+                    "source": "templates\/home.json",
+                    "name": "Home"
+                }
+            ],
+            "filesize": 95678,
+            "dimensions": [
+                1920,
+                1280
+            ],
+            "image_source": "envato_elements",
+            "image_urls": "https:\/\/elements.envato.com\/paddle-tennis-instructor-and-female-athlete-having-GK7Y945"
+        },
+        {
+            "filename": "young-athletic-woman-serving-the-ball-while-playin-2024-12-13-18-31-37-utc.webp",
+            "thumbnail_url": "https:\/\/demo.zaktheme.web.id\/Pickyard\/wp-content\/uploads\/2025\/11\/young-athletic-woman-serving-the-ball-while-playin-2024-12-13-18-31-37-utc-800x533.webp",
+            "templates": [
+                {
+                    "source": "templates\/private-coaching.json",
+                    "name": "Private Coaching"
+                }
+            ],
+            "filesize": 61644,
+            "dimensions": [
+                1920,
+                1280
+            ],
+            "image_source": "envato_elements",
+            "image_urls": "https:\/\/elements.envato.com\/young-athletic-woman-serving-the-ball-while-playin-PARDYYK"
+        },
+        {
+            "filename": "Pickleball-Training-Tool.png",
+            "thumbnail_url": "https:\/\/demo.zaktheme.web.id\/Pickyard\/wp-content\/uploads\/2025\/11\/Pickleball-Training-Tool.png",
+            "templates": [
+                {
+                    "source": "templates\/private-coaching.json",
+                    "name": "Private Coaching"
+                }
+            ],
+            "filesize": 4580,
+            "dimensions": [
+                150,
+                150
+            ],
+            "image_source": "envato_elements",
+            "image_urls": "https:\/\/elements.envato.com\/pickleball-icon-pack-SSTP72G"
+        },
+        {
+            "filename": "Pickleball-Ball.png",
+            "thumbnail_url": "https:\/\/demo.zaktheme.web.id\/Pickyard\/wp-content\/uploads\/2025\/11\/Pickleball-Ball.png",
+            "templates": [
+                {
+                    "source": "templates\/private-coaching.json",
+                    "name": "Private Coaching"
+                }
+            ],
+            "filesize": 4590,
+            "dimensions": [
+                150,
+                150
+            ],
+            "image_source": "envato_elements",
+            "image_urls": "https:\/\/elements.envato.com\/pickleball-icon-pack-SSTP72G"
+        },
+        {
+            "filename": "Pickleball-Net.png",
+            "thumbnail_url": "https:\/\/demo.zaktheme.web.id\/Pickyard\/wp-content\/uploads\/2025\/11\/Pickleball-Net.png",
+            "templates": [
+                {
+                    "source": "templates\/private-coaching.json",
+                    "name": "Private Coaching"
+                }
+            ],
+            "filesize": 3251,
+            "dimensions": [
+                150,
+                150
+            ],
+            "image_source": "envato_elements",
+            "image_urls": "https:\/\/elements.envato.com\/pickleball-icon-pack-SSTP72G"
+        },
+        {
+            "filename": "Pickleball-Score.png",
+            "thumbnail_url": "https:\/\/demo.zaktheme.web.id\/Pickyard\/wp-content\/uploads\/2025\/11\/Pickleball-Score.png",
+            "templates": [
+                {
+                    "source": "templates\/private-coaching.json",
+                    "name": "Private Coaching"
+                }
+            ],
+            "filesize": 3315,
+            "dimensions": [
+                150,
+                150
+            ],
+            "image_source": "envato_elements",
+            "image_urls": "https:\/\/elements.envato.com\/pickleball-icon-pack-SSTP72G"
+        },
+        {
+            "filename": "testi-image-14.jpg",
+            "thumbnail_url": "https:\/\/demo.zaktheme.web.id\/Pickyard\/wp-content\/uploads\/2025\/11\/testi-image-14.jpg",
+            "templates": [
+                {
+                    "source": "templates\/private-coaching.json",
+                    "name": "Private Coaching"
+                }
+            ],
+            "filesize": 7980,
+            "dimensions": [
+                150,
+                150
+            ],
+            "image_source": "envato_elements",
+            "image_urls": "https:\/\/elements.envato.com\/collection-of-portraits-with-cheerful-millennials--P3RKYH9"
+        },
+        {
+            "filename": "Pickleball-Court-v2.png",
+            "thumbnail_url": "https:\/\/demo.zaktheme.web.id\/Pickyard\/wp-content\/uploads\/2025\/11\/Pickleball-Court-v2.png",
+            "templates": [
+                {
+                    "source": "templates\/beginner-sessions.json",
+                    "name": "Beginner Sessions"
+                },
+                {
+                    "source": "templates\/home.json",
+                    "name": "Home"
+                }
+            ],
+            "filesize": 1167,
+            "dimensions": [
+                150,
+                150
+            ],
+            "image_source": "envato_elements",
+            "image_urls": "https:\/\/elements.envato.com\/pickleball-icon-pack-SSTP72G"
+        },
+        {
+            "filename": "Serve-v2.png",
+            "thumbnail_url": "https:\/\/demo.zaktheme.web.id\/Pickyard\/wp-content\/uploads\/2025\/11\/Serve-v2.png",
+            "templates": [
+                {
+                    "source": "templates\/beginner-sessions.json",
+                    "name": "Beginner Sessions"
+                },
+                {
+                    "source": "templates\/home.json",
+                    "name": "Home"
+                }
+            ],
+            "filesize": 5743,
+            "dimensions": [
+                150,
+                150
+            ],
+            "image_source": "envato_elements",
+            "image_urls": "https:\/\/elements.envato.com\/pickleball-icon-pack-SSTP72G"
+        },
+        {
+            "filename": "Shoes-v2.png",
+            "thumbnail_url": "https:\/\/demo.zaktheme.web.id\/Pickyard\/wp-content\/uploads\/2025\/11\/Shoes-v2.png",
+            "templates": [
+                {
+                    "source": "templates\/beginner-sessions.json",
+                    "name": "Beginner Sessions"
+                }
+            ],
+            "filesize": 4986,
+            "dimensions": [
+                150,
+                150
+            ],
+            "image_source": "envato_elements",
+            "image_urls": "https:\/\/elements.envato.com\/pickleball-icon-pack-SSTP72G"
+        },
+        {
+            "filename": "Pickleball-Strategy.png",
+            "thumbnail_url": "https:\/\/demo.zaktheme.web.id\/Pickyard\/wp-content\/uploads\/2025\/11\/Pickleball-Strategy.png",
+            "templates": [
+                {
+                    "source": "templates\/beginner-sessions.json",
+                    "name": "Beginner Sessions"
+                },
+                {
+                    "source": "templates\/junior-programs.json",
+                    "name": "Junior Programs"
+                }
+            ],
+            "filesize": 4799,
+            "dimensions": [
+                150,
+                150
+            ],
+            "image_source": "envato_elements",
+            "image_urls": "https:\/\/elements.envato.com\/pickleball-icon-pack-SSTP72G"
+        },
+        {
+            "filename": "testi-image-9.jpg",
+            "thumbnail_url": "https:\/\/demo.zaktheme.web.id\/Pickyard\/wp-content\/uploads\/2025\/11\/testi-image-9.jpg",
+            "templates": [
+                {
+                    "source": "templates\/beginner-sessions.json",
+                    "name": "Beginner Sessions"
+                }
+            ],
+            "filesize": 6888,
+            "dimensions": [
+                150,
+                150
+            ],
+            "image_source": "envato_elements",
+            "image_urls": "https:\/\/elements.envato.com\/collection-of-portraits-with-cheerful-millennials--P3RKYH9"
+        },
+        {
+            "filename": "testi-image-10.jpg",
+            "thumbnail_url": "https:\/\/demo.zaktheme.web.id\/Pickyard\/wp-content\/uploads\/2025\/11\/testi-image-10.jpg",
+            "templates": [
+                {
+                    "source": "templates\/home.json",
+                    "name": "Home"
+                }
+            ],
+            "filesize": 9673,
+            "dimensions": [
+                150,
+                150
+            ],
+            "image_source": "envato_elements",
+            "image_urls": "https:\/\/elements.envato.com\/collection-of-portraits-with-cheerful-millennials--P3RKYH9"
+        },
+        {
+            "filename": "testi-image-6.jpg",
+            "thumbnail_url": "https:\/\/demo.zaktheme.web.id\/Pickyard\/wp-content\/uploads\/2025\/11\/testi-image-6.jpg",
+            "templates": [
+                {
+                    "source": "templates\/home.json",
+                    "name": "Home"
+                }
+            ],
+            "filesize": 6769,
+            "dimensions": [
+                150,
+                150
+            ],
+            "image_source": "envato_elements",
+            "image_urls": "https:\/\/elements.envato.com\/collection-of-portraits-with-cheerful-millennials--P3RKYH9"
+        },
+        {
+            "filename": "testi-image-15.jpg",
+            "thumbnail_url": "https:\/\/demo.zaktheme.web.id\/Pickyard\/wp-content\/uploads\/2025\/11\/testi-image-15.jpg",
+            "templates": [
+                {
+                    "source": "templates\/home.json",
+                    "name": "Home"
+                },
+                {
+                    "source": "templates\/events.json",
+                    "name": "Events"
+                }
+            ],
+            "filesize": 7595,
+            "dimensions": [
+                150,
+                150
+            ],
+            "image_source": "envato_elements",
+            "image_urls": "https:\/\/elements.envato.com\/collection-of-portraits-with-cheerful-millennials--P3RKYH9"
+        },
+        {
+            "filename": "boy-playing-padel-on-court-2025-04-03-04-53-55-utc.webp",
+            "thumbnail_url": "https:\/\/demo.zaktheme.web.id\/Pickyard\/wp-content\/uploads\/2025\/11\/boy-playing-padel-on-court-2025-04-03-04-53-55-utc-800x533.webp",
+            "templates": [
+                {
+                    "source": "templates\/home.json",
+                    "name": "Home"
+                },
+                {
+                    "source": "templates\/junior-programs.json",
+                    "name": "Junior Programs"
+                }
+            ],
+            "filesize": 196980,
+            "dimensions": [
+                1920,
+                1280
+            ],
+            "image_source": "envato_elements",
+            "image_urls": "https:\/\/elements.envato.com\/boy-playing-padel-on-court-66JPWWB"
+        },
+        {
+            "filename": "testi-image-5.jpg",
+            "thumbnail_url": "https:\/\/demo.zaktheme.web.id\/Pickyard\/wp-content\/uploads\/2025\/11\/testi-image-5.jpg",
+            "templates": [
+                {
+                    "source": "templates\/home.json",
+                    "name": "Home"
+                }
+            ],
+            "filesize": 7210,
+            "dimensions": [
+                150,
+                150
+            ],
+            "image_source": "envato_elements",
+            "image_urls": "https:\/\/elements.envato.com\/collection-of-portraits-with-cheerful-millennials--P3RKYH9"
+        },
+        {
+            "filename": "testi-image-18.jpg",
+            "thumbnail_url": "https:\/\/demo.zaktheme.web.id\/Pickyard\/wp-content\/uploads\/2025\/11\/testi-image-18.jpg",
+            "templates": [
+                {
+                    "source": "templates\/home.json",
+                    "name": "Home"
+                }
+            ],
+            "filesize": 6268,
+            "dimensions": [
+                150,
+                150
+            ],
+            "image_source": "envato_elements",
+            "image_urls": "https:\/\/elements.envato.com\/collection-of-portraits-with-cheerful-millennials--P3RKYH9"
+        },
+        {
+            "filename": "testi-image-8.jpg",
+            "thumbnail_url": "https:\/\/demo.zaktheme.web.id\/Pickyard\/wp-content\/uploads\/2025\/11\/testi-image-8.jpg",
+            "templates": [
+                {
+                    "source": "templates\/home.json",
+                    "name": "Home"
+                }
+            ],
+            "filesize": 6454,
+            "dimensions": [
+                150,
+                150
+            ],
+            "image_source": "envato_elements",
+            "image_urls": "https:\/\/elements.envato.com\/collection-of-portraits-with-cheerful-millennials--P3RKYH9"
+        },
+        {
+            "filename": "Pickleball-Player.png",
+            "thumbnail_url": "https:\/\/demo.zaktheme.web.id\/Pickyard\/wp-content\/uploads\/2025\/11\/Pickleball-Player.png",
+            "templates": [
+                {
+                    "source": "templates\/home.json",
+                    "name": "Home"
+                }
+            ],
+            "filesize": 4883,
+            "dimensions": [
+                150,
+                150
+            ],
+            "image_source": "envato_elements",
+            "image_urls": "https:\/\/elements.envato.com\/pickleball-icon-pack-SSTP72G"
+        },
+        {
+            "filename": "Pickleball-Community.png",
+            "thumbnail_url": "https:\/\/demo.zaktheme.web.id\/Pickyard\/wp-content\/uploads\/2025\/11\/Pickleball-Community.png",
+            "templates": [
+                {
+                    "source": "templates\/home.json",
+                    "name": "Home"
+                }
+            ],
+            "filesize": 6199,
+            "dimensions": [
+                150,
+                150
+            ],
+            "image_source": "envato_elements",
+            "image_urls": "https:\/\/elements.envato.com\/pickleball-icon-pack-SSTP72G"
+        },
+        {
+            "filename": "Pickleball-Tournament.png",
+            "thumbnail_url": "https:\/\/demo.zaktheme.web.id\/Pickyard\/wp-content\/uploads\/2025\/11\/Pickleball-Tournament.png",
+            "templates": [
+                {
+                    "source": "templates\/home.json",
+                    "name": "Home"
+                }
+            ],
+            "filesize": 3248,
+            "dimensions": [
+                150,
+                150
+            ],
+            "image_source": "envato_elements",
+            "image_urls": "https:\/\/elements.envato.com\/pickleball-icon-pack-SSTP72G"
+        },
+        {
+            "filename": "Pickleball-Games.png",
+            "thumbnail_url": "https:\/\/demo.zaktheme.web.id\/Pickyard\/wp-content\/uploads\/2025\/11\/Pickleball-Games.png",
+            "templates": [
+                {
+                    "source": "templates\/home.json",
+                    "name": "Home"
+                }
+            ],
+            "filesize": 5862,
+            "dimensions": [
+                150,
+                150
+            ],
+            "image_source": "envato_elements",
+            "image_urls": "https:\/\/elements.envato.com\/pickleball-icon-pack-SSTP72G"
+        },
+        {
+            "filename": "Pickleball-Net-v2.png",
+            "thumbnail_url": "https:\/\/demo.zaktheme.web.id\/Pickyard\/wp-content\/uploads\/2025\/11\/Pickleball-Net-v2.png",
+            "templates": [
+                {
+                    "source": "templates\/junior-programs.json",
+                    "name": "Junior Programs"
+                }
+            ],
+            "filesize": 3171,
+            "dimensions": [
+                150,
+                150
+            ],
+            "image_source": "envato_elements",
+            "image_urls": "https:\/\/elements.envato.com\/pickleball-icon-pack-SSTP72G"
+        },
+        {
+            "filename": "Smash-Shot.png",
+            "thumbnail_url": "https:\/\/demo.zaktheme.web.id\/Pickyard\/wp-content\/uploads\/2025\/11\/Smash-Shot.png",
+            "templates": [
+                {
+                    "source": "templates\/junior-programs.json",
+                    "name": "Junior Programs"
+                }
+            ],
+            "filesize": 5247,
+            "dimensions": [
+                150,
+                150
+            ],
+            "image_source": "envato_elements",
+            "image_urls": "https:\/\/elements.envato.com\/pickleball-icon-pack-SSTP72G"
+        },
+        {
+            "filename": "Pickleball-Training-Tool-v2.png",
+            "thumbnail_url": "https:\/\/demo.zaktheme.web.id\/Pickyard\/wp-content\/uploads\/2025\/11\/Pickleball-Training-Tool-v2.png",
+            "templates": [
+                {
+                    "source": "templates\/junior-programs.json",
+                    "name": "Junior Programs"
+                }
+            ],
+            "filesize": 5012,
+            "dimensions": [
+                150,
+                150
+            ],
+            "image_source": "envato_elements",
+            "image_urls": "https:\/\/elements.envato.com\/pickleball-icon-pack-SSTP72G"
+        },
+        {
+            "filename": "two-kids-padel-players-team-on-the-outdoor-court-2024-10-18-04-05-48-utc.jpg",
+            "thumbnail_url": "https:\/\/demo.zaktheme.web.id\/Pickyard\/wp-content\/uploads\/2025\/11\/two-kids-padel-players-team-on-the-outdoor-court-2024-10-18-04-05-48-utc-800x533.jpg",
+            "templates": [
+                {
+                    "source": "templates\/junior-programs.json",
+                    "name": "Junior Programs"
+                }
+            ],
+            "filesize": 184482,
+            "dimensions": [
+                1920,
+                1280
+            ],
+            "image_source": "envato_elements",
+            "image_urls": "https:\/\/elements.envato.com\/two-kids-padel-players-team-on-the-outdoor-court-PHYVD8N"
+        },
+        {
+            "filename": "tennis-training-2024-10-21-01-38-44-utc.jpg",
+            "thumbnail_url": "https:\/\/demo.zaktheme.web.id\/Pickyard\/wp-content\/uploads\/2025\/11\/tennis-training-2024-10-21-01-38-44-utc-800x534.jpg",
+            "templates": [
+                {
+                    "source": "templates\/junior-programs.json",
+                    "name": "Junior Programs"
+                }
+            ],
+            "filesize": 230418,
+            "dimensions": [
+                1440,
+                961
+            ],
+            "image_source": "envato_elements",
+            "image_urls": "https:\/\/elements.envato.com\/two-kids-padel-players-team-on-the-outdoor-court-PHYVD8N"
+        },
+        {
+            "filename": "paddle-tennis-player-making-an-effort-to-while-hit-2024-12-13-21-17-09-utc.jpg",
+            "thumbnail_url": "https:\/\/demo.zaktheme.web.id\/Pickyard\/wp-content\/uploads\/2025\/11\/paddle-tennis-player-making-an-effort-to-while-hit-2024-12-13-21-17-09-utc-800x534.jpg",
+            "templates": [
+                {
+                    "source": "templates\/events.json",
+                    "name": "Events"
+                }
+            ],
+            "filesize": 231109,
+            "dimensions": [
+                1920,
+                1281
+            ],
+            "image_source": "envato_elements",
+            "image_urls": "https:\/\/elements.envato.com\/paddle-tennis-player-making-an-effort-to-while-hit-QPJDK5U"
+        },
+        {
+            "filename": "logo-01.png",
+            "thumbnail_url": "https:\/\/demo.zaktheme.web.id\/Pickyard\/wp-content\/uploads\/2025\/10\/logo-01.png",
+            "templates": [
+                {
+                    "source": "templates\/events.json",
+                    "name": "Events"
+                }
+            ],
+            "filesize": 2332,
+            "dimensions": [
+                250,
+                58
+            ],
+            "image_source": "cc0",
+            "image_urls": "https:\/\/logoipsum.com\/"
+        },
+        {
+            "filename": "logo-02.png",
+            "thumbnail_url": "https:\/\/demo.zaktheme.web.id\/Pickyard\/wp-content\/uploads\/2025\/10\/logo-02.png",
+            "templates": [
+                {
+                    "source": "templates\/events.json",
+                    "name": "Events"
+                }
+            ],
+            "filesize": 2441,
+            "dimensions": [
+                250,
+                59
+            ],
+            "image_source": "cc0",
+            "image_urls": "https:\/\/logoipsum.com\/"
+        },
+        {
+            "filename": "logo-03.png",
+            "thumbnail_url": "https:\/\/demo.zaktheme.web.id\/Pickyard\/wp-content\/uploads\/2025\/10\/logo-03.png",
+            "templates": [
+                {
+                    "source": "templates\/events.json",
+                    "name": "Events"
+                }
+            ],
+            "filesize": 2609,
+            "dimensions": [
+                250,
+                59
+            ],
+            "image_source": "cc0",
+            "image_urls": "https:\/\/logoipsum.com\/"
+        },
+        {
+            "filename": "logo-04.png",
+            "thumbnail_url": "https:\/\/demo.zaktheme.web.id\/Pickyard\/wp-content\/uploads\/2025\/10\/logo-04.png",
+            "templates": [
+                {
+                    "source": "templates\/events.json",
+                    "name": "Events"
+                }
+            ],
+            "filesize": 2389,
+            "dimensions": [
+                250,
+                59
+            ],
+            "image_source": "cc0",
+            "image_urls": "https:\/\/logoipsum.com\/"
+        },
+        {
+            "filename": "logo-05.png",
+            "thumbnail_url": "https:\/\/demo.zaktheme.web.id\/Pickyard\/wp-content\/uploads\/2025\/10\/logo-05.png",
+            "templates": [
+                {
+                    "source": "templates\/events.json",
+                    "name": "Events"
+                }
+            ],
+            "filesize": 2678,
+            "dimensions": [
+                250,
+                59
+            ],
+            "image_source": "cc0",
+            "image_urls": "https:\/\/logoipsum.com\/"
+        },
+        {
+            "filename": "logo-06.png",
+            "thumbnail_url": "https:\/\/demo.zaktheme.web.id\/Pickyard\/wp-content\/uploads\/2025\/10\/logo-06.png",
+            "templates": [
+                {
+                    "source": "templates\/events.json",
+                    "name": "Events"
+                }
+            ],
+            "filesize": 2829,
+            "dimensions": [
+                250,
+                58
+            ],
+            "image_source": "cc0",
+            "image_urls": "https:\/\/logoipsum.com\/"
+        },
+        {
+            "filename": "male-athlete-playing-paddle-tennis-on-outdoor-cour-2024-12-13-18-36-05-utc.webp",
+            "thumbnail_url": "https:\/\/demo.zaktheme.web.id\/Pickyard\/wp-content\/uploads\/2025\/11\/male-athlete-playing-paddle-tennis-on-outdoor-cour-2024-12-13-18-36-05-utc-800x533.webp",
+            "templates": [
+                {
+                    "source": "templates\/contact-us.json",
+                    "name": "Contact Us"
+                }
+            ],
+            "filesize": 127920,
+            "dimensions": [
+                1920,
+                1280
+            ],
+            "image_source": "envato_elements",
+            "image_urls": "https:\/\/elements.envato.com\/male-athlete-playing-paddle-tennis-on-outdoor-cour-F78HYQD"
+        },
+        {
+            "filename": "pickyard-logo-white.png",
+            "thumbnail_url": "https:\/\/demo.zaktheme.web.id\/Pickyard\/wp-content\/uploads\/2025\/09\/pickyard-logo-white.png",
+            "templates": [
+                {
+                    "source": "templates\/header.json",
+                    "name": "Header"
+                }
+            ],
+            "filesize": 6445,
+            "dimensions": [
+                250,
+                66
+            ],
+            "image_source": "envato_elements",
+            "image_urls": "https:\/\/elements.envato.com\/fire-ball-logo-VGN9DB"
+        },
+        {
+            "filename": "pickyard-logo.png",
+            "thumbnail_url": "https:\/\/demo.zaktheme.web.id\/Pickyard\/wp-content\/uploads\/2025\/09\/pickyard-logo.png",
+            "templates": [
+                {
+                    "source": "templates\/header.json",
+                    "name": "Header"
+                }
+            ],
+            "filesize": 7134,
+            "dimensions": [
+                250,
+                66
+            ],
+            "image_source": "envato_elements",
+            "image_urls": "https:\/\/elements.envato.com\/fire-ball-logo-VGN9DB"
+        }
+    ]
+}
