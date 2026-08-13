@@ -1,0 +1,171 @@
+/* Payment page
+   Uses the same visual shell as booking.css for a consistent Booking → Payment flow.
+*/
+
+.metro-payment-page .metro-booking-venue-body > .metro-eyebrow {
+    margin-bottom: 10px;
+    color: var(--metro-text);
+}
+
+.metro-payment-page .metro-booking-venue-body h2 {
+    margin-bottom: 12px;
+    font-size: 1.6rem;
+}
+
+.metro-payment-page .metro-booking-venue-body p {
+    font-size: .9rem;
+    line-height: 1.65;
+}
+
+.metro-payment-page .metro-booking-venue-body .metro-btn {
+    margin-top: 8px;
+}
+
+.metro-payment-help-list {
+    display: grid;
+    gap: 14px;
+    margin-top: 20px;
+}
+
+.metro-payment-help-item {
+    display: grid;
+    grid-template-columns: 38px 1fr;
+    gap: 12px;
+    align-items: start;
+    padding: 15px;
+    border-radius: 14px;
+    background: var(--metro-secondary);
+}
+
+.metro-payment-help-icon {
+    width: 38px;
+    height: 38px;
+    display: grid;
+    place-items: center;
+    border-radius: 50%;
+    background: #fff;
+    color: var(--metro-primary);
+}
+
+.metro-payment-help-item strong {
+    display: block;
+    margin-bottom: 4px;
+    font-size: .88rem;
+}
+
+.metro-payment-help-item p {
+    margin: 0;
+    font-size: .8rem;
+    line-height: 1.55;
+}
+
+.metro-payment-help-item a {
+    color: var(--metro-primary);
+    font-weight: 700;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+}
+
+.metro-payment-section-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 24px;
+    margin-top: 30px;
+    margin-bottom: 20px;
+}
+
+.metro-payment-section-head h3 {
+    margin: 0;
+    font-size: 1.5rem;
+}
+
+.metro-payment-secure-note {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    max-width: 290px;
+    padding: 10px 13px;
+    border-radius: 12px;
+    background: #f4f5f5;
+    color: var(--metro-text);
+    font-size: .78rem;
+    font-weight: 600;
+    line-height: 1.45;
+}
+
+/*
+ * paymentPageChannels is populated dynamically by app.js.
+ * Style the generated children generically without changing JS.
+ */
+.metro-payment-channels,
+#paymentPageChannels {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 18px;
+}
+
+/* First-level generated cards */
+#paymentPageChannels > * {
+    min-width: 0;
+    border: 1px solid var(--metro-border) !important;
+    border-radius: 18px !important;
+    background: #fff !important;
+    box-shadow: none !important;
+    overflow: hidden;
+}
+
+/* Generated QR / payment images */
+#paymentPageChannels img {
+    max-width: 100%;
+    height: auto;
+    object-fit: contain;
+    border-radius: 12px;
+}
+
+/* Normalize generated buttons */
+#paymentPageChannels button,
+#paymentPageChannels .btn {
+    border-radius: 999px;
+}
+
+/* Normalize inputs if the dynamic channel UI contains any. */
+#paymentPageChannels input,
+#paymentPageChannels select,
+#paymentPageChannels textarea {
+    width: 100%;
+    min-height: 44px;
+    border: 0;
+    border-bottom: 1px solid var(--metro-border);
+    border-radius: 0;
+    background: transparent;
+    color: var(--metro-primary);
+    outline: 0;
+}
+
+#paymentPageChannels input:focus,
+#paymentPageChannels select:focus,
+#paymentPageChannels textarea:focus {
+    border-bottom-color: var(--metro-primary);
+}
+
+/* Hide any old Tailwind-driven gap assumptions if the dynamic renderer adds them. */
+#paymentPageChannels.mt-4 {
+    margin-top: 0 !important;
+}
+
+/* Responsive */
+@media (max-width: 760px) {
+    .metro-payment-section-head {
+        flex-direction: column;
+    }
+
+    .metro-payment-secure-note {
+        max-width: none;
+    }
+
+    .metro-payment-channels,
+    #paymentPageChannels {
+        grid-template-columns: 1fr;
+    }
+}

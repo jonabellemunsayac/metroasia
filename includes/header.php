@@ -64,6 +64,19 @@ $memberCtaHref = app_url($currentMember ? 'ui/member.php' : 'ui/member-login.php
         <link rel="stylesheet" href="<?php echo htmlspecialchars(app_url('assets/themes/metro/theme.css')); ?>?v=<?php echo htmlspecialchars($assetVersion); ?>">
         <link rel="stylesheet" href="<?php echo htmlspecialchars(app_url('assets/themes/metro/header.css')); ?>?v=<?php echo htmlspecialchars($assetVersion); ?>">
         <link rel="stylesheet" href="<?php echo htmlspecialchars(app_url('assets/themes/metro/home.css')); ?>?v=<?php echo htmlspecialchars($assetVersion); ?>">
+        <?php if (in_array($active, ['booking', 'payment'], true)): ?>
+            <link
+                rel="stylesheet"
+                href="<?php echo htmlspecialchars(app_url('assets/themes/metro/booking.css')); ?>?v=<?php echo htmlspecialchars($assetVersion); ?>"
+            >
+        <?php endif; ?>
+
+        <?php if ($active === 'payment'): ?>
+            <link
+                rel="stylesheet"
+                href="<?php echo htmlspecialchars(app_url('assets/themes/metro/payment.css')); ?>?v=<?php echo htmlspecialchars($assetVersion); ?>"
+            >
+        <?php endif; ?>
         <link rel="stylesheet" href="<?php echo htmlspecialchars(app_url('assets/themes/metro/footer.css')); ?>?v=<?php echo htmlspecialchars($assetVersion); ?>">
     <?php endif; ?>
 </head>

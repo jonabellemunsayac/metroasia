@@ -207,18 +207,20 @@ if (trim((string) ($siteConfig['hero_image_path'] ?? '')) === '') {
                     <p>Create an account and keep your bookings organized in one place.</p>
 
                     <?php if ($currentMember): ?>
-                        <a href="<?php echo htmlspecialchars(app_url('ui/member.php')); ?>" class="metro-btn metro-btn-outline-dark">My Bookings</a>
+                        <a
+                            href="<?php echo htmlspecialchars(app_url('ui/member.php')); ?>"
+                            class="metro-btn metro-btn-outline-dark"
+                        >
+                            My Bookings
+                        </a>
                     <?php else: ?>
-                        <a href="<?php echo htmlspecialchars(app_url('ui/register.php')); ?>" class="metro-btn metro-btn-outline-dark">Become a Member Today</a>
+                        <a
+                            href="<?php echo htmlspecialchars(app_url('ui/register.php')); ?>"
+                            class="metro-btn metro-btn-outline-dark"
+                        >
+                            Become a Member Today
+                        </a>
                     <?php endif; ?>
-                </div>
-
-                <div class="metro-membership-price">
-                    <div class="metro-price-circle">
-                        <strong>PLAY</strong>
-                        <span>MORE</span>
-                    </div>
-                    <small>MEMBER</small>
                 </div>
 
                 <div class="metro-membership-description">
@@ -231,10 +233,25 @@ if (trim((string) ($siteConfig['hero_image_path'] ?? '')) === '') {
             </div>
 
             <div class="metro-membership-benefits">
-                <article><h3>Online Court Access</h3><p>Reserve available court schedules online.</p></article>
-                <article><h3>Booking History</h3><p>Review your previous and upcoming reservations.</p></article>
-                <article><h3>Payment Tracking</h3><p>Upload proof and follow reservation status.</p></article>
-                <article><h3>Member Convenience</h3><p>Keep your court activity connected to one account.</p></article>
+                <article>
+                    <h3>Online Court Access</h3>
+                    <p>Reserve available court schedules online.</p>
+                </article>
+
+                <article>
+                    <h3>Booking History</h3>
+                    <p>Review your previous and upcoming reservations.</p>
+                </article>
+
+                <article>
+                    <h3>Payment Tracking</h3>
+                    <p>Upload proof and follow reservation status.</p>
+                </article>
+
+                <article>
+                    <h3>Member Convenience</h3>
+                    <p>Keep your court activity connected to one account.</p>
+                </article>
             </div>
         </div>
     </section>
