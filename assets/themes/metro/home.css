@@ -17,7 +17,8 @@
 /* HERO */
 .metro-home-hero {
     min-height: 786px;
-    margin-top: -96px;
+    /* margin-top: -96px; */
+    margin-top: 0;
     padding: 0 0 100px;
     display: flex;
     align-items: flex-end;
@@ -413,3 +414,48 @@
         justify-self: start;
     }
 }
+
+/*
+ * Make the hero + lime ticker behave as the complete first-screen composition.
+ * 112px is the approximate desktop height of the lime strip.
+ */
+@media (min-width: 1001px) {
+    .metro-home-hero {
+        min-height: calc(100vh - 112px);
+        padding-bottom: 72px;
+    }
+
+    .metro-experience-strip {
+        min-height: 112px;
+        margin: 0;
+        padding: 0;
+        display: flex;
+        align-items: center;
+    }
+}
+
+/* Ensure the lime bar touches both viewport edges with no inherited spacing. */
+.metro-experience-strip {
+    width: 100%;
+    margin: 0;
+    border: 0;
+}
+
+.metro-experience-track {
+    margin: 0;
+}
+
+/* Tablet/mobile: header height changes, so use natural content sizing. */
+@media (max-width: 1000px) {
+    .metro-home-hero {
+        margin-top: 0;
+        min-height: 650px;
+    }
+}
+
+@media (max-width: 640px) {
+    .metro-home-hero {
+        min-height: 700px;
+    }
+}
+

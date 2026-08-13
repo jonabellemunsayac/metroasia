@@ -64,9 +64,6 @@ if (trim((string) ($siteConfig['hero_image_path'] ?? '')) === '') {
                     <a href="<?php echo htmlspecialchars(app_url('ui/booking.php')); ?>" class="metro-btn metro-btn-accent">
                         Book a Court
                     </a>
-                    <a href="#facilities" class="metro-btn metro-btn-light">
-                        Open Play
-                    </a>
                 </div>
             </div>
 
