@@ -459,3 +459,67 @@
     }
 }
 
+/*
+ * Current rule uses margin-left:auto, which pushes the small image
+ * all the way to the right side of the text column.
+ *
+ * Align it with the heading/text instead.
+ */
+.metro-about-small {
+    margin-left: 0;
+    margin-right: auto;
+    margin-bottom: 34px;
+}
+
+/*
+ * Keep the copy column visually grouped so the image,
+ * heading, paragraph, features and buttons share the same left edge.
+ */
+.metro-about-copy {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+}
+
+/*
+ * Prevent text blocks from becoming unexpectedly stretched
+ * by the flex layout above.
+ */
+.metro-about-copy h2,
+.metro-about-copy > p,
+.metro-about-copy .metro-about-divider,
+.metro-about-copy .metro-feature-row,
+.metro-about-copy .metro-actions {
+    width: 100%;
+}
+
+/* Keep the image proportional and closer to the ThemeForest composition. */
+.metro-about-small {
+    width: 240px;
+    height: 150px;
+    flex: 0 0 auto;
+    background-size: cover;
+    background-position: center;
+}
+
+/* Tablet */
+@media (max-width: 1000px) {
+    .metro-about-small {
+        width: 220px;
+        height: 135px;
+        margin-left: 0;
+    }
+}
+
+/* Mobile */
+@media (max-width: 640px) {
+    .metro-about-small {
+        width: min(58%, 220px);
+        min-width: 170px;
+        height: 110px;
+        margin-left: 0;
+        margin-right: 0;
+        margin-bottom: 24px;
+    }
+}
+

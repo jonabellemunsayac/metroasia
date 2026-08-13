@@ -100,6 +100,12 @@ if ($useAdminShell):
     src="<?php echo htmlspecialchars(app_url('assets/js/app.js')); ?>?v=<?php echo htmlspecialchars($assetVersion); ?>"
 ></script>
 
+<?php if (($active ?? '') === 'booking'): ?>
+<script
+    src="<?php echo htmlspecialchars(app_url('assets/js/mobile-booking.js')); ?>?v=<?php echo htmlspecialchars($assetVersion); ?>"
+></script>
+<?php endif; ?>
+
 <?php if (!$useAdminShell): ?>
     <!-- Mobile public navigation + Metro theme behavior. -->
     <script

@@ -1,0 +1,301 @@
+@media (max-width: 700px) {
+
+  .booking-grid-mobile {
+    display: grid !important;
+    grid-template-columns: 1fr !important;
+    min-width: 0 !important;
+    width: 100%;
+    gap: 12px;
+  }
+
+  .metro-booking-grid-shell {
+    margin-top: 22px;
+    margin-inline: 0;
+    padding: 0;
+    overflow: visible;
+    border: 0;
+    background: transparent;
+  }
+
+  #bookingGrid.booking-grid-mobile {
+    min-width: 0 !important;
+    overflow: visible;
+  }
+
+  .mobile-time-card {
+    overflow: hidden;
+    border: 1px solid var(--metro-border);
+    border-radius: 18px;
+    background: #fff;
+    box-shadow: 0 8px 24px rgba(2, 20, 33, .05);
+
+    transition:
+      border-color .18s ease,
+      box-shadow .18s ease;
+  }
+
+  /*
+   * Entire header is the toggle.
+   * No arrow/icon is shown.
+   */
+  .mobile-time-card-toggle {
+    width: 100%;
+    min-height: 76px;
+
+    padding: 14px 16px;
+
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+
+    gap: 16px;
+
+    border: 0;
+
+    background: #f6f7f7;
+    color: var(--metro-primary);
+
+    text-align: left;
+    cursor: pointer;
+
+    transition:
+      background-color .18s ease,
+      color .18s ease;
+  }
+
+  /*
+   * Desktop mouse hover:
+   * softly highlight the whole time-slot header.
+   */
+  @media (hover: hover) and (pointer: fine) {
+    .mobile-time-card-toggle:hover {
+      background: var(--metro-accent);
+    }
+  }
+
+  /*
+   * Open state:
+   * keep it highlighted so the user immediately knows
+   * which accordion is expanded.
+   */
+  .mobile-time-card.is-open {
+    border-color: rgba(2, 20, 33, .35);
+    box-shadow: 0 10px 28px rgba(2, 20, 33, .09);
+  }
+
+  .mobile-time-card.is-open .mobile-time-card-toggle {
+    background: var(--metro-accent);
+  }
+
+  /*
+   * Keyboard accessibility.
+   */
+  .mobile-time-card-toggle:focus-visible {
+    outline: 3px solid rgba(213, 242, 45, .55);
+    outline-offset: -3px;
+  }
+
+  /*
+   * Touch feedback.
+   */
+  .mobile-time-card-toggle:active {
+    background: var(--metro-accent-hover);
+  }
+
+  .mobile-time-card-header-main {
+    min-width: 0;
+
+    display: grid;
+    gap: 2px;
+  }
+
+  .mobile-time-kicker {
+    color: var(--metro-text);
+
+    font-size: .65rem;
+    font-weight: 700;
+
+    letter-spacing: .11em;
+    text-transform: uppercase;
+  }
+
+  .mobile-time-card.is-open .mobile-time-kicker {
+    color: rgba(2, 20, 33, .68);
+  }
+
+  .mobile-time-card-header-main > strong {
+    font-size: 1rem;
+    line-height: 1.2;
+  }
+
+  .mobile-time-availability {
+    margin-top: 2px;
+
+    color: var(--metro-text);
+
+    font-size: .69rem;
+    font-weight: 600;
+  }
+
+  .mobile-time-card.is-open .mobile-time-availability {
+    color: rgba(2, 20, 33, .72);
+  }
+
+  .mobile-time-from {
+    flex: 0 0 auto;
+    text-align: right;
+  }
+
+  .mobile-time-from small {
+    display: block;
+
+    color: var(--metro-text);
+
+    font-size: .62rem;
+    font-weight: 700;
+
+    text-transform: uppercase;
+  }
+
+  .mobile-time-from strong {
+    display: block;
+
+    color: var(--metro-primary);
+
+    font-size: .95rem;
+    line-height: 1.2;
+  }
+
+  /*
+   * Explicitly remove old accordion icon if cached markup/css remains.
+   */
+  .mobile-accordion-icon {
+    display: none !important;
+  }
+
+  .mobile-time-card-panel[hidden] {
+    display: none !important;
+  }
+
+  .mobile-time-card-panel {
+    border-top: 1px solid var(--metro-border);
+    background: #fff;
+  }
+
+  .mobile-time-card-courts {
+    display: grid;
+    gap: 9px;
+
+    padding: 12px;
+  }
+
+  .mobile-court-slot {
+    width: 100%;
+    min-height: 58px;
+
+    padding: 10px 12px;
+
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+
+    gap: 12px;
+
+    border: 1px solid var(--metro-border);
+    border-radius: 13px;
+
+    background: #fff;
+    color: var(--metro-primary);
+
+    text-align: left;
+  }
+
+  .mobile-court-slot-main {
+    min-width: 0;
+
+    display: grid;
+    gap: 2px;
+  }
+
+  .mobile-court-name {
+    font-size: .86rem;
+    font-weight: 700;
+  }
+
+  .mobile-court-price {
+    color: var(--metro-text);
+
+    font-size: .74rem;
+    font-weight: 600;
+  }
+
+  .mobile-court-slot-state {
+    flex: 0 0 auto;
+
+    padding: 6px 9px;
+
+    border-radius: 999px;
+
+    font-size: .68rem;
+    font-weight: 700;
+  }
+
+  .mobile-slot-available .mobile-court-slot-state,
+  .mobile-slot-selected .mobile-court-slot-state {
+    background: var(--metro-accent);
+    color: var(--metro-primary);
+  }
+
+  .mobile-slot-selected {
+    border-color: var(--metro-primary);
+
+    background: var(--metro-primary);
+    color: #fff;
+  }
+
+  .mobile-slot-selected .mobile-court-price {
+    color: rgba(255,255,255,.72);
+  }
+
+  .mobile-slot-booked {
+    background: #f1f3f4;
+    color: #778087;
+  }
+
+  .mobile-slot-booked .mobile-court-slot-state {
+    background: #e1e5e8;
+    color: #6f787e;
+  }
+
+  .mobile-slot-unavailable {
+    background: #fafafa;
+    color: #a4aaae;
+  }
+
+  .mobile-slot-unavailable .mobile-court-slot-state {
+    background: #f0f1f1;
+    color: #92999e;
+  }
+}
+
+@media (max-width: 390px) {
+  .mobile-time-card-toggle {
+    padding-inline: 12px;
+  }
+
+  .mobile-time-card-courts {
+    padding: 10px;
+  }
+
+  .mobile-time-card-header-main > strong {
+    font-size: .92rem;
+  }
+
+  .mobile-time-from strong {
+    font-size: .88rem;
+  }
+
+  .mobile-court-name {
+    font-size: .8rem;
+  }
+}
