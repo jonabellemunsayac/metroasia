@@ -2,10 +2,6 @@
 $pageTitle = 'Metro Asia Arena';
 $active = 'home';
 
-/*
- * Keep the existing shared header so all current application bootstrap,
- * authentication/session state, helpers, navigation, and shared assets remain intact.
- */
 include __DIR__ . '/../includes/header.php';
 
 $siteConfig = site_config();
@@ -13,271 +9,339 @@ $galleryItems = site_config_gallery($siteConfig);
 $messengerUrl = trim((string) ($siteConfig['messenger_url'] ?? ''));
 $contactHref = $messengerUrl !== '' ? $messengerUrl : app_url('ui/contact.php');
 
-$heroImage = site_asset_url((string) ($siteConfig['hero_image_path'] ?? 'assets/homepage-court.jpg'));
 $venueName = trim((string) ($siteConfig['venue_name'] ?? 'MetroAsia Arena'));
 $venueName = $venueName !== '' ? $venueName : 'MetroAsia Arena';
-?>
 
-<!--
-    Pickyard / Metro theme styles.
-    These paths assume this file remains at MULTISPORTSPASS/ui/index.php.
-    Copy the CSS files from the regenerated starter into assets/themes/metro/.
--->
-<link rel="stylesheet" href="<?php echo htmlspecialchars(app_url('assets/themes/metro/theme.css')); ?>">
-<link rel="stylesheet" href="<?php echo htmlspecialchars(app_url('assets/themes/metro/home.css')); ?>">
+/*
+ * ThemeForest visual-reference assets.
+ * These URLs come from the purchased Pickyard demo referenced by home.json.
+ * For production, download/use only assets covered by your license and replace
+ * these with local files under assets/images/themeforest/.
+ */
+$tf = [
+    'hero' => 'https://demo.zaktheme.web.id/Pickyard/wp-content/uploads/2025/11/female-paddle-tennis-player-hitting-the-ball-durin-2024-12-13-18-20-43-utc.webp',
+    'about_main' => 'https://demo.zaktheme.web.id/Pickyard/wp-content/uploads/2025/11/male-athlete-playing-mixed-doubles-on-paddle-tenni-2024-12-13-18-45-30-utc.jpg',
+    'about_small' => 'https://demo.zaktheme.web.id/Pickyard/wp-content/uploads/2025/11/paddle-tennis-equipment-on-the-ground-at-outdoor-c-2024-12-13-18-15-20-utc-1.webp',
+    'service_1' => 'https://demo.zaktheme.web.id/Pickyard/wp-content/uploads/2025/11/black-woman-serving-the-ball-while-playing-paddle-2024-12-13-18-33-41-utc.jpg',
+    'service_2' => 'https://demo.zaktheme.web.id/Pickyard/wp-content/uploads/2025/11/multiracial-group-of-athletes-playing-paddle-tenni-2024-12-13-16-42-59-utc.webp',
+    'service_3' => 'https://demo.zaktheme.web.id/Pickyard/wp-content/uploads/2025/11/boy-playing-padel-on-court-2025-04-03-04-53-55-utc.webp',
+    'service_4' => 'https://demo.zaktheme.web.id/Pickyard/wp-content/uploads/2025/11/paddle-tennis-instructor-and-female-athlete-having-2024-12-13-19-46-12-utc.webp',
+    'facility' => 'https://demo.zaktheme.web.id/Pickyard/wp-content/uploads/2025/11/black-woman-serving-the-ball-while-playing-paddle-2024-12-13-18-33-41-utc.jpg',
+    'testimonial' => 'https://demo.zaktheme.web.id/Pickyard/wp-content/uploads/2025/11/happy-athletic-woman-enjoying-in-playing-paddle-te-2024-12-13-18-15-44-utc.webp',
+    'avatar_1' => 'https://demo.zaktheme.web.id/Pickyard/wp-content/uploads/2025/11/testi-image-5.jpg',
+    'avatar_2' => 'https://demo.zaktheme.web.id/Pickyard/wp-content/uploads/2025/11/testi-image-18.jpg',
+    'avatar_3' => 'https://demo.zaktheme.web.id/Pickyard/wp-content/uploads/2025/11/testi-image-8.jpg',
+    'usp_1' => 'https://demo.zaktheme.web.id/Pickyard/wp-content/uploads/2025/11/Pickleball-Court-v2.png',
+    'usp_2' => 'https://demo.zaktheme.web.id/Pickyard/wp-content/uploads/2025/11/Pickleball-Player.png',
+    'usp_3' => 'https://demo.zaktheme.web.id/Pickyard/wp-content/uploads/2025/11/Pickleball-Community.png',
+    'usp_4' => 'https://demo.zaktheme.web.id/Pickyard/wp-content/uploads/2025/11/Pickleball-Tournament.png',
+    'usp_5' => 'https://demo.zaktheme.web.id/Pickyard/wp-content/uploads/2025/11/Pickleball-Games.png',
+    'usp_6' => 'https://demo.zaktheme.web.id/Pickyard/wp-content/uploads/2025/11/Serve-v2.png',
+    'cta' => 'https://demo.zaktheme.web.id/Pickyard/wp-content/uploads/2025/11/close-up-of-man-serving-during-padel-tennis-match-2024-12-13-18-48-42-utc.webp',
+];
+
+$heroImage = site_asset_url((string) ($siteConfig['hero_image_path'] ?? ''));
+if (trim((string) ($siteConfig['hero_image_path'] ?? '')) === '') {
+    $heroImage = $tf['hero'];
+}
+?>
 
 <main class="metro-home-page">
 
-    <!-- HERO -->
+    <!-- HERO: mirrors Pickyard hero composition -->
     <section
         id="welcome"
-        class="metro-hero"
-        aria-label="<?php echo htmlspecialchars($venueName); ?> home screen"
+        class="metro-hero metro-home-hero"
         style="background-image:url('<?php echo htmlspecialchars($heroImage, ENT_QUOTES); ?>')"
+        aria-label="<?php echo htmlspecialchars($venueName); ?> home"
     >
         <div class="metro-container metro-hero-inner">
             <div class="metro-hero-copy">
-                <span class="metro-eyebrow">Welcome to <?php echo htmlspecialchars($venueName); ?></span>
+                <h1>Where Passion Meets Performance</h1>
+                <p>MetroAsia Arena is open daily and ready for your next game.</p>
 
-                <h1>Where Every Game Begins</h1>
+                <div class="metro-actions">
+                    <a href="<?php echo htmlspecialchars(app_url('ui/booking.php')); ?>" class="metro-btn metro-btn-accent">
+                        Book a Court
+                    </a>
+                    <a href="#facilities" class="metro-btn metro-btn-light">
+                        Open Play
+                    </a>
+                </div>
+            </div>
 
+            <div class="metro-community-card">
+                <div class="metro-community-top">
+                    <div class="metro-avatar-stack" aria-hidden="true">
+                        <img src="<?php echo htmlspecialchars($tf['avatar_1']); ?>" alt="">
+                        <img src="<?php echo htmlspecialchars($tf['avatar_2']); ?>" alt="">
+                        <img src="<?php echo htmlspecialchars($tf['avatar_3']); ?>" alt="">
+                    </div>
+                    <span class="metro-round-arrow">↗</span>
+                </div>
+                <strong>Open Daily</strong>
+                <span>Court reservations</span>
+                <p>A growing community of players across multiple sports and skill levels.</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- TEXT STRIP -->
+    <section class="metro-experience-strip" aria-hidden="true">
+        <div class="metro-experience-track">
+            <span>Experience MetroAsia</span><i>✦</i>
+            <span>Experience MetroAsia</span><i>✦</i>
+            <span>Experience MetroAsia</span><i>✦</i>
+        </div>
+    </section>
+
+    <!-- ABOUT -->
+    <section id="about" class="metro-section metro-about-section">
+        <div class="metro-container metro-about">
+            <div class="metro-about-visual">
+                <div class="metro-about-main" style="background-image:url('<?php echo htmlspecialchars($tf['about_main'], ENT_QUOTES); ?>')"></div>
+            </div>
+
+            <div class="metro-about-copy">
+                <div class="metro-about-small" style="background-image:url('<?php echo htmlspecialchars($tf['about_small'], ENT_QUOTES); ?>')"></div>
+
+                <h2>Where Energy Meets Elegance</h2>
                 <p>
-                    <?php echo htmlspecialchars($venueName); ?> is open daily and ready for your next game.
-                    Reserve your preferred court and schedule through our online booking facility.
+                    <?php echo htmlspecialchars($venueName); ?> is more than a place to reserve a court.
+                    It is a multi-sport destination designed for players who want a smooth,
+                    social, and convenient playing experience.
+                </p>
+
+                <div class="metro-about-divider"></div>
+
+                <div class="metro-feature-row">
+                    <span><b>✓</b> Fun for all levels</span>
+                    <span><b>✓</b> Inclusive &amp; social</span>
+                    <span><b>✓</b> Easy to book</span>
+                </div>
+
+                <p class="metro-about-note">
+                    Reserve your preferred sport, court, date, and time through one simple online booking flow.
                 </p>
 
                 <div class="metro-actions">
-                    <a
-                        href="<?php echo htmlspecialchars(app_url('ui/booking.php')); ?>"
-                        class="metro-btn metro-btn-accent"
-                    >
-                        Book Now
-                    </a>
-
-                    <a href="#facilities" class="metro-btn metro-btn-light">
-                        View Courts
-                    </a>
+                    <a href="#difference" class="metro-btn metro-btn-accent">About Us</a>
+                    <a href="#facilities" class="metro-btn metro-btn-outline-dark">View Amenities</a>
                 </div>
-            </div>
-
-            <aside class="metro-hero-card">
-                <span class="metro-eyebrow">Play. Connect. Compete.</span>
-                <strong>Open Daily</strong>
-                <p>
-                    Choose your preferred court, date, and time, then complete your reservation online.
-                </p>
-            </aside>
-        </div>
-    </section>
-
-    <!-- PICKYARD-STYLE TICKER -->
-    <div class="metro-ticker" aria-hidden="true">
-        <div class="metro-ticker-track">
-            <span>Experience MetroAsia Arena ✦</span>
-            <span>Book Your Court ✦</span>
-            <span>Play Your Game ✦</span>
-            <span>Experience MetroAsia Arena ✦</span>
-        </div>
-    </div>
-
-    <!-- ABOUT / INTRO -->
-    <section id="about" class="metro-section">
-        <div class="metro-container metro-about">
-            <div
-                class="metro-about-image"
-                style="background-image:url('<?php echo htmlspecialchars(app_url('assets/courts-preview.png'), ENT_QUOTES); ?>')"
-                role="img"
-                aria-label="Metro Asia Arena courts"
-            ></div>
-
-            <div>
-                <span class="metro-eyebrow">About MetroAsia Arena</span>
-                <h2>Where Energy Meets the Court</h2>
-
-                <p>
-                    <?php echo htmlspecialchars($venueName); ?> brings indoor pickleball, basketball,
-                    and volleyball to Pasig with covered courts, clear online reservations,
-                    and simple payment confirmation.
-                </p>
-
-                <div class="metro-points">
-                    <span class="metro-point">Easy online booking</span>
-                    <span class="metro-point">Flexible court schedules</span>
-                    <span class="metro-point">Member account access</span>
-                </div>
-
-                <p>
-                    Select your sport, court, date, and preferred time through one streamlined booking flow.
-                </p>
-
-                <a
-                    href="<?php echo htmlspecialchars(app_url('ui/booking.php')); ?>"
-                    class="metro-btn metro-btn-accent"
-                >
-                    Check Availability
-                </a>
             </div>
         </div>
     </section>
 
-    <!-- BOOK / PLAY / CONFIRM -->
-    <section class="metro-section">
-        <div class="metro-container metro-soft metro-programs">
+    <!-- SERVICES / PLAY OPTIONS -->
+    <section class="metro-home-block metro-services-block">
+        <div class="metro-container metro-panel metro-services-panel">
             <div class="metro-heading">
-                <span class="metro-eyebrow">Simple Court Booking</span>
-                <h2>Book. Play. Confirm.</h2>
-                <p>
-                    Everything you need to reserve a court and keep track of your booking.
-                </p>
+                <h2>From First Game to Match Day</h2>
+                <p>Choose how you want to play and reserve the court time that fits your schedule.</p>
             </div>
 
-            <div class="metro-grid-4">
-                <article class="metro-card">
-                    <div class="metro-card-body">
-                        <h3>Book a Court</h3>
-                        <p>Select your sport, court, date, and available time slot.</p>
-                        <a href="<?php echo htmlspecialchars(app_url('ui/booking.php')); ?>">Book Now →</a>
-                    </div>
+            <div class="metro-service-grid">
+                <article class="metro-service-card">
+                    <img src="<?php echo htmlspecialchars($tf['service_1']); ?>" alt="Open play">
+                    <h3>Open Play</h3>
+                    <p>Reserve a court for casual games with friends, family, or teammates.</p>
                 </article>
 
-                <article class="metro-card">
-                    <div class="metro-card-body">
-                        <h3>Play Your Game</h3>
-                        <p>Enjoy dedicated pickleball courts plus multi-sport courts for basketball and volleyball.</p>
-                        <a href="<?php echo htmlspecialchars(app_url('ui/rules.php')); ?>">View Rules →</a>
-                    </div>
+                <article class="metro-service-card">
+                    <img src="<?php echo htmlspecialchars($tf['service_2']); ?>" alt="Group games">
+                    <h3>Group Games</h3>
+                    <p>Organize group sessions and enjoy dedicated court time together.</p>
                 </article>
 
-                <article class="metro-card">
-                    <div class="metro-card-body">
-                        <h3>Confirm Payment</h3>
-                        <p>Upload your payment proof and keep your reservation moving toward confirmation.</p>
-                        <a href="<?php echo htmlspecialchars(app_url('ui/payment.php')); ?>">Payment →</a>
-                    </div>
+                <article class="metro-service-card">
+                    <img src="<?php echo htmlspecialchars($tf['service_3']); ?>" alt="Multi-sport play">
+                    <h3>Multi-Sport Play</h3>
+                    <p>Book available pickleball, basketball, and volleyball court schedules.</p>
                 </article>
 
-                <article class="metro-card">
-                    <div class="metro-card-body">
-                        <h3>My Bookings</h3>
-                        <p>Members can review reservation details, status, and booking history.</p>
-                        <a href="<?php echo htmlspecialchars(app_url($currentMember ? 'ui/member.php' : 'login.php')); ?>">
-                            <?php echo $currentMember ? 'Open My Account' : 'Sign In'; ?> →
-                        </a>
-                    </div>
+                <article class="metro-service-card">
+                    <img src="<?php echo htmlspecialchars($tf['service_4']); ?>" alt="Member play">
+                    <h3>Member Play</h3>
+                    <p>Sign in to manage bookings, payment status, and reservation history.</p>
                 </article>
             </div>
         </div>
     </section>
 
     <!-- FACILITIES -->
-    <section id="facilities" class="metro-section">
-        <div class="metro-container metro-facility">
-            <div
-                class="metro-facility-image"
-                style="background-image:url('<?php echo htmlspecialchars(app_url('assets/courts-preview.png'), ENT_QUOTES); ?>')"
-                role="img"
-                aria-label="Court facilities"
-            ></div>
+    <section id="facilities" class="metro-home-block">
+        <div class="metro-container metro-facilities">
+            <div class="metro-facility-photo" style="background-image:url('<?php echo htmlspecialchars($tf['facility'], ENT_QUOTES); ?>')">
+                <span class="metro-play-button" aria-hidden="true">▶</span>
+            </div>
 
-            <div class="metro-facility-copy">
-                <span class="metro-eyebrow">Our Facilities</span>
-                <h2>Built for Better Games</h2>
-                <p>
-                    Reserve covered courts with an organized online process designed for both guests and members.
-                </p>
+            <div class="metro-facility-content">
+                <h2>Our Facilities</h2>
+                <p>Step into a venue built around a better court experience:</p>
 
-                <ul class="metro-list">
-                    <li>Pickleball court reservations</li>
+                <ul>
+                    <li>Dedicated pickleball court reservations</li>
                     <li>Basketball and volleyball court options</li>
-                    <li>Online schedule selection</li>
-                    <li>Member and guest booking</li>
-                    <li>Payment proof and booking status tracking</li>
+                    <li>Easy online schedule selection</li>
+                    <li>Member and guest reservation flows</li>
+                    <li>Payment confirmation and booking status tracking</li>
                 </ul>
 
-                <a
-                    href="<?php echo htmlspecialchars(app_url('ui/booking.php')); ?>"
-                    class="metro-btn metro-btn-accent"
-                >
-                    Book a Court
+                <p class="metro-facility-note">
+                    Everything is designed to make your reservation experience clear, convenient, and organized.
+                </p>
+
+                <a href="<?php echo htmlspecialchars(app_url('ui/booking.php')); ?>" class="metro-btn metro-btn-accent">
+                    Get Started Now
                 </a>
             </div>
         </div>
     </section>
 
-    <!-- MEMBER EXPERIENCE -->
-    <section class="metro-section">
-        <div class="metro-container metro-membership">
-            <div>
-                <span class="metro-eyebrow">Membership</span>
-                <h2>One Account. More Ways to Play.</h2>
-                <p>
-                    Create a member account to manage your reservations and review your booking history.
-                </p>
+    <!-- MEMBERSHIP -->
+    <section class="metro-section metro-membership-section">
+        <div class="metro-container">
+            <div class="metro-membership-top">
+                <div class="metro-membership-intro">
+                    <h2>One Membership,<br>Endless Play</h2>
+                    <p>Create an account and keep your bookings organized in one place.</p>
 
-                <?php if ($currentMember): ?>
-                    <a
-                        href="<?php echo htmlspecialchars(app_url('ui/member.php')); ?>"
-                        class="metro-btn metro-btn-accent"
-                    >
-                        My Bookings
-                    </a>
-                <?php else: ?>
-                    <a
-                        href="<?php echo htmlspecialchars(app_url('ui/register.php')); ?>"
-                        class="metro-btn metro-btn-accent"
-                    >
-                        Register
-                    </a>
-                <?php endif; ?>
+                    <?php if ($currentMember): ?>
+                        <a href="<?php echo htmlspecialchars(app_url('ui/member.php')); ?>" class="metro-btn metro-btn-outline-dark">My Bookings</a>
+                    <?php else: ?>
+                        <a href="<?php echo htmlspecialchars(app_url('ui/register.php')); ?>" class="metro-btn metro-btn-outline-dark">Become a Member Today</a>
+                    <?php endif; ?>
+                </div>
+
+                <div class="metro-membership-price">
+                    <div class="metro-price-circle">
+                        <strong>PLAY</strong>
+                        <span>MORE</span>
+                    </div>
+                    <small>MEMBER</small>
+                </div>
+
+                <div class="metro-membership-description">
+                    <h3>MetroAsia member access</h3>
+                    <p>
+                        Manage bookings, upload payment proof, review reservation status,
+                        and keep your booking history accessible from your account.
+                    </p>
+                </div>
             </div>
 
-            <div class="metro-circle">PLAY<br>MORE</div>
+            <div class="metro-membership-benefits">
+                <article><h3>Online Court Access</h3><p>Reserve available court schedules online.</p></article>
+                <article><h3>Booking History</h3><p>Review your previous and upcoming reservations.</p></article>
+                <article><h3>Payment Tracking</h3><p>Upload proof and follow reservation status.</p></article>
+                <article><h3>Member Convenience</h3><p>Keep your court activity connected to one account.</p></article>
+            </div>
+        </div>
+    </section>
 
-            <div>
-                <h3><?php echo $currentMember ? 'Welcome Back' : 'Already a Member?'; ?></h3>
-                <p>
-                    <?php echo $currentMember
-                        ? 'Open your account to review and manage your court reservations.'
-                        : 'Sign in to access your bookings and reservation history.'; ?>
-                </p>
-
-                <a href="<?php echo htmlspecialchars(app_url($currentMember ? 'ui/member.php' : 'ui/member-login.php')); ?>">
-                    <?php echo $currentMember ? 'Open Account' : 'Member Login'; ?> →
-                </a>
+    <!-- TESTIMONIALS -->
+    <section class="metro-section metro-testimonials-section">
+        <div class="metro-container">
+            <div class="metro-heading">
+                <h2>What Players Can Expect</h2>
             </div>
 
-            <div class="metro-benefits">
-                <div class="metro-benefit">
-                    <h3>Easy Booking</h3>
-                    <p>Reserve available schedules online.</p>
+            <div class="metro-testimonial-layout">
+                <div class="metro-rating-card">
+                    <img class="metro-rating-photo" src="<?php echo htmlspecialchars($tf['testimonial']); ?>" alt="Player at the court">
+                    <div class="metro-rating-bottom">
+                        <div class="metro-avatar-stack">
+                            <img src="<?php echo htmlspecialchars($tf['avatar_1']); ?>" alt="">
+                            <img src="<?php echo htmlspecialchars($tf['avatar_2']); ?>" alt="">
+                            <img src="<?php echo htmlspecialchars($tf['avatar_3']); ?>" alt="">
+                        </div>
+                        <strong>4.9</strong>
+                        <span>★★★★★<small> Player experience</small></span>
+                    </div>
                 </div>
 
-                <div class="metro-benefit">
-                    <h3>My Bookings</h3>
-                    <p>Review upcoming reservations in one place.</p>
-                </div>
-
-                <div class="metro-benefit">
-                    <h3>Booking History</h3>
-                    <p>Keep track of previous court reservations.</p>
-                </div>
-
-                <div class="metro-benefit">
-                    <h3>Account Access</h3>
-                    <p>Manage your member information and booking activity.</p>
+                <div class="metro-quotes">
+                    <blockquote>
+                        “The online booking process makes it simple to choose a court and schedule.”
+                        <cite>Easy reservation flow</cite>
+                    </blockquote>
+                    <blockquote>
+                        “Members can quickly check their bookings and reservation status in one place.”
+                        <cite>Member-friendly access</cite>
+                    </blockquote>
+                    <blockquote>
+                        “The site is designed around getting players from schedule selection to the court.”
+                        <cite>Built for players</cite>
+                    </blockquote>
                 </div>
             </div>
         </div>
     </section>
 
-    <!-- EXISTING DYNAMIC GALLERY -->
+    <!-- USP -->
+    <section id="difference" class="metro-home-block">
+        <div class="metro-container metro-panel metro-difference-panel">
+            <div class="metro-difference-heading">
+                <h2>The MetroAsia Difference</h2>
+                <p>
+                    A modern multi-sport court experience blending convenient reservations,
+                    player access, and organized booking management.
+                </p>
+            </div>
+
+            <div class="metro-usp-grid">
+                <?php
+                $uspItems = [
+                    [$tf['usp_1'], 'Quality Courts', 'Court spaces prepared for organized and enjoyable play.'],
+                    [$tf['usp_2'], 'Player Focus', 'A customer-facing experience built around simple court access.'],
+                    [$tf['usp_3'], 'Vibrant Community', 'A place for casual players, groups, teams, and members.'],
+                    [$tf['usp_4'], 'Multi-Sport Energy', 'Support for pickleball, basketball, and volleyball reservations.'],
+                    [$tf['usp_5'], 'Seamless Booking', 'Reserve courts and manage bookings through one online platform.'],
+                    [$tf['usp_6'], 'Easy Access', 'Use guest or member flows depending on how you prefer to book.'],
+                ];
+                foreach ($uspItems as [$icon, $title, $description]):
+                ?>
+                    <article class="metro-usp-item">
+                        <img src="<?php echo htmlspecialchars($icon); ?>" alt="">
+                        <h3><?php echo htmlspecialchars($title); ?></h3>
+                        <p><?php echo htmlspecialchars($description); ?></p>
+                    </article>
+                <?php endforeach; ?>
+            </div>
+        </div>
+    </section>
+
+    <!-- CTA -->
+    <section class="metro-home-block">
+        <div class="metro-container metro-cta-card" style="background-image:url('<?php echo htmlspecialchars($tf['cta'], ENT_QUOTES); ?>')">
+            <div class="metro-cta-overlay"></div>
+            <div class="metro-cta-copy">
+                <h2>Ready to Play? Let's Hit the Court</h2>
+                <p>Book your next game in minutes.</p>
+                <a href="<?php echo htmlspecialchars(app_url('ui/booking.php')); ?>" class="metro-btn metro-btn-accent">
+                    Book Your Court
+                </a>
+            </div>
+        </div>
+    </section>
+
+    <!-- STATS -->
+    <section class="metro-stats-section">
+        <div class="metro-container metro-stats">
+            <div><strong>Daily</strong><span>Court Availability</span></div>
+            <div><strong>Online</strong><span>Reservation Access</span></div>
+            <div><strong>3</strong><span>Supported Sports</span></div>
+            <div><strong>Fast</strong><span>Booking Flow</span></div>
+        </div>
+    </section>
+
+    <!-- DYNAMIC GALLERY retained from the current application -->
     <?php if (!empty($galleryItems)): ?>
-        <section id="gallery" class="metro-section">
-            <div class="metro-container metro-soft metro-programs">
+        <section id="gallery" class="metro-section metro-gallery-section">
+            <div class="metro-container">
                 <div class="metro-heading">
                     <span class="metro-eyebrow">Gallery</span>
                     <h2>Inside the Arena</h2>
-                    <p>A closer look at the courts, playing areas, and facilities.</p>
                 </div>
 
                 <div class="landing-gallery-grid">
@@ -296,141 +360,42 @@ $venueName = $venueName !== '' ? $venueName : 'MetroAsia Arena';
         </section>
     <?php endif; ?>
 
-    <!-- METROASIA DIFFERENCE -->
-    <section class="metro-section">
-        <div class="metro-container metro-soft metro-difference">
-            <div class="metro-heading">
-                <span class="metro-eyebrow">Why MetroAsia</span>
-                <h2>The MetroAsia Difference</h2>
-                <p>
-                    A modern court-booking experience built around convenience, organized scheduling, and easier access.
-                </p>
-            </div>
+    <!-- CONTACT retained because it is dynamic in the existing app -->
+    <section id="contact-us" class="metro-section metro-contact-section">
+        <div class="metro-container landing-contact-grid">
+            <div>
+                <span class="metro-eyebrow">Contact Us</span>
+                <h2>Visit Metro Asia Arena</h2>
+                <p>Reserve online before you arrive, or use the location below to find the arena.</p>
 
-            <div class="metro-difference-grid">
-                <div class="metro-difference-item">
-                    <h3>Covered Courts</h3>
-                    <p>Enjoy facilities prepared for organized indoor play.</p>
+                <div class="contact-list">
+                    <p><i data-lucide="map-pin" class="icon-sm"></i><?php echo htmlspecialchars((string) $siteConfig['address']); ?></p>
+                    <p><i data-lucide="clock" class="icon-sm"></i>Open daily for scheduled court reservations</p>
+                    <p><i data-lucide="calendar-days" class="icon-sm"></i>Online booking and member account access available</p>
                 </div>
 
-                <div class="metro-difference-item">
-                    <h3>Easy Scheduling</h3>
-                    <p>Check availability before choosing your preferred time.</p>
-                </div>
-
-                <div class="metro-difference-item">
-                    <h3>Multi-Sport Access</h3>
-                    <p>Pickleball, basketball, and volleyball booking options.</p>
-                </div>
-
-                <div class="metro-difference-item">
-                    <h3>Member Access</h3>
-                    <p>Manage bookings and reservation history from your account.</p>
-                </div>
-
-                <div class="metro-difference-item">
-                    <h3>Payment Tracking</h3>
-                    <p>Upload payment proof and follow your booking status.</p>
-                </div>
-
-                <div class="metro-difference-item">
-                    <h3>Admin Review</h3>
-                    <p>Bookings are managed separately through the administrative interface.</p>
-                </div>
-            </div>
-        </div>
-    </section>
-
-    <!-- CALL TO ACTION -->
-    <section class="metro-section">
-        <div class="metro-container">
-            <div
-                class="metro-cta"
-                style="background-image:url('<?php echo htmlspecialchars($heroImage, ENT_QUOTES); ?>')"
-            >
-                <div class="metro-cta-content">
-                    <span class="metro-eyebrow">Ready to Play?</span>
-                    <h2>Reserve Your Court Today</h2>
-                    <p>
-                        Select your preferred sport, court, and schedule through our online booking facility.
-                    </p>
-
+                <div class="metro-actions">
+                    <a href="<?php echo htmlspecialchars(app_url('ui/booking.php')); ?>" class="metro-btn metro-btn-accent">Book a Court</a>
                     <a
-                        href="<?php echo htmlspecialchars(app_url('ui/booking.php')); ?>"
-                        class="metro-btn metro-btn-accent"
-                    >
-                        Book Your Court
-                    </a>
+                        href="<?php echo htmlspecialchars($contactHref); ?>"
+                        <?php echo $messengerUrl !== '' ? 'target="_blank" rel="noopener"' : ''; ?>
+                        class="metro-btn metro-btn-outline-dark"
+                    >Contact Admin</a>
                 </div>
             </div>
-        </div>
-    </section>
 
-    <!-- CONTACT / LOCATION - PRESERVE EXISTING DYNAMIC CONFIG -->
-    <section id="contact-us" class="metro-section">
-        <div class="metro-container">
-            <div class="landing-contact-grid">
-                <div>
-                    <span class="metro-eyebrow">Contact Us</span>
-                    <h2>Visit Metro Asia Arena</h2>
-                    <p>
-                        Reserve online before you arrive, or use the location below to find the arena.
-                    </p>
-
-                    <div class="contact-list">
-                        <p>
-                            <i data-lucide="map-pin" class="icon-sm"></i>
-                            <?php echo htmlspecialchars((string) $siteConfig['address']); ?>
-                        </p>
-
-                        <p>
-                            <i data-lucide="clock" class="icon-sm"></i>
-                            Open daily for scheduled court reservations
-                        </p>
-
-                        <p>
-                            <i data-lucide="calendar-days" class="icon-sm"></i>
-                            Online booking and member account access available
-                        </p>
-                    </div>
-
-                    <div class="metro-actions">
-                        <a
-                            href="<?php echo htmlspecialchars(app_url('ui/booking.php')); ?>"
-                            class="metro-btn metro-btn-accent"
-                        >
-                            Book a Court
-                        </a>
-
-                        <a
-                            href="<?php echo htmlspecialchars($contactHref); ?>"
-                            <?php echo $messengerUrl !== '' ? 'target="_blank" rel="noopener"' : ''; ?>
-                            class="metro-btn"
-                            style="border-color:var(--metro-primary);"
-                        >
-                            Contact Admin
-                        </a>
-                    </div>
-                </div>
-
-                <div id="map" class="landing-map">
-                    <iframe
-                        title="Metro Asia Arena map"
-                        src="<?php echo htmlspecialchars((string) $siteConfig['map_embed_url']); ?>"
-                        loading="lazy"
-                        referrerpolicy="no-referrer-when-downgrade"
-                        allowfullscreen
-                    ></iframe>
-                </div>
+            <div id="map" class="landing-map">
+                <iframe
+                    title="Metro Asia Arena map"
+                    src="<?php echo htmlspecialchars((string) $siteConfig['map_embed_url']); ?>"
+                    loading="lazy"
+                    referrerpolicy="no-referrer-when-downgrade"
+                    allowfullscreen
+                ></iframe>
             </div>
         </div>
     </section>
 
 </main>
 
-<?php
-/*
- * Keep the application's existing shared footer.
- */
-include __DIR__ . '/../includes/footer.php';
-?>
+<?php include __DIR__ . '/../includes/footer.php'; ?>

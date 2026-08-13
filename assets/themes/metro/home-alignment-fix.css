@@ -1,0 +1,44 @@
+/* Homepage alignment fix
+   Load this AFTER home.css or append it to the bottom of home.css.
+*/
+
+/*
+ * IMPORTANT:
+ * home.css previously set .metro-home-hero .metro-hero-inner to width:100%.
+ * That overrides .metro-container and causes hero content to touch the viewport
+ * edges instead of lining up with the header/content container.
+ */
+.metro-home-hero .metro-hero-inner {
+    width: min(calc(100% - 48px), var(--metro-container));
+    max-width: var(--metro-container);
+    margin-inline: auto;
+}
+
+/* Give the hero card a little breathing room while retaining alignment. */
+.metro-home-hero .metro-community-card {
+    flex: 0 0 310px;
+}
+
+/* Keep heading/content vertically balanced like the purchased reference. */
+.metro-home-hero .metro-hero-copy {
+    padding-bottom: 8px;
+}
+
+/* Tablet */
+@media (max-width: 1000px) {
+    .metro-home-hero .metro-hero-inner {
+        width: min(calc(100% - 32px), var(--metro-container));
+    }
+
+    .metro-home-hero .metro-community-card {
+        flex-basis: auto;
+        align-self: center;
+    }
+}
+
+/* Mobile */
+@media (max-width: 640px) {
+    .metro-home-hero .metro-hero-inner {
+        width: min(calc(100% - 28px), var(--metro-container));
+    }
+}

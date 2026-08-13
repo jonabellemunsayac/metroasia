@@ -1,0 +1,23 @@
+<?php
+/*
+ * FOOTER SOCIAL ICON FIX
+ *
+ * Lucide does not provide brand icons such as "facebook".
+ * Replace:
+ *
+ *   <i data-lucide="facebook" class="icon-sm"></i>
+ *
+ * with the markup below.
+ */
+?>
+<a href="#" aria-label="Facebook" title="Facebook">
+    <span class="metro-social-letter" aria-hidden="true">f</span>
+</a>
+
+<a href="#" aria-label="Instagram" title="Instagram">
+    <i data-lucide="instagram" class="icon-sm"></i>
+</a>
+
+<a href="#" aria-label="Contact MetroAsia Arena" title="Contact">
+    <i data-lucide="message-circle" class="icon-sm"></i>
+</a>

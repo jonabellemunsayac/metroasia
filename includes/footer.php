@@ -56,17 +56,21 @@ if ($useAdminShell):
                     <h3>Follow Us</h3>
 
                     <div class="metro-social">
+
                         <a href="#" aria-label="Facebook" title="Facebook">
-                            <i data-lucide="facebook" class="icon-sm"></i>
+                            <span class="social-text-icon">f</span>
                         </a>
 
                         <a href="#" aria-label="Instagram" title="Instagram">
-                            <i data-lucide="instagram" class="icon-sm"></i>
+                            <span class="instagram-icon" aria-hidden="true">
+                                <span class="instagram-dot"></span>
+                            </span>
                         </a>
 
                         <a href="#" aria-label="Contact MetroAsia Arena" title="Contact">
                             <i data-lucide="message-circle" class="icon-sm"></i>
                         </a>
+
                     </div>
                 </section>
 
