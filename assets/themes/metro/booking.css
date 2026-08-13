@@ -537,3 +537,10 @@
         flex-direction: column;
     }
 }
+
+
+/* Hide selected court-slot summary table on ALL screen sizes */
+#bookingModal #modalMeta,
+#bookingModal .modal-meta-clean {
+    display: none !important;
+}
