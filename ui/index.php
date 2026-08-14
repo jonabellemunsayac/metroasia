@@ -194,7 +194,8 @@ if (trim((string) ($siteConfig['hero_image_path'] ?? '')) === '') {
             </div>
         </div>
     </section>
-
+    
+    <?php include __DIR__ . '/../includes/amenities-gallery.php'; ?>
     <!-- MEMBERSHIP -->
     <section class="metro-section metro-membership-section">
         <div class="metro-container">

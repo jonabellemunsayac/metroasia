@@ -1,0 +1,35 @@
+1) In ui/index.php, after the existing $tf = [...] array, add:
+
+$tf['about_main'] = app_url('assets/images/metro_court_view1.jpg');
+$tf['about_small'] = app_url('assets/images/metro_mad_view.jpg');
+$tf['service_1'] = app_url('assets/images/metro_court_view2.jpg');
+$tf['service_2'] = app_url('assets/images/lounge1.jpg');
+$tf['service_3'] = app_url('assets/images/mezzanine1.jpg');
+$tf['service_4'] = app_url('assets/images/parking1.jpg');
+$tf['facility'] = app_url('assets/images/metro_court_view3.jpg');
+$tf['testimonial'] = app_url('assets/images/metro_court_view4.jpg');
+$tf['cta'] = app_url('assets/images/outside_view1.jpg');
+
+2) In ui/index.php, immediately BEFORE <!-- MEMBERSHIP --> add:
+
+<?php include __DIR__ . '/../includes/amenities-gallery.php'; ?>
+
+3) In includes/header.php, after home.css:
+
+<?php if (($active ?? '') === 'home'): ?>
+<link rel="stylesheet"
+      href="<?php echo htmlspecialchars(app_url('assets/themes/metro/amenities-gallery.css')); ?>?v=<?php echo htmlspecialchars($assetVersion); ?>">
+<?php endif; ?>
+
+4) In includes/footer.php, after app.js:
+
+<?php if (($active ?? '') === 'home'): ?>
+<script src="<?php echo htmlspecialchars(app_url('assets/js/amenities-gallery.js')); ?>?v=<?php echo htmlspecialchars($assetVersion); ?>"></script>
+<?php endif; ?>
+
+5) Copy:
+includes/amenities-gallery.php
+assets/themes/metro/amenities-gallery.css
+assets/js/amenities-gallery.js
+
+6) Ctrl + F5

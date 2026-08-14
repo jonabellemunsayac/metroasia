@@ -1,0 +1,25 @@
+.metro-amenities-section{overflow:hidden;background:#fff}
+.metro-amenities-heading{display:flex;align-items:end;justify-content:space-between;gap:40px;margin-bottom:34px}
+.metro-amenities-heading>div:first-child{max-width:720px}
+.metro-amenities-heading p{max-width:650px;margin-bottom:0}
+.metro-amenities-controls{display:flex;gap:8px}
+.metro-amenities-arrow{width:48px;height:48px;display:grid;place-items:center;border:1px solid var(--metro-border);border-radius:50%;background:#fff;color:var(--metro-primary);cursor:pointer;font-size:1.1rem}
+.metro-amenities-arrow:hover{border-color:var(--metro-accent);background:var(--metro-accent)}
+.metro-amenities-viewport{overflow:hidden}
+.metro-amenities-track{display:flex;gap:18px;transition:transform .4s ease}
+.metro-amenity-card{flex:0 0 calc((100% - 36px)/3);min-width:0}
+.metro-amenity-image-button{width:100%;padding:0;overflow:hidden;border:0;border-radius:22px;background:var(--metro-secondary);cursor:zoom-in}
+.metro-amenity-image-button img{width:100%;height:360px;object-fit:cover;transition:transform .35s ease}
+.metro-amenity-image-button:hover img{transform:scale(1.025)}
+.metro-amenity-card-copy{display:grid;grid-template-columns:auto 1fr;gap:14px;padding:18px 4px 4px}
+.metro-amenity-card-copy>span{min-width:34px;color:var(--metro-text);font-size:.72rem;font-weight:700}
+.metro-amenity-card-copy h3{margin-bottom:6px;font-size:1.15rem}
+.metro-amenity-card-copy p{margin:0;font-size:.85rem;line-height:1.55}
+.metro-amenity-lightbox{position:fixed;inset:0;z-index:9999;padding:30px;display:grid;place-items:center;background:rgba(2,20,33,.88)}
+.metro-amenity-lightbox.hidden{display:none}
+.metro-amenity-lightbox-dialog{width:min(100%,1050px)}
+.metro-amenity-lightbox-dialog img{width:100%;max-height:78vh;object-fit:contain;border-radius:18px}
+.metro-amenity-lightbox-dialog p{margin:14px 0 0;color:#fff;text-align:center;font-weight:600}
+.metro-amenity-lightbox-close{position:absolute;top:22px;right:22px;width:46px;height:46px;display:grid;place-items:center;border:1px solid rgba(255,255,255,.4);border-radius:50%;background:rgba(255,255,255,.12);color:#fff;cursor:pointer;font-size:1.6rem}
+@media(max-width:1000px){.metro-amenity-card{flex-basis:calc((100% - 18px)/2)}.metro-amenity-image-button img{height:320px}}
+@media(max-width:640px){.metro-amenities-heading{align-items:flex-start;flex-direction:column;gap:20px}.metro-amenity-card{flex-basis:100%}.metro-amenity-image-button img{height:285px}.metro-amenities-controls{align-self:flex-end}.metro-amenity-lightbox{padding:18px}}

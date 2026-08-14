@@ -64,6 +64,12 @@ $memberCtaHref = app_url($currentMember ? 'ui/member.php' : 'ui/member-login.php
         <link rel="stylesheet" href="<?php echo htmlspecialchars(app_url('assets/themes/metro/theme.css')); ?>?v=<?php echo htmlspecialchars($assetVersion); ?>">
         <link rel="stylesheet" href="<?php echo htmlspecialchars(app_url('assets/themes/metro/header.css')); ?>?v=<?php echo htmlspecialchars($assetVersion); ?>">
         <link rel="stylesheet" href="<?php echo htmlspecialchars(app_url('assets/themes/metro/home.css')); ?>?v=<?php echo htmlspecialchars($assetVersion); ?>">
+
+        <?php if (($active ?? '') === 'home'): ?>
+        <link rel="stylesheet"
+            href="<?php echo htmlspecialchars(app_url('assets/themes/metro/amenities-gallery.css')); ?>?v=<?php echo htmlspecialchars($assetVersion); ?>">
+        <?php endif; ?>
+
         <?php if (in_array($active, ['booking', 'payment'], true)): ?>
             <link
                 rel="stylesheet"
