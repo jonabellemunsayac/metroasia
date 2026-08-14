@@ -1,14 +1,31 @@
 /* Homepage reconstructed from themeforest/templates/home.json
-   and themeforest/screenshots/home.jpg. */
+   and themeforest/screenshots/home.jpg.
+   Updated for full-width video hero deployment.
+*/
 
-.metro-home-page { overflow: hidden; }
+html, body {
+    width: 100%;
+    max-width: 100%;
+    margin: 0;
+    padding: 0;
+}
+
+body { overflow-x: hidden; }
+
+.metro-home-page {
+    width: 100%;
+    max-width: none;
+    margin: 0;
+    overflow-x: hidden;
+}
+
 .metro-home-page h1,
 .metro-home-page h2,
 .metro-home-page h3 { letter-spacing: -0.035em; }
 
 .metro-home-block { padding: 0 24px 24px; }
 .metro-panel {
-    width: min(100%, 1280px);
+    width: min(calc(100% - 48px), 1280px);
     margin-inline: auto;
     border-radius: 24px;
     background: var(--metro-secondary);
@@ -16,163 +33,162 @@
 
 /* HERO */
 .metro-home-hero {
-    min-height: 786px;
-    /* margin-top: -96px; */
-    margin-top: 0;
-    padding: 0 0 100px;
-    display: flex;
-    align-items: flex-end;
     position: relative;
-    background-position: center 70%;
-    background-size: cover;
-    color: #fff;
-}
-/* .metro-home-hero::before {
-    content: "";
-    position: absolute;
-    inset: 0;
-    background: rgba(0,0,0,.35);
-} */
- .metro-home-hero::before {
-    display: none;
-}
-.metro-home-hero .metro-hero-inner {
-    position: relative;
-    z-index: 1;
     width: 100%;
+    max-width: none;
+    min-height: calc(100vh - 110px);
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
     display: flex;
-    justify-content: space-between;
     align-items: flex-end;
-    gap: 100px;
-}
-.metro-home-hero .metro-hero-copy { width: 52%; max-width: 680px; }
-.metro-home-hero h1 {
-    max-width: 640px;
-    margin-bottom: 14px;
-    color: #fff;
-    font-size: clamp(3rem, 5.3vw, 4.5rem);
-    font-weight: 600;
-    line-height: 1;
-}
-.metro-home-hero .metro-hero-copy p {
-    color: rgba(255,255,255,.84);
-    font-size: 1.08rem;
-}
-.metro-actions { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 24px; }
-.metro-btn-outline-dark {
-    border: 1px solid var(--metro-primary);
-    background: transparent;
-    color: var(--metro-primary);
-}
-.metro-btn-outline-dark::after {
     background: var(--metro-primary);
     color: #fff;
 }
 
+.metro-home-hero::before { display: none !important; }
+
+.metro-hero-video {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    min-width: 100%;
+    min-height: 100%;
+    object-fit: cover;
+    object-position: center center;
+    z-index: 0;
+    pointer-events: none;
+}
+
+.metro-hero-video-overlay {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 1;
+    background: linear-gradient(90deg, rgba(2,20,33,.60) 0%, rgba(2,20,33,.36) 48%, rgba(2,20,33,.18) 100%);
+    pointer-events: none;
+}
+
+.metro-home-hero .metro-hero-inner {
+    position: relative;
+    z-index: 2;
+    width: min(calc(100% - 96px), 1440px);
+    max-width: 1440px;
+    margin: 0 auto;
+    padding: 0 0 78px;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    gap: 60px;
+}
+
+.metro-home-hero .metro-hero-copy {
+    width: min(680px, 56%);
+    max-width: 680px;
+}
+
+.metro-home-hero h1 {
+    max-width: 680px;
+    margin: 0 0 16px;
+    color: #fff;
+    font-size: clamp(3rem, 5vw, 4.8rem);
+    font-weight: 600;
+    line-height: .98;
+}
+
+.metro-home-hero .metro-hero-copy p {
+    max-width: 620px;
+    margin-bottom: 0;
+    color: rgba(255,255,255,.88);
+    font-size: 1.08rem;
+    line-height: 1.5;
+}
+
+.metro-actions { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 24px; }
+.metro-btn-outline-dark { border: 1px solid var(--metro-primary); background: transparent; color: var(--metro-primary); }
+.metro-btn-outline-dark::after { background: var(--metro-primary); color: #fff; }
+
 .metro-community-card {
     width: 310px;
+    flex: 0 0 310px;
     padding: 14px;
     border-radius: 20px;
     background: #fff;
     color: var(--metro-primary);
     box-shadow: 0 18px 50px rgba(0,0,0,.13);
 }
+
 .metro-community-top { display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; }
 .metro-avatar-stack { display:flex; align-items:center; }
-.metro-avatar-stack img {
-    width: 38px; height: 38px; object-fit: cover; border-radius: 50%;
-    border: 3px solid #fff; margin-left: -9px;
-}
-.metro-avatar-stack img:first-child { margin-left: 0; }
-.metro-round-arrow {
-    width: 40px; height: 40px; border-radius: 50%;
-    display:grid; place-items:center; background:var(--metro-accent); font-weight:700;
-}
+.metro-avatar-stack img { width:38px; height:38px; object-fit:cover; border-radius:50%; border:3px solid #fff; margin-left:-9px; }
+.metro-avatar-stack img:first-child { margin-left:0; }
+.metro-round-arrow { width:40px; height:40px; border-radius:50%; display:grid; place-items:center; background:var(--metro-accent); font-weight:700; }
 .metro-community-card strong { display:block; font-size:2.1rem; line-height:1; }
-.metro-community-card > span:not(.metro-round-arrow) {
-    display:block; margin:3px 0 8px; font-weight:600; font-size:.82rem;
-}
+.metro-community-card > span:not(.metro-round-arrow) { display:block; margin:3px 0 8px; font-weight:600; font-size:.82rem; }
 .metro-community-card p { margin:0; font-size:.8rem; line-height:1.4; }
 
-/* lime strip */
+/* EXPERIENCE STRIP */
 .metro-experience-strip {
-    padding: 26px 0;
+    width: 100%;
+    min-height: 110px;
+    margin: 0;
+    padding: 0;
     overflow: hidden;
+    display: flex;
+    align-items: center;
     background: var(--metro-accent);
     color: var(--metro-primary);
 }
 .metro-experience-track {
-    width:max-content; display:flex; align-items:center; gap:32px;
-    font-size:clamp(1.8rem,3vw,3.2rem); font-weight:600; text-transform:uppercase;
+    width:max-content;
+    display:flex;
+    align-items:center;
+    gap:32px;
+    margin:0;
+    font-size:clamp(1.8rem,3vw,3.2rem);
+    font-weight:600;
+    text-transform:uppercase;
     white-space:nowrap;
 }
 .metro-experience-track i { font-style:normal; opacity:.25; }
 
 /* ABOUT */
-.metro-about-section { padding: 120px 0; }
-.metro-about {
-    display:grid;
-    grid-template-columns: 44% 46%;
-    justify-content:space-between;
-    align-items:center;
-    gap:120px;
-}
+.metro-about-section { padding:120px 0; }
+.metro-about { display:grid; grid-template-columns:44% 46%; justify-content:space-between; align-items:center; gap:120px; }
 .metro-about-visual { position:relative; }
-.metro-about-main {
-    min-height:600px;
-    border-radius:20px;
-    background-size:cover;
-    background-position:center;
-}
-.metro-about-small {
-    width:240px; height:150px; margin-left:auto; margin-bottom:34px;
-    border-radius:18px; background-size:cover; background-position:center;
-}
+.metro-about-main { min-height:600px; border-radius:20px; background-size:cover; background-position:center; }
+.metro-about-copy { display:flex; flex-direction:column; align-items:flex-start; }
+.metro-about-small { width:240px; height:150px; margin-left:0; margin-right:auto; margin-bottom:34px; border-radius:18px; background-size:cover; background-position:center; }
 .metro-about-copy h2 { margin-bottom:18px; }
 .metro-about-copy > p { max-width:650px; }
+.metro-about-copy h2,
+.metro-about-copy > p,
+.metro-about-copy .metro-about-divider,
+.metro-about-copy .metro-feature-row,
+.metro-about-copy .metro-actions { width:100%; }
 .metro-about-divider { height:1px; background:var(--metro-border); margin:26px 0; }
 .metro-feature-row { display:flex; flex-wrap:wrap; gap:22px; margin-bottom:24px; }
 .metro-feature-row span { display:flex; align-items:center; gap:8px; font-size:.9rem; font-weight:600; }
-.metro-feature-row b {
-    width:22px; height:22px; display:grid; place-items:center;
-    border-radius:50%; background:var(--metro-accent); font-size:.75rem;
-}
+.metro-feature-row b { width:22px; height:22px; display:grid; place-items:center; border-radius:50%; background:var(--metro-accent); font-size:.75rem; }
 .metro-about-note { font-size:.92rem; }
 
 /* SERVICES */
-.metro-services-panel { padding: 68px 48px 48px; }
+.metro-services-panel { padding:68px 48px 48px; }
 .metro-heading { max-width:760px; margin:0 auto 34px; text-align:center; }
 .metro-heading p { margin-bottom:0; }
 .metro-service-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:18px; }
-.metro-service-card {
-    padding:16px 16px 24px;
-    border-radius:24px;
-    background:#fff;
-}
-.metro-service-card img {
-    width:100%; height:280px; margin-bottom:18px;
-    object-fit:cover; border-radius:18px;
-}
+.metro-service-card { padding:16px 16px 24px; border-radius:24px; background:#fff; }
+.metro-service-card img { width:100%; height:280px; margin-bottom:18px; object-fit:cover; border-radius:18px; }
 .metro-service-card h3 { margin-bottom:8px; font-size:1.2rem; }
 .metro-service-card p { margin:0; font-size:.88rem; }
 
 /* FACILITIES */
-.metro-facilities {
-    display:grid; grid-template-columns:1fr 1fr;
-    border-radius:24px; overflow:hidden;
-}
-.metro-facility-photo {
-    min-height:560px; position:relative; background-size:cover; background-position:center;
-}
-.metro-play-button {
-    position:absolute; left:50%; top:50%; transform:translate(-50%,-50%);
-    width:78px; height:78px; display:grid; place-items:center;
-    border-radius:50%; background:#fff; color:var(--metro-primary); font-size:1.35rem;
-}
-.metro-facility-content {
-    padding:76px 72px;
-    background:var(--metro-primary); color:#fff;
-}
+.metro-facilities { display:grid; grid-template-columns:1fr 1fr; border-radius:24px; overflow:hidden; }
+.metro-facility-photo { min-height:560px; position:relative; background-size:cover; background-position:center; }
+.metro-play-button { position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); width:78px; height:78px; display:grid; place-items:center; border-radius:50%; background:#fff; color:var(--metro-primary); font-size:1.35rem; }
+.metro-facility-content { padding:76px 72px; background:var(--metro-primary); color:#fff; }
 .metro-facility-content h2 { color:#fff; }
 .metro-facility-content p { color:rgba(255,255,255,.72); }
 .metro-facility-content ul { list-style:none; padding:0; margin:24px 0; }
@@ -182,28 +198,15 @@
 
 /* MEMBERSHIP */
 .metro-membership-section { padding:120px 0; }
-.metro-membership-top {
-    display:grid; grid-template-columns:1.05fr .45fr 1fr;
-    gap:64px; align-items:center;
-}
+.metro-membership-top { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,.85fr); gap:110px; align-items:center; }
+.metro-membership-intro { max-width:620px; }
 .metro-membership-intro h2 { font-size:clamp(2.5rem,4vw,4.1rem); }
-.metro-membership-price { text-align:center; }
-.metro-price-circle {
-    width:165px; height:165px; margin:auto;
-    display:grid; place-items:center; align-content:center;
-    border-radius:50%; background:var(--metro-primary); color:#fff;
-}
-.metro-price-circle strong { font-size:2rem; }
-.metro-price-circle span { font-size:.8rem; text-transform:uppercase; }
-.metro-membership-price small {
-    display:inline-block; margin-top:-8px; padding:5px 12px;
-    border-radius:999px; background:var(--metro-accent); font-weight:700;
-}
-.metro-membership-benefits {
-    margin-top:58px; padding-top:28px;
-    display:grid; grid-template-columns:repeat(4,1fr);
-    border-top:1px solid var(--metro-border);
-}
+.metro-membership-description { max-width:520px; justify-self:end; }
+.metro-membership-description h3 { margin-bottom:14px; font-size:clamp(1.7rem,2.3vw,2.5rem); }
+.metro-membership-description p { margin-bottom:0; font-size:1rem; line-height:1.7; }
+.metro-membership-price,
+.metro-price-circle { display:none !important; }
+.metro-membership-benefits { margin-top:58px; padding-top:28px; display:grid; grid-template-columns:repeat(4,1fr); border-top:1px solid var(--metro-border); }
 .metro-membership-benefits article { padding:0 28px; border-right:1px solid var(--metro-border); }
 .metro-membership-benefits article:first-child { padding-left:0; }
 .metro-membership-benefits article:last-child { border-right:0; }
@@ -213,32 +216,20 @@
 /* TESTIMONIALS */
 .metro-testimonials-section { padding:0 0 120px; }
 .metro-testimonial-layout { display:grid; grid-template-columns:1fr 1.05fr; gap:48px; }
-.metro-rating-card {
-    padding:14px; border:1px solid var(--metro-border); border-radius:22px; background:#fff;
-}
+.metro-rating-card { padding:14px; border:1px solid var(--metro-border); border-radius:22px; background:#fff; }
 .metro-rating-photo { width:100%; height:390px; object-fit:cover; border-radius:17px; }
 .metro-rating-bottom { display:flex; align-items:center; gap:16px; padding:14px 6px 2px; }
 .metro-rating-bottom strong { font-size:2.5rem; }
 .metro-rating-bottom > span { display:flex; flex-direction:column; font-size:.82rem; font-weight:700; }
 .metro-rating-bottom small { color:var(--metro-text); font-weight:400; }
 .metro-quotes { display:flex; flex-direction:column; gap:16px; }
-.metro-quotes blockquote {
-    position:relative; margin:0; padding:30px 30px 30px 70px;
-    border-radius:18px; background:var(--metro-secondary);
-    color:var(--metro-primary); font-size:1.02rem;
-}
-.metro-quotes blockquote::before {
-    content:"“"; position:absolute; left:24px; top:8px;
-    font-size:4rem; color:#cfd4d6; line-height:1;
-}
+.metro-quotes blockquote { position:relative; margin:0; padding:30px 30px 30px 70px; border-radius:18px; background:var(--metro-secondary); color:var(--metro-primary); font-size:1.02rem; }
+.metro-quotes blockquote::before { content:"“"; position:absolute; left:24px; top:8px; font-size:4rem; color:#cfd4d6; line-height:1; }
 .metro-quotes cite { display:block; margin-top:14px; font-size:.8rem; font-style:normal; font-weight:700; }
 
 /* USP */
 .metro-difference-panel { padding:72px 48px 36px; }
-.metro-difference-heading {
-    display:grid; grid-template-columns:1fr 1fr; gap:70px;
-    align-items:end; margin-bottom:40px;
-}
+.metro-difference-heading { display:grid; grid-template-columns:1fr 1fr; gap:70px; align-items:end; margin-bottom:40px; }
 .metro-usp-grid { display:grid; grid-template-columns:repeat(3,1fr); }
 .metro-usp-item { min-height:220px; padding:34px; border-top:1px solid var(--metro-border); border-right:1px solid var(--metro-border); }
 .metro-usp-item:nth-child(3n) { border-right:0; }
@@ -247,18 +238,9 @@
 .metro-usp-item p { margin:0; font-size:.82rem; }
 
 /* CTA */
-.metro-cta-card {
-    min-height:520px; position:relative; overflow:hidden;
-    display:flex; align-items:center; justify-content:flex-end;
-    border-radius:24px; background-size:cover; background-position:center;
-}
-.metro-cta-overlay {
-    position:absolute; inset:0;
-    background:linear-gradient(90deg,rgba(2,20,33,.05) 30%,rgba(2,20,33,.82) 78%);
-}
-.metro-cta-copy {
-    position:relative; z-index:1; width:46%; padding:60px; color:#fff;
-}
+.metro-cta-card { min-height:520px; position:relative; overflow:hidden; display:flex; align-items:center; justify-content:flex-end; border-radius:24px; background-size:cover; background-position:center; }
+.metro-cta-overlay { position:absolute; inset:0; background:linear-gradient(90deg,rgba(2,20,33,.05) 30%,rgba(2,20,33,.82) 78%); }
+.metro-cta-copy { position:relative; z-index:1; width:46%; padding:60px; color:#fff; }
 .metro-cta-copy h2 { color:#fff; font-size:clamp(2rem,3.5vw,3.5rem); }
 .metro-cta-copy p { color:rgba(255,255,255,.8); }
 
@@ -269,26 +251,38 @@
 .metro-stats > div:last-child { border-right:0; }
 .metro-stats strong { display:block; color:#d5d8d9; font-size:2.5rem; font-weight:600; }
 .metro-stats span { display:block; margin-top:8px; font-size:.7rem; font-weight:700; text-transform:uppercase; }
-
-/* app-specific retained sections */
 .metro-gallery-section { background:#fff; }
 .metro-contact-section { padding-top:80px; }
 
-/* RESPONSIVE */
-@media (max-width: 1000px) {
-    .metro-home-hero { margin-top:-80px; min-height:650px; padding:24px 24px 64px; background-position:center; }
-    .metro-home-hero .metro-hero-inner { flex-direction:column; align-items:center; gap:32px; }
+/* LARGE SCREEN */
+@media (min-width:1600px) {
+    .metro-home-hero .metro-hero-inner { width:min(calc(100% - 120px),1560px); max-width:1560px; }
+    .metro-home-hero h1 { font-size:clamp(4rem,4.4vw,5.2rem); }
+    .metro-community-card { width:330px; flex-basis:330px; }
+}
+
+@media (min-width:2200px) {
+    .metro-home-hero .metro-hero-inner { width:min(calc(100% - 160px),1760px); max-width:1760px; }
+}
+
+/* TABLET */
+@media (max-width:1000px) {
+    .metro-home-hero { min-height:650px; margin-top:0; padding:110px 0 64px; }
+    .metro-hero-video { object-position:center center; }
+    .metro-home-hero .metro-hero-inner { width:min(calc(100% - 40px),920px); max-width:920px; padding-bottom:0; flex-direction:column; align-items:center; gap:32px; }
     .metro-home-hero .metro-hero-copy { width:100%; text-align:center; }
     .metro-home-hero .metro-actions { justify-content:center; }
-    .metro-community-card { align-self:flex-end; }
+    .metro-home-hero .metro-community-card { align-self:center; }
+    .metro-experience-strip { min-height:86px; }
     .metro-about-section { padding:64px 24px; }
     .metro-about { grid-template-columns:1fr; gap:48px; }
     .metro-about-main { min-height:480px; }
+    .metro-about-small { width:220px; height:135px; }
     .metro-service-grid { grid-template-columns:repeat(2,1fr); }
     .metro-facilities { grid-template-columns:1fr; }
     .metro-membership-section { padding:64px 24px; }
-    .metro-membership-top { grid-template-columns:1fr 1fr; }
-    .metro-membership-description { grid-column:1/-1; }
+    .metro-membership-top { grid-template-columns:1fr; gap:34px; }
+    .metro-membership-description { max-width:680px; justify-self:start; }
     .metro-membership-benefits { grid-template-columns:1fr 1fr; row-gap:28px; }
     .metro-testimonials-section { padding:0 24px 64px; }
     .metro-testimonial-layout { grid-template-columns:1fr; }
@@ -299,22 +293,23 @@
     .metro-cta-copy { width:60%; }
 }
 
-@media (max-width: 640px) {
+/* MOBILE */
+@media (max-width:640px) {
     .metro-home-block { padding:0 14px 18px; }
-    .metro-home-hero { min-height:700px; }
-    .metro-home-hero h1 { font-size:3rem; }
+    .metro-home-hero { min-height:700px; padding:110px 0 56px; }
+    .metro-home-hero .metro-hero-inner { width:min(calc(100% - 28px),600px); max-width:600px; }
+    .metro-hero-video { object-position:50% center; }
+    .metro-home-hero h1 { font-size:clamp(2.6rem,12vw,3.2rem); }
     .metro-community-card { display:none; }
-    .metro-experience-strip { padding:18px 0; }
-    .metro-about-small { width:55%; height:110px; }
+    .metro-experience-strip { min-height:76px; }
+    .metro-experience-track { gap:20px; font-size:1.7rem; }
+    .metro-about-small { width:min(58%,220px); min-width:170px; height:110px; margin-bottom:24px; }
     .metro-services-panel,
     .metro-difference-panel { padding:44px 14px 20px; }
     .metro-service-grid { grid-template-columns:1fr; }
     .metro-service-card img { height:260px; }
     .metro-facility-photo { min-height:390px; }
     .metro-facility-content { padding:42px 26px; }
-    .metro-membership-top { grid-template-columns:1fr; }
-    .metro-membership-price { text-align:left; }
-    .metro-price-circle { margin-left:0; }
     .metro-membership-benefits { grid-template-columns:1fr; }
     .metro-membership-benefits article { padding:20px 0; border-right:0; border-bottom:1px solid var(--metro-border); }
     .metro-rating-photo { height:300px; }
@@ -328,246 +323,6 @@
     .metro-stats > div:nth-child(2) { border-right:0; }
 }
 
-/*
- * IMPORTANT:
- * home.css previously set .metro-home-hero .metro-hero-inner to width:100%.
- * That overrides .metro-container and causes hero content to touch the viewport
- * edges instead of lining up with the header/content container.
- */
-.metro-home-hero .metro-hero-inner {
-    width: min(calc(100% - 48px), var(--metro-container));
-    max-width: var(--metro-container);
-    margin-inline: auto;
+@media (prefers-reduced-motion:reduce) {
+    .metro-hero-video { display:none; }
 }
-
-/* Give the hero card a little breathing room while retaining alignment. */
-.metro-home-hero .metro-community-card {
-    flex: 0 0 310px;
-}
-
-/* Keep heading/content vertically balanced like the purchased reference. */
-.metro-home-hero .metro-hero-copy {
-    padding-bottom: 8px;
-}
-
-/* Tablet */
-@media (max-width: 1000px) {
-    .metro-home-hero .metro-hero-inner {
-        width: min(calc(100% - 32px), var(--metro-container));
-    }
-
-    .metro-home-hero .metro-community-card {
-        flex-basis: auto;
-        align-self: center;
-    }
-}
-
-/* Mobile */
-@media (max-width: 640px) {
-    .metro-home-hero .metro-hero-inner {
-        width: min(calc(100% - 28px), var(--metro-container));
-    }
-    .metro-hero-video {
-        object-position: center;
-    }
-}
-
-.metro-membership-top {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) minmax(0, .85fr);
-    gap: 110px;
-    align-items: center;
-}
-
-.metro-membership-intro {
-    max-width: 620px;
-}
-
-.metro-membership-description {
-    max-width: 520px;
-    justify-self: end;
-}
-
-.metro-membership-description h3 {
-    margin-bottom: 14px;
-    font-size: clamp(1.7rem, 2.3vw, 2.5rem);
-}
-
-.metro-membership-description p {
-    margin-bottom: 0;
-    font-size: 1rem;
-    line-height: 1.7;
-}
-
-/* These old badge styles can remain unused, but this ensures nothing
-   appears if stale markup is accidentally left behind. */
-.metro-membership-price {
-    display: none !important;
-}
-
-.metro-price-circle {
-    display: none !important;
-}
-
-@media (max-width: 900px) {
-    .metro-membership-top {
-        grid-template-columns: 1fr;
-        gap: 34px;
-    }
-
-    .metro-membership-description {
-        max-width: 680px;
-        justify-self: start;
-    }
-}
-
-/*
- * Make the hero + lime ticker behave as the complete first-screen composition.
- * 112px is the approximate desktop height of the lime strip.
- */
-@media (min-width: 1001px) {
-    .metro-home-hero {
-        min-height: calc(100vh - 112px);
-        padding-bottom: 72px;
-    }
-
-    .metro-experience-strip {
-        min-height: 112px;
-        margin: 0;
-        padding: 0;
-        display: flex;
-        align-items: center;
-    }
-}
-
-/* Ensure the lime bar touches both viewport edges with no inherited spacing. */
-.metro-experience-strip {
-    width: 100%;
-    margin: 0;
-    border: 0;
-}
-
-.metro-experience-track {
-    margin: 0;
-}
-
-/* Tablet/mobile: header height changes, so use natural content sizing. */
-@media (max-width: 1000px) {
-    .metro-home-hero {
-        margin-top: 0;
-        min-height: 650px;
-    }
-}
-
-@media (max-width: 640px) {
-    .metro-home-hero {
-        min-height: 700px;
-    }
-}
-
-/*
- * Current rule uses margin-left:auto, which pushes the small image
- * all the way to the right side of the text column.
- *
- * Align it with the heading/text instead.
- */
-.metro-about-small {
-    margin-left: 0;
-    margin-right: auto;
-    margin-bottom: 34px;
-}
-
-/*
- * Keep the copy column visually grouped so the image,
- * heading, paragraph, features and buttons share the same left edge.
- */
-.metro-about-copy {
-    display: flex;
-    flex-direction: column;
-    align-items: flex-start;
-}
-
-/*
- * Prevent text blocks from becoming unexpectedly stretched
- * by the flex layout above.
- */
-.metro-about-copy h2,
-.metro-about-copy > p,
-.metro-about-copy .metro-about-divider,
-.metro-about-copy .metro-feature-row,
-.metro-about-copy .metro-actions {
-    width: 100%;
-}
-
-/* Keep the image proportional and closer to the ThemeForest composition. */
-.metro-about-small {
-    width: 240px;
-    height: 150px;
-    flex: 0 0 auto;
-    background-size: cover;
-    background-position: center;
-}
-
-/* Tablet */
-@media (max-width: 1000px) {
-    .metro-about-small {
-        width: 220px;
-        height: 135px;
-        margin-left: 0;
-    }
-}
-
-/* Mobile */
-@media (max-width: 640px) {
-    .metro-about-small {
-        width: min(58%, 220px);
-        min-width: 170px;
-        height: 110px;
-        margin-left: 0;
-        margin-right: 0;
-        margin-bottom: 24px;
-    }
-}
-
-
-/* for video playing in the home screen */
-.metro-home-hero {
-    position: relative;
-    overflow: hidden;
-    background: var(--metro-primary);
-}
-
-.metro-hero-video {
-    position: absolute;
-    inset: 0;
-
-    width: 100%;
-    height: 100%;
-
-    object-fit: cover;
-    object-position: center;
-
-    z-index: 0;
-}
-
-.metro-hero-video-overlay {
-    position: absolute;
-    inset: 0;
-
-    z-index: 1;
-
-    background:
-        linear-gradient(
-            90deg,
-            rgba(2, 20, 33, .62) 0%,
-            rgba(2, 20, 33, .34) 52%,
-            rgba(2, 20, 33, .18) 100%
-        );
-}
-
-.metro-home-hero .metro-hero-inner {
-    position: relative;
-    z-index: 2;
-}
-
-
