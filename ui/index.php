@@ -49,11 +49,11 @@ if (trim((string) ($siteConfig['hero_image_path'] ?? '')) === '') {
 <main class="metro-home-page">
 
     <!-- HERO: mirrors Pickyard hero composition -->
-    <section
+    <!-- <section
         id="welcome"
         class="metro-hero metro-home-hero"
-        style="background-image:url('<?php echo htmlspecialchars($heroImage, ENT_QUOTES); ?>')"
-        aria-label="<?php echo htmlspecialchars($venueName); ?> home"
+        style="background-image:url('<?php //echo htmlspecialchars($heroImage, ENT_QUOTES); ?>')"
+        aria-label="<?php //echo htmlspecialchars($venueName); ?> home"
     >
         <div class="metro-container metro-hero-inner">
             <div class="metro-hero-copy">
@@ -62,6 +62,68 @@ if (trim((string) ($siteConfig['hero_image_path'] ?? '')) === '') {
 
                 <div class="metro-actions">
                     <a href="<?php echo htmlspecialchars(app_url('ui/booking.php')); ?>" class="metro-btn metro-btn-accent">
+                        Book a Court
+                    </a>
+                </div>
+            </div>
+
+            <div class="metro-community-card">
+                <div class="metro-community-top">
+                    <div class="metro-avatar-stack" aria-hidden="true">
+                        <img src="<?php //echo htmlspecialchars($tf['avatar_1']); ?>" alt="">
+                        <img src="<?php //echo htmlspecialchars($tf['avatar_2']); ?>" alt="">
+                        <img src="<?php //echo htmlspecialchars($tf['avatar_3']); ?>" alt="">
+                    </div>
+                    <span class="metro-round-arrow">↗</span>
+                </div>
+                <strong>Open Daily</strong>
+                <span>Court reservations</span>
+                <p>A growing community of players across multiple sports and skill levels.</p>
+            </div>
+        </div>
+    </section> -->
+
+    <section
+        id="welcome"
+        class="metro-hero metro-home-hero"
+        aria-label="<?php echo htmlspecialchars($venueName); ?> home"
+    >
+        <video
+            class="metro-hero-video"
+            autoplay
+            muted
+            loop
+            playsinline
+            preload="auto"
+            poster="<?php echo htmlspecialchars(
+                app_url('assets/images/courts-aerial-poster.jpg')
+            ); ?>"
+        >
+            <source
+                src="<?php echo htmlspecialchars(
+                    app_url('assets/videos/courts_aerial_view.mp4')
+                ); ?>"
+                type="video/mp4"
+            >
+        </video>
+
+        <div class="metro-hero-video-overlay"></div>
+
+        <div class="metro-container metro-hero-inner">
+            <div class="metro-hero-copy">
+                <h1>Where Passion Meets Performance</h1>
+
+                <p>
+                    MetroAsia Arena is open daily and ready for your next game.
+                </p>
+
+                <div class="metro-actions">
+                    <a
+                        href="<?php echo htmlspecialchars(
+                            app_url('ui/booking.php')
+                        ); ?>"
+                        class="metro-btn metro-btn-accent"
+                    >
                         Book a Court
                     </a>
                 </div>
@@ -194,7 +256,7 @@ if (trim((string) ($siteConfig['hero_image_path'] ?? '')) === '') {
             </div>
         </div>
     </section>
-    
+
     <?php include __DIR__ . '/../includes/amenities-gallery.php'; ?>
     <!-- MEMBERSHIP -->
     <section class="metro-section metro-membership-section">
