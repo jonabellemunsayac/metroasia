@@ -193,7 +193,7 @@ body { overflow-x: hidden; }
 .metro-facility-content p { color:rgba(255,255,255,.72); }
 .metro-facility-content ul { list-style:none; padding:0; margin:24px 0; }
 .metro-facility-content li { margin:10px 0; color:rgba(255,255,255,.9); }
-.metro-facility-content li::before { content:"●"; color:var(--metro-accent); margin-right:10px; }
+.metro-facility-content li::before { content:"?"; color:var(--metro-accent); margin-right:10px; }
 .metro-facility-note { max-width:500px; }
 
 /* MEMBERSHIP */
@@ -224,7 +224,7 @@ body { overflow-x: hidden; }
 .metro-rating-bottom small { color:var(--metro-text); font-weight:400; }
 .metro-quotes { display:flex; flex-direction:column; gap:16px; }
 .metro-quotes blockquote { position:relative; margin:0; padding:30px 30px 30px 70px; border-radius:18px; background:var(--metro-secondary); color:var(--metro-primary); font-size:1.02rem; }
-.metro-quotes blockquote::before { content:"“"; position:absolute; left:24px; top:8px; font-size:4rem; color:#cfd4d6; line-height:1; }
+.metro-quotes blockquote::before { content:"�"; position:absolute; left:24px; top:8px; font-size:4rem; color:#cfd4d6; line-height:1; }
 .metro-quotes cite { display:block; margin-top:14px; font-size:.8rem; font-style:normal; font-weight:700; }
 
 /* USP */
@@ -325,4 +325,109 @@ body { overflow-x: hidden; }
 
 @media (prefers-reduced-motion:reduce) {
     .metro-hero-video { display:none; }
+}
+
+/* Desktop: keep the video cinematic, but do not let it become taller
+   than the first screen composition. */
+@media (min-width: 1001px) {
+    .metro-home-hero {
+        width: 100%;
+        height: clamp(650px, calc(100svh - 90px), 820px);
+        min-height: 650px;
+        max-height: 820px;
+        margin: 0;
+        padding: 0;
+        align-items: flex-end;
+    }
+
+    .metro-home-hero .metro-hero-inner {
+        width: min(calc(100% - 96px), 1440px);
+        max-width: 1440px;
+        margin-inline: auto;
+        padding: 0 0 58px;
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-end;
+        gap: 60px;
+    }
+
+    .metro-home-hero .metro-hero-copy {
+        width: min(680px, 58%);
+        max-width: 680px;
+    }
+
+    .metro-home-hero h1 {
+        font-size: clamp(3rem, 4.6vw, 4.8rem);
+    }
+
+    .metro-community-card {
+        width: 310px;
+        flex: 0 0 310px;
+    }
+
+    .metro-experience-strip {
+        min-height: 90px;
+    }
+}
+
+/* Wide monitors should become wider, not disproportionately taller. */
+@media (min-width: 1600px) {
+    .metro-home-hero {
+        height: clamp(680px, calc(100svh - 90px), 860px);
+        max-height: 860px;
+    }
+
+    .metro-home-hero .metro-hero-inner {
+        width: min(calc(100% - 120px), 1560px);
+        max-width: 1560px;
+    }
+}
+
+/* Keep the video behind all hero content. */
+.metro-hero-video {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: center center;
+    z-index: 0;
+}
+
+.metro-hero-video-overlay {
+    z-index: 1;
+}
+
+.metro-home-hero .metro-hero-inner {
+    position: relative;
+    z-index: 3;
+}
+
+/* Prevent reveal animation from leaving the first-screen hero invisible
+   if IntersectionObserver is delayed or blocked in production. */
+.metro-home-hero .metro-hero-copy > * {
+    opacity: 1;
+}
+
+.metro-home-hero .metro-hero-copy > *.metro-reveal {
+    opacity: 1;
+    transform: none;
+}
+
+/* Tablet */
+@media (max-width: 1000px) {
+    .metro-home-hero {
+        height: auto;
+        min-height: 650px;
+        max-height: none;
+        padding: 110px 0 64px;
+    }
+}
+
+/* Mobile */
+@media (max-width: 640px) {
+    .metro-home-hero {
+        min-height: 650px;
+        padding: 100px 0 52px;
+    }
 }

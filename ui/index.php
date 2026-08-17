@@ -94,8 +94,10 @@ if (trim((string) ($siteConfig['hero_image_path'] ?? '')) === '') {
             muted
             loop
             playsinline
-            preload="metadata"
-            poster="<?php echo htmlspecialchars($heroImage); ?>"
+            preload="auto"
+            poster="<?php echo htmlspecialchars(
+                app_url('assets/images/courts-aerial-poster.jpg')
+            ); ?>"
         >
             <source
                 src="<?php echo htmlspecialchars(
