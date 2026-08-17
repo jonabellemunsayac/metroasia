@@ -53,6 +53,16 @@ $memberCtaHref = app_url($currentMember ? 'ui/member.php' : 'ui/member-login.php
         rel="stylesheet"
         href="<?php echo htmlspecialchars(app_url('assets/themes/' . $themeName . '/bootstrap-redesign.css')); ?>?v=<?php echo htmlspecialchars($assetVersion); ?>"
     >
+
+    <?php if ($useAdminShell): ?>
+    <link
+        rel="stylesheet"
+        href="<?php echo htmlspecialchars(
+            app_url('assets/themes/metro/admin-theme.css')
+        ); ?>?v=<?php echo htmlspecialchars($assetVersion); ?>"
+    >
+    <?php endif; ?>
+
     <link
         rel="stylesheet"
         href="<?php echo htmlspecialchars(
