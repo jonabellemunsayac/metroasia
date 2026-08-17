@@ -1,0 +1,53 @@
+/* Membership section fix
+   Removes the center PLAY / MORE / MEMBER badge and converts the top area
+   into a clean two-column layout.
+*/
+
+.metro-membership-top {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, .85fr);
+    gap: 110px;
+    align-items: center;
+}
+
+.metro-membership-intro {
+    max-width: 620px;
+}
+
+.metro-membership-description {
+    max-width: 520px;
+    justify-self: end;
+}
+
+.metro-membership-description h3 {
+    margin-bottom: 14px;
+    font-size: clamp(1.7rem, 2.3vw, 2.5rem);
+}
+
+.metro-membership-description p {
+    margin-bottom: 0;
+    font-size: 1rem;
+    line-height: 1.7;
+}
+
+/* These old badge styles can remain unused, but this ensures nothing
+   appears if stale markup is accidentally left behind. */
+.metro-membership-price {
+    display: none !important;
+}
+
+.metro-price-circle {
+    display: none !important;
+}
+
+@media (max-width: 900px) {
+    .metro-membership-top {
+        grid-template-columns: 1fr;
+        gap: 34px;
+    }
+
+    .metro-membership-description {
+        max-width: 680px;
+        justify-self: start;
+    }
+}

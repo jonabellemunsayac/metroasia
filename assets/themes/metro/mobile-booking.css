@@ -1,0 +1,353 @@
+@media (max-width: 700px) {
+  .booking-grid-court-dropdown {
+    display: grid !important;
+    grid-template-columns: 1fr !important;
+    width: 100%;
+    min-width: 0 !important;
+    gap: 16px;
+    border: 0;
+    background: transparent;
+  }
+
+  .metro-booking-grid-shell {
+    margin-top: 22px;
+    margin-inline: 0;
+    padding: 0;
+    overflow: visible;
+    border: 0;
+    background: transparent;
+  }
+
+  #bookingGrid.booking-grid-court-dropdown {
+    min-width: 0 !important;
+  }
+
+  .mobile-court-first-heading,
+  .mobile-court-step-divider {
+    display: flex;
+    align-items: center;
+    gap: 11px;
+  }
+
+  .mobile-court-first-heading > div,
+  .mobile-court-step-divider > div {
+    display: grid;
+    gap: 1px;
+  }
+
+  .mobile-court-first-heading > div > span,
+  .mobile-court-step-divider > div > span {
+    color: var(--metro-text);
+    font-size: .65rem;
+    font-weight: 700;
+    letter-spacing: .09em;
+    text-transform: uppercase;
+  }
+
+  .mobile-court-first-heading h3,
+  .mobile-court-step-divider strong {
+    margin: 0;
+    font-size: 1rem;
+  }
+
+  .mobile-court-first-step {
+    width: 30px;
+    height: 30px;
+    flex: 0 0 30px;
+    display: grid;
+    place-items: center;
+    border-radius: 50%;
+    background: var(--metro-accent);
+    color: var(--metro-primary);
+    font-size: .76rem;
+    font-weight: 800;
+  }
+
+  .mobile-court-dropdown-section {
+    display: grid;
+    gap: 12px;
+  }
+
+  .mobile-court-dropdown {
+    position: relative;
+    z-index: 20;
+  }
+
+  .mobile-court-dropdown-trigger,
+  .mobile-court-dropdown-option {
+    width: 100%;
+    padding: 12px 13px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    border: 1px solid var(--metro-border);
+    background: #fff;
+    color: var(--metro-primary);
+    text-align: left;
+  }
+
+  .mobile-court-dropdown-trigger {
+    min-height: 72px;
+    border-radius: 15px;
+    cursor: pointer;
+    box-shadow: 0 5px 16px rgba(2,20,33,.05);
+  }
+
+  .mobile-court-dropdown.is-open .mobile-court-dropdown-trigger {
+    border-color: var(--metro-primary);
+    border-bottom-left-radius: 0;
+    border-bottom-right-radius: 0;
+    background: var(--metro-primary);
+    color: #fff;
+  }
+
+  .mobile-court-option-copy {
+    min-width: 0;
+    display: grid;
+    gap: 2px;
+  }
+
+  .mobile-court-option-kicker {
+    color: var(--metro-text);
+    font-size: .62rem;
+    font-weight: 700;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+  }
+
+  .mobile-court-option-copy strong {
+    font-size: .87rem;
+    line-height: 1.25;
+  }
+
+  .mobile-court-option-copy small {
+    color: var(--metro-text);
+    font-size: .7rem;
+    font-weight: 600;
+  }
+
+  .mobile-court-dropdown.is-open .mobile-court-dropdown-trigger .mobile-court-option-kicker,
+  .mobile-court-dropdown.is-open .mobile-court-dropdown-trigger small {
+    color: rgba(255,255,255,.65);
+  }
+
+  .mobile-court-trigger-right {
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .mobile-court-dropdown-indicator {
+    width: 30px;
+    height: 30px;
+    display: grid;
+    place-items: center;
+    border-radius: 50%;
+    background: var(--metro-accent);
+    color: var(--metro-primary);
+    font-size: 1rem;
+    font-weight: 800;
+    transition: transform .18s ease;
+  }
+
+  .mobile-court-dropdown.is-open .mobile-court-dropdown-indicator {
+    transform: rotate(45deg);
+  }
+
+  .mobile-court-selected-count {
+    display: inline-flex;
+    padding: 6px 9px;
+    border-radius: 999px;
+    background: var(--metro-accent);
+    color: var(--metro-primary);
+    font-size: .65rem;
+    font-weight: 800;
+  }
+
+  .mobile-court-dropdown-menu {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 100%;
+    max-height: 300px;
+    overflow-y: auto;
+    border: 1px solid var(--metro-primary);
+    border-top: 0;
+    border-radius: 0 0 15px 15px;
+    background: #fff;
+    box-shadow: 0 18px 35px rgba(2,20,33,.16);
+  }
+
+  .mobile-court-dropdown-menu[hidden] {
+    display: none !important;
+  }
+
+  .mobile-court-dropdown-option {
+    min-height: 66px;
+    border: 0;
+    border-bottom: 1px solid var(--metro-border);
+    border-radius: 0;
+    cursor: pointer;
+  }
+
+  .mobile-court-dropdown-option:last-child {
+    border-bottom: 0;
+  }
+
+  .mobile-court-dropdown-option.is-current {
+    background: #f3f4f4;
+  }
+
+  @media (hover: hover) and (pointer: fine) {
+    .mobile-court-dropdown-option:hover {
+      background: var(--metro-accent);
+    }
+  }
+
+  .mobile-court-times-panel {
+    overflow: hidden;
+    border: 1px solid var(--metro-border);
+    border-radius: 18px;
+    background: #fff;
+    box-shadow: 0 8px 24px rgba(2,20,33,.05);
+  }
+
+  .mobile-court-times-heading {
+    padding: 15px 15px 10px;
+  }
+
+  .mobile-time-panel-kicker {
+    display: block;
+    margin-bottom: 3px;
+    color: var(--metro-text);
+    font-size: .64rem;
+    font-weight: 700;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+  }
+
+  .mobile-court-times-heading h3 {
+    margin: 0;
+    font-size: 1rem;
+  }
+
+  .mobile-time-panel-help {
+    margin: 0;
+    padding: 0 15px 13px;
+    border-bottom: 1px solid var(--metro-border);
+    font-size: .72rem;
+    line-height: 1.45;
+  }
+
+  .mobile-court-time-list {
+    display: grid;
+    gap: 8px;
+    padding: 12px;
+  }
+
+  .mobile-court-time-slot {
+    width: 100%;
+    min-height: 58px;
+    padding: 10px 12px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    border: 1px solid var(--metro-border);
+    border-radius: 13px;
+    background: #fff;
+    color: var(--metro-primary);
+    text-align: left;
+  }
+
+  .mobile-court-time-main {
+    display: grid;
+    gap: 2px;
+  }
+
+  .mobile-court-time-main strong {
+    font-size: .83rem;
+  }
+
+  .mobile-court-time-main small {
+    color: var(--metro-text);
+    font-size: .72rem;
+    font-weight: 600;
+  }
+
+  .mobile-court-time-state {
+    padding: 6px 9px;
+    border-radius: 999px;
+    font-size: .66rem;
+    font-weight: 800;
+  }
+
+  .mobile-time-available .mobile-court-time-state,
+  .mobile-time-selected .mobile-court-time-state {
+    background: var(--metro-accent);
+    color: var(--metro-primary);
+  }
+
+  .mobile-time-selected {
+    border-color: var(--metro-primary);
+    background: var(--metro-primary);
+    color: #fff;
+  }
+
+  .mobile-time-selected .mobile-court-time-main small {
+    color: rgba(255,255,255,.68);
+  }
+
+  .mobile-time-booked {
+    background: #f1f3f4;
+    color: #778087;
+  }
+
+  .mobile-time-booked .mobile-court-time-state {
+    background: #e1e5e8;
+    color: #6f787e;
+  }
+
+  .mobile-time-unavailable {
+    background: #fafafa;
+    color: #a4aaae;
+  }
+
+  .mobile-time-unavailable .mobile-court-time-state {
+    background: #f0f1f1;
+    color: #92999e;
+  }
+
+  .booking-selection-bar .metro-btn,
+  .booking-selection-bar .booking-selection-submit {
+      width: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: space-between !important;
+  }
+
+  .booking-selection-bar .metro-btn::after,
+  .booking-selection-bar .booking-selection-submit::after {
+      margin-left: auto;
+      flex-shrink: 0;
+  }
+}
+
+@media (max-width: 390px) {
+  .mobile-court-dropdown-trigger,
+  .mobile-court-dropdown-option,
+  .mobile-court-time-slot {
+    padding-inline: 10px;
+  }
+
+  .mobile-court-option-copy strong,
+  .mobile-court-time-main strong {
+    font-size: .79rem;
+  }
+
+  .mobile-court-dropdown-menu {
+    max-height: 260px;
+  }
+}

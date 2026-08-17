@@ -1,0 +1,467 @@
+/* MetroAsia responsive compatibility layer
+   Load this AFTER theme.css, header.css, home.css, booking.css, payment.css,
+   footer.css, and metro-interactions.css.
+*/
+
+/* ---------- Base protection ---------- */
+
+html,
+body {
+    width: 100%;
+    max-width: 100%;
+    overflow-x: hidden;
+}
+
+img,
+svg,
+video,
+iframe {
+    max-width: 100%;
+}
+
+.metro-container {
+    width: min(calc(100% - 48px), var(--metro-container));
+    margin-inline: auto;
+}
+
+.metro-home-page,
+.metro-booking-page,
+.metro-payment-page {
+    width: 100%;
+    min-width: 0;
+}
+
+/* Prevent grid/flex children from forcing horizontal overflow */
+.metro-hero-inner > *,
+.metro-about > *,
+.metro-facilities > *,
+.metro-membership-top > *,
+.metro-testimonial-layout > *,
+.metro-booking-layout > *,
+.metro-booking-panel,
+.metro-booking-sidebar,
+.metro-payment-panel {
+    min-width: 0;
+}
+
+/* ---------- Header ---------- */
+
+.metro-header-inner {
+    width: 100%;
+}
+
+.metro-brand-name {
+    white-space: nowrap;
+}
+
+@media (max-width: 1100px) {
+    .metro-nav a {
+        padding-inline: 10px;
+        font-size: .72rem;
+    }
+
+    .metro-header-inner {
+        gap: 16px;
+    }
+}
+
+@media (max-width: 900px) {
+    .metro-header {
+        min-height: 80px;
+    }
+
+    .metro-brand-name {
+        font-size: 1.05rem;
+    }
+
+    .metro-brand img {
+        width: 42px;
+        height: 42px;
+    }
+
+    .metro-nav {
+        left: 16px;
+        right: 16px;
+        width: auto;
+        max-height: calc(100dvh - 100px);
+        overflow-y: auto;
+    }
+}
+
+@media (max-width: 420px) {
+    .metro-brand-name {
+        font-size: .95rem;
+    }
+
+    .metro-brand img {
+        width: 38px;
+        height: 38px;
+    }
+}
+
+/* ---------- Homepage hero ---------- */
+
+.metro-home-hero {
+    width: 100%;
+    background-size: cover;
+    background-position: center center;
+}
+
+.metro-home-hero .metro-hero-inner {
+    width: min(calc(100% - 48px), var(--metro-container));
+    max-width: var(--metro-container);
+    margin-inline: auto;
+}
+
+@media (min-width: 1001px) {
+    .metro-home-hero {
+        min-height: calc(100svh - 112px);
+    }
+}
+
+@media (max-width: 1000px) {
+    .metro-home-hero {
+        min-height: 620px;
+        padding: 110px 0 64px;
+    }
+
+    .metro-home-hero .metro-hero-inner {
+        width: min(calc(100% - 32px), var(--metro-container));
+        gap: 28px;
+    }
+
+    .metro-home-hero .metro-hero-copy {
+        width: 100%;
+        max-width: 720px;
+    }
+
+    .metro-community-card {
+        width: min(310px, 100%);
+    }
+}
+
+@media (max-width: 640px) {
+    .metro-home-hero {
+        min-height: auto;
+        padding: 120px 0 56px;
+        background-position: 52% center;
+    }
+
+    .metro-home-hero .metro-hero-inner {
+        width: min(calc(100% - 28px), var(--metro-container));
+    }
+
+    .metro-home-hero h1 {
+        font-size: clamp(2.45rem, 12vw, 3.2rem);
+        line-height: .98;
+    }
+
+    .metro-home-hero .metro-hero-copy p {
+        font-size: .98rem;
+    }
+
+    .metro-actions {
+        gap: 10px;
+    }
+
+    .metro-btn {
+        min-height: 44px;
+        font-size: .76rem;
+    }
+
+    .metro-community-card {
+        display: none;
+    }
+}
+
+/* ---------- Lime ticker ---------- */
+
+.metro-experience-strip {
+    width: 100%;
+    max-width: 100%;
+    overflow: hidden;
+}
+
+.metro-experience-track {
+    min-width: max-content;
+    will-change: transform;
+}
+
+@media (max-width: 640px) {
+    .metro-experience-strip {
+        min-height: 76px;
+    }
+
+    .metro-experience-track {
+        gap: 20px;
+        font-size: 1.7rem;
+    }
+}
+
+/* ---------- Homepage sections ---------- */
+
+@media (max-width: 1000px) {
+    .metro-about,
+    .metro-facilities,
+    .metro-testimonial-layout {
+        grid-template-columns: 1fr;
+    }
+
+    .metro-about {
+        gap: 46px;
+    }
+
+    .metro-about-main {
+        min-height: 460px;
+    }
+
+    .metro-service-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .metro-membership-top {
+        grid-template-columns: 1fr;
+        gap: 34px;
+    }
+
+    .metro-membership-description {
+        justify-self: start;
+        max-width: 680px;
+    }
+
+    .metro-membership-benefits {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .metro-usp-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .metro-cta-copy {
+        width: 60%;
+    }
+}
+
+@media (max-width: 640px) {
+    .metro-section {
+        padding: 54px 0;
+    }
+
+    .metro-home-block {
+        padding-inline: 14px;
+    }
+
+    .metro-about-section,
+    .metro-membership-section,
+    .metro-testimonials-section {
+        padding-inline: 14px;
+    }
+
+    .metro-about-main {
+        min-height: 340px;
+    }
+
+    .metro-about-small {
+        width: 58%;
+        min-width: 170px;
+    }
+
+    .metro-service-grid,
+    .metro-membership-benefits,
+    .metro-usp-grid,
+    .metro-stats {
+        grid-template-columns: 1fr;
+    }
+
+    .metro-service-card img {
+        height: 240px;
+    }
+
+    .metro-facility-photo {
+        min-height: 340px;
+    }
+
+    .metro-facility-content {
+        padding: 36px 24px;
+    }
+
+    .metro-rating-photo {
+        height: 280px;
+    }
+
+    .metro-cta-card {
+        min-height: 460px;
+        background-position: 42% center;
+    }
+
+    .metro-cta-copy {
+        width: 100%;
+        padding: 30px 24px;
+    }
+
+    .metro-stats > div {
+        border-right: 0;
+        border-bottom: 1px solid var(--metro-border);
+        padding: 18px 0;
+    }
+}
+
+/* ---------- Booking / Payment ---------- */
+
+@media (max-width: 1100px) {
+    .metro-booking-layout {
+        grid-template-columns: minmax(250px, 310px) minmax(0, 1fr);
+        gap: 24px;
+    }
+
+    .metro-booking-panel-body {
+        padding: 24px;
+    }
+}
+
+@media (max-width: 900px) {
+    .metro-booking-layout {
+        grid-template-columns: 1fr;
+    }
+
+    .metro-booking-sidebar {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .metro-booking-hero-inner {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+}
+
+@media (max-width: 700px) {
+    .metro-booking-section {
+        padding: 36px 0 64px;
+    }
+
+    .metro-booking-sidebar {
+        grid-template-columns: 1fr;
+    }
+
+    .metro-booking-panel-body {
+        padding: 16px;
+    }
+
+    .metro-booking-form-block {
+        padding: 18px;
+    }
+
+    .metro-booking-block-head,
+    .metro-booking-date-row,
+    .metro-payment-section-head {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .metro-sport-options,
+    .metro-payment-channels,
+    #paymentPageChannels {
+        grid-template-columns: 1fr;
+    }
+
+    .metro-booking-rates {
+        grid-template-columns: 1fr;
+    }
+
+    .metro-booking-date-actions {
+        align-self: flex-start;
+    }
+
+    .metro-booking-grid-shell {
+        margin-inline: -4px;
+    }
+
+    #bookingGrid {
+        min-width: 680px;
+    }
+}
+
+/* ---------- Footer ---------- */
+
+@media (max-width: 900px) {
+    .metro-footer-grid {
+        grid-template-columns: 1fr 1fr;
+        gap: 36px;
+    }
+
+    .metro-footer-intro {
+        grid-column: 1 / -1;
+    }
+}
+
+@media (max-width: 620px) {
+    .metro-footer {
+        padding-top: 54px;
+    }
+
+    .metro-footer-grid {
+        grid-template-columns: 1fr;
+        gap: 30px;
+        text-align: center;
+    }
+
+    .metro-newsletter {
+        max-width: 430px;
+        margin-inline: auto;
+    }
+
+    .metro-social {
+        justify-content: center;
+    }
+}
+
+/* ---------- Touch friendliness ---------- */
+
+@media (hover: none) and (pointer: coarse) {
+    .metro-btn,
+    .metro-nav a,
+    .metro-menu-toggle,
+    .metro-booking-date-actions button,
+    .metro-sport-option,
+    .metro-booking-mini-actions button {
+        min-height: 44px;
+    }
+
+    .metro-card:hover,
+    .metro-service-card:hover,
+    .metro-about-image:hover,
+    .metro-facility-image:hover {
+        transform: none;
+    }
+}
+
+/* ---------- Landscape phones ---------- */
+
+@media (max-height: 520px) and (orientation: landscape) {
+    .metro-home-hero {
+        min-height: 520px;
+        padding-top: 100px;
+        padding-bottom: 40px;
+    }
+
+    .metro-community-card {
+        display: none;
+    }
+}
+
+/* ---------- Reduced motion ---------- */
+
+@media (prefers-reduced-motion: reduce) {
+    html {
+        scroll-behavior: auto;
+    }
+
+    *,
+    *::before,
+    *::after {
+        animation-duration: .01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: .01ms !important;
+        scroll-behavior: auto !important;
+    }
+}

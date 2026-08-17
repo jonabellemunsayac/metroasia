@@ -6,7 +6,7 @@ $appBrand = 'Metro Asia';
 $appTitle = 'Multi-Sport Court Scheduling & Reservation';
 $pageTitle = $pageTitle ?? $appTitle;
 $active = $active ?? 'home';
-$assetVersion = $assetVersion ?? '3.0.19';
+$assetVersion = $assetVersion ?? '3.0.21';
 $themeName = $themeName ?? 'metro';
 $currentAdmin = current_admin();
 $currentMember = current_member();
@@ -14,11 +14,11 @@ $useAdminShell = $currentAdmin !== null && str_starts_with($active, 'admin');
 
 $publicNavItems = [
     ['key' => 'home', 'label' => 'Home', 'href' => app_url('ui/index.php#welcome')],
-    ['key' => 'about', 'label' => 'About Us', 'href' => app_url('ui/index.php#about')],
-    ['key' => 'gallery', 'label' => 'Gallery', 'href' => app_url('ui/index.php#gallery')],
     ['key' => 'booking', 'label' => 'Book a Court', 'href' => app_url('ui/booking.php')],
-    ['key' => 'member', 'label' => $currentMember ? 'My Bookings' : 'Become Member', 'href' => app_url($currentMember ? 'ui/member.php' : 'ui/register.php')],
-    ['key' => 'contact', 'label' => 'Contact Us', 'href' => app_url('ui/index.php#contact-us')],
+    ['key' => 'gallery', 'label' => 'Gallery', 'href' => app_url('ui/index.php#gallery')],
+    ['key' => 'rules', 'label' => 'Rules', 'href' => app_url('ui/rules.php')],
+    ['key' => 'about', 'label' => 'About Us', 'href' => app_url('ui/index.php#about')],
+    ['key' => 'contact', 'label' => 'Contact', 'href' => app_url('ui/index.php#contact-us')],
 ];
 
 $adminNavItems = [
@@ -30,6 +30,10 @@ $adminNavItems = [
     ['key' => 'admin-site-config', 'label' => 'Site Config', 'sub' => 'Public content and links', 'href' => app_url('admin/site-config.php'), 'icon' => 'settings'],
     ['key' => 'admin-members', 'label' => 'Users / Members', 'sub' => 'Access and accounts', 'href' => app_url('admin/members.php'), 'icon' => 'users'],
 ];
+
+$isPublicHome = !$useAdminShell && $active === 'home';
+$memberCtaLabel = $currentMember ? 'My Bookings' : 'Member Login';
+$memberCtaHref = app_url($currentMember ? 'ui/member.php' : 'ui/member-login.php');
 ?>
 <!doctype html>
 <html lang="en">
@@ -37,39 +41,105 @@ $adminNavItems = [
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title><?php echo htmlspecialchars($pageTitle); ?></title>
+
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@100;200;300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@400;500;600;700&family=Manrope:wght@500;600;700&family=Poppins:wght@100;200;300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+
     <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="<?php echo htmlspecialchars(app_url('assets/themes/' . $themeName . '/bootstrap-redesign.css')); ?>?v=<?php echo $assetVersion; ?>">
+
+    <link
+        rel="stylesheet"
+        href="<?php echo htmlspecialchars(app_url('assets/themes/' . $themeName . '/bootstrap-redesign.css')); ?>?v=<?php echo htmlspecialchars($assetVersion); ?>"
+    >
+    <link
+        rel="stylesheet"
+        href="<?php echo htmlspecialchars(
+            app_url('assets/themes/metro/metro-interactions.css')
+        ); ?>?v=<?php echo htmlspecialchars($assetVersion); ?>"
+    >
+
+    <?php if (!$useAdminShell): ?>
+        <link rel="stylesheet" href="<?php echo htmlspecialchars(app_url('assets/themes/metro/theme.css')); ?>?v=<?php echo htmlspecialchars($assetVersion); ?>">
+        <link rel="stylesheet" href="<?php echo htmlspecialchars(app_url('assets/themes/metro/header.css')); ?>?v=<?php echo htmlspecialchars($assetVersion); ?>">
+        <link rel="stylesheet" href="<?php echo htmlspecialchars(app_url('assets/themes/metro/home.css')); ?>?v=<?php echo htmlspecialchars($assetVersion); ?>">
+
+        <?php if (($active ?? '') === 'home'): ?>
+        <link rel="stylesheet"
+            href="<?php echo htmlspecialchars(app_url('assets/themes/metro/amenities-gallery.css')); ?>?v=<?php echo htmlspecialchars($assetVersion); ?>">
+        <?php endif; ?>
+
+        <?php if (in_array($active, ['booking', 'payment'], true)): ?>
+            <link
+                rel="stylesheet"
+                href="<?php echo htmlspecialchars(app_url('assets/themes/metro/booking.css')); ?>?v=<?php echo htmlspecialchars($assetVersion); ?>"
+            >
+            <link
+                rel="stylesheet"
+                href="<?php echo htmlspecialchars(app_url('assets/themes/metro/mobile-booking.css')); ?>?v=<?php echo htmlspecialchars($assetVersion); ?>"
+            >
+
+        <?php endif; ?>
+
+        <?php if ($active === 'payment'): ?>
+            <link
+                rel="stylesheet"
+                href="<?php echo htmlspecialchars(app_url('assets/themes/metro/payment.css')); ?>?v=<?php echo htmlspecialchars($assetVersion); ?>"
+            >
+        <?php endif; ?>
+        <link rel="stylesheet" href="<?php echo htmlspecialchars(app_url('assets/themes/metro/footer.css')); ?>?v=<?php echo htmlspecialchars($assetVersion); ?>">
+    <?php endif; ?>
 </head>
+
 <body class="<?php echo $useAdminShell ? 'admin-body' : 'public-body'; ?>">
+
 <?php if (!$useAdminShell): ?>
-    <header class="public-topbar">
-        <nav class="navbar navbar-expand-lg public-navbar">
-            <div class="container-xl">
-                <a href="<?php echo htmlspecialchars(app_url('ui/index.php')); ?>" class="navbar-brand d-flex align-items-center gap-2" aria-label="Metro Asia home">
-                    <img src="<?php echo htmlspecialchars(app_url('assets/logo.jpg')); ?>" alt="Metro Asia Arena" class="brand-logo-image">
+
+    <header class="metro-header<?php echo $isPublicHome ? ' overlay' : ''; ?>">
+        <div class="metro-container metro-header-inner">
+            <a href="<?php echo htmlspecialchars(app_url('ui/index.php')); ?>" class="metro-brand" aria-label="Metro Asia Arena home">
+                <img
+                    src="<?php echo htmlspecialchars(app_url('assets/logo.jpg')); ?>"
+                    alt="Metro Asia Arena"
+                    onerror="this.style.display='none'; this.nextElementSibling.style.display='grid';"
+                >
+                <span class="metro-brand-fallback" style="display:none;">MA</span>
+                <span class="metro-brand-name">MetroAsia Arena</span>
+            </a>
+
+            <nav id="metroPublicNav" class="metro-nav" data-metro-nav aria-label="Primary navigation">
+                <?php foreach ($publicNavItems as $item): ?>
+                    <a
+                        class="<?php echo $item['key'] === $active ? 'active' : ''; ?>"
+                        href="<?php echo htmlspecialchars($item['href']); ?>"
+                    >
+                        <?php echo htmlspecialchars($item['label']); ?>
+                    </a>
+                <?php endforeach; ?>
+            </nav>
+
+            <div class="d-flex align-items-center gap-2">
+                <a class="metro-btn metro-btn-light metro-header-cta" href="<?php echo htmlspecialchars($memberCtaHref); ?>">
+                    <?php echo htmlspecialchars($memberCtaLabel); ?>
                 </a>
-                <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#publicNavbar" aria-controls="publicNavbar" aria-expanded="false" aria-label="Toggle navigation">
-                    <span class="navbar-toggler-icon"></span>
+
+                <button
+                    class="metro-menu-toggle"
+                    type="button"
+                    data-metro-menu-toggle
+                    aria-controls="metroPublicNav"
+                    aria-expanded="false"
+                    aria-label="Toggle navigation"
+                >
+                    <i data-lucide="menu" class="icon-sm"></i>
                 </button>
-                <div id="publicNavbar" class="collapse navbar-collapse">
-                    <ul class="navbar-nav ms-auto mb-3 mb-lg-0 gap-lg-1">
-                        <?php foreach ($publicNavItems as $item): ?>
-                            <li class="nav-item">
-                                <a class="nav-link <?php echo $item['key'] === $active ? 'active' : ''; ?>" href="<?php echo htmlspecialchars($item['href']); ?>">
-                                    <?php echo htmlspecialchars($item['label']); ?>
-                                </a>
-                            </li>
-                        <?php endforeach; ?>
-                    </ul>
-                </div>
             </div>
-        </nav>
+        </div>
     </header>
+
 <?php else: ?>
+
     <div id="sidebarOverlay" class="sidebar-overlay hidden"></div>
     <div class="admin-layout">
         <aside id="appSidebar" class="admin-sidebar" aria-label="Application navigation">
@@ -114,6 +184,7 @@ $adminNavItems = [
                                 <h1 class="admin-page-title mb-0"><?php echo htmlspecialchars($pageTitle); ?></h1>
                             </div>
                         </div>
+
                         <?php if ($currentAdmin): ?>
                             <div class="dropdown">
                                 <button class="btn admin-user-button dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
@@ -135,4 +206,5 @@ $adminNavItems = [
                     </div>
                 </div>
             </header>
+
 <?php endif; ?>

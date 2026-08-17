@@ -1,0 +1,17 @@
+.metro-header{position:relative;z-index:99;background:var(--metro-primary);color:#fff}
+.metro-header.overlay{position:absolute;top:0;left:0;right:0;background:linear-gradient(to bottom,rgba(2,20,33,.82),rgba(2,20,33,0))}
+.metro-header-inner{height:96px;display:flex;align-items:center;justify-content:space-between;gap:24px}
+.metro-brand{display:flex;align-items:center;gap:10px;font-family:var(--metro-display);font-size:1.35rem;font-weight:700}
+.metro-brand img{width:48px;height:48px;border-radius:50%;object-fit:cover}
+.metro-brand-fallback{width:40px;height:40px;border-radius:50%;display:grid;place-items:center;background:var(--metro-accent);color:var(--metro-primary);font-weight:800}
+.metro-nav{display:flex;align-items:center;gap:3px}
+.metro-nav a{padding:9px 14px;border-radius:var(--metro-pill);font-size:.78rem;text-transform:uppercase}
+.metro-nav a:hover,.metro-nav a.active{background:var(--metro-accent);color:var(--metro-primary)}
+.metro-menu-toggle{display:none;width:44px;height:44px;border-radius:50%;border:1px solid rgba(255,255,255,.3);background:transparent;color:#fff;cursor:pointer}
+@media(max-width:900px){
+ .metro-header-inner{height:80px}
+ .metro-menu-toggle{display:grid;place-items:center}
+ .metro-header-cta{display:none}
+ .metro-nav{display:none;position:absolute;top:76px;left:16px;right:16px;padding:15px;background:#fff;color:var(--metro-primary);border-radius:18px;box-shadow:0 18px 45px rgba(2,20,33,.15);flex-direction:column;align-items:stretch}
+ .metro-nav.open{display:flex}
+}

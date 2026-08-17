@@ -1,0 +1,118 @@
+
+/* metro-interactions.css
+   Companion styles for assets/js/metro-theme.js
+*/
+
+/* Header becomes solid once scrolling begins. */
+.metro-header {
+  transition:
+    background-color .25s ease,
+    box-shadow .25s ease,
+    backdrop-filter .25s ease;
+}
+
+.metro-header.overlay.scrolled {
+  position: fixed;
+  background: rgba(2, 20, 33, .94);
+  box-shadow: 0 8px 30px rgba(2, 20, 33, .12);
+  backdrop-filter: blur(14px);
+}
+
+.metro-header:not(.overlay).scrolled {
+  position: sticky;
+  top: 0;
+  box-shadow: 0 8px 30px rgba(2, 20, 33, .10);
+}
+
+/* Reveal animation inspired by Elementor fadeIn settings. */
+.metro-reveal {
+  opacity: 0;
+  transform: translateY(24px);
+  transition:
+    opacity .65s cubic-bezier(.2,.7,.2,1),
+    transform .65s cubic-bezier(.2,.7,.2,1);
+  transition-delay: var(--metro-reveal-delay, 0ms);
+}
+
+.metro-reveal.metro-revealed {
+  opacity: 1;
+  transform: none;
+}
+
+/* Continuous ticker. */
+.metro-ticker-track {
+  width: max-content;
+  will-change: transform;
+}
+
+.metro-ticker-animate {
+  animation: metroTicker 24s linear infinite;
+}
+
+.metro-ticker:hover .metro-ticker-animate {
+  animation-play-state: paused;
+}
+
+@keyframes metroTicker {
+  from { transform: translateX(0); }
+  to   { transform: translateX(-35%); }
+}
+
+/* Subtle Pickyard-style card interaction. */
+.metro-card,
+.metro-difference-item {
+  transition:
+    transform .25s ease,
+    box-shadow .25s ease,
+    border-color .25s ease;
+}
+
+.metro-card:hover {
+  transform: translateY(-6px);
+  box-shadow: 0 18px 46px rgba(2,20,33,.10);
+}
+
+.metro-difference-item:hover {
+  background: #fff;
+}
+
+/* Image zoom. */
+.metro-about-image,
+.metro-facility-image {
+  transition: transform .45s ease;
+}
+
+.metro-about-image:hover,
+.metro-facility-image:hover {
+  transform: scale(1.012);
+}
+
+/* Mobile menu behavior. */
+@media (max-width: 900px) {
+  body.metro-menu-open {
+    overflow: hidden;
+  }
+
+  .metro-nav {
+    max-height: calc(100vh - 100px);
+    overflow-y: auto;
+  }
+}
+
+/* Accessibility. */
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  .metro-reveal,
+  .metro-ticker-animate,
+  .metro-card,
+  .metro-about-image,
+  .metro-facility-image {
+    animation: none !important;
+    transition: none !important;
+    transform: none !important;
+    opacity: 1 !important;
+  }
+}

@@ -1006,12 +1006,19 @@ function setBookingModalStep(nextStep) {
     if (els.modalBackButton) els.modalBackButton.classList.toggle('hidden', bookingModalStep === 0 || isFinalStep);
     if (els.modalNextButton) els.modalNextButton.classList.toggle('hidden', isFinalStep);
     if (els.modalSubmitButton) els.modalSubmitButton.classList.toggle('hidden', !isFinalStep);
+    // const closeButton = document.getElementById('closeModal');
+    // if (closeButton) {
+    //     const closeLocked = !bookingModalCloseUnlocked || Boolean(els.modalSubmitButton?.dataset.done === '1');
+    //     closeButton.disabled = closeLocked;
+    //     closeButton.classList.toggle('is-locked', closeLocked);
+    //     closeButton.title = closeLocked ? 'Click Done to finish this booking process' : 'Close payment form';
+    // }
     const closeButton = document.getElementById('closeModal');
     if (closeButton) {
-        const closeLocked = !bookingModalCloseUnlocked || Boolean(els.modalSubmitButton?.dataset.done === '1');
-        closeButton.disabled = closeLocked;
-        closeButton.classList.toggle('is-locked', closeLocked);
-        closeButton.title = closeLocked ? 'Click Done to finish this booking process' : 'Close payment form';
+        closeButton.disabled = false;
+        closeButton.classList.remove('is-locked');
+        closeButton.title = 'Cancel booking';
+        closeButton.setAttribute('aria-label', 'Cancel booking');
     }
     if (els.modalKicker) els.modalKicker.textContent = bookingModalStepTitle(currentKey);
 }
@@ -1955,7 +1962,22 @@ document.getElementById('adminScheduleNext')?.addEventListener('click', () => {
     renderAdminSchedule();
 });
 
-document.getElementById('closeModal')?.addEventListener('click', closeModal);
+// document.getElementById('closeModal')?.addEventListener('click', closeModal);
+document.getElementById('closeModal')?.addEventListener('click', () => {
+    const confirmed = window.confirm(
+        'Are you sure you want to cancel this booking? Your current booking progress will be lost.'
+    );
+
+    if (!confirmed) {
+        return;
+    }
+
+    // Allow closeModal() to perform its existing reset/cleanup.
+    bookingModalCloseUnlocked = true;
+
+    closeModal();
+});
+
 els.modal?.addEventListener('click', event => {
     if (event.target === els.modal) closeModal();
 });
