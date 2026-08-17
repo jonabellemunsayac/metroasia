@@ -6,7 +6,7 @@ $appBrand = 'Metro Asia';
 $appTitle = '';
 $pageTitle = $pageTitle ?? $appTitle;
 $active = $active ?? 'home';
-$assetVersion = $assetVersion ?? '3.0.23';
+$assetVersion = $assetVersion ?? '3.0.24';
 $themeName = $themeName ?? 'metro';
 $currentAdmin = current_admin();
 $currentMember = current_member();
@@ -61,6 +61,17 @@ $memberCtaHref = app_url($currentMember ? 'ui/member.php' : 'ui/member-login.php
             app_url('assets/themes/metro/admin-theme.css')
         ); ?>?v=<?php echo htmlspecialchars($assetVersion); ?>"
     >
+
+        <?php if (($active ?? '') === 'admin-rates'): ?>
+        <link
+            rel="stylesheet"
+            href="<?php echo htmlspecialchars(
+                app_url('assets/themes/metro/admin-rates-pagination.css')
+            ); ?>?v=<?php echo htmlspecialchars($assetVersion); ?>"
+        >
+        <?php endif; ?>
+
+
     <?php endif; ?>
 
     <link

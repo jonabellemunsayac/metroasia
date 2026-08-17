@@ -1,0 +1,64 @@
+/* Rates pagination */
+
+.admin-rate-pagination {
+    padding-top: 16px;
+    margin-top: 12px;
+    border-top: 1px solid var(--admin-line, rgba(2,20,33,.12));
+}
+
+.admin-rate-pagination-inner {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    flex-wrap: wrap;
+}
+
+.admin-rate-pagination-meta {
+    color: var(--admin-muted, #66737b);
+    font-size: .76rem;
+    font-weight: 600;
+}
+
+.admin-rate-pagination-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.admin-rate-page-size {
+    min-height: 36px;
+    padding: 6px 30px 6px 12px;
+    border: 1px solid var(--admin-line, rgba(2,20,33,.12));
+    border-radius: 999px;
+    background-color: #fff;
+    color: var(--admin-ink, #021421);
+    font-size: .76rem;
+    font-weight: 700;
+}
+
+.admin-rate-pagination .btn:disabled {
+    opacity: .4;
+    cursor: not-allowed;
+}
+
+@media (max-width: 575.98px) {
+    .admin-rate-pagination-inner {
+        align-items: stretch;
+        flex-direction: column;
+    }
+
+    .admin-rate-pagination-actions {
+        width: 100%;
+    }
+
+    .admin-rate-pagination-actions .btn {
+        flex: 1 1 0;
+    }
+
+    .admin-rate-page-size {
+        flex: 1 1 100%;
+        width: 100%;
+    }
+}

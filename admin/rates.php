@@ -34,6 +34,42 @@ include __DIR__ . '/../includes/header.php';
                 </tbody>
             </table>
         </div>
+
+        <div id="adminRatePagination" class="admin-rate-pagination" hidden>
+            <div class="admin-rate-pagination-inner">
+                <div id="adminRatePageInfo" class="admin-rate-pagination-meta">
+                    Showing rates...
+                </div>
+
+                <div class="admin-rate-pagination-actions">
+                    <select
+                        id="adminRatePageSize"
+                        class="admin-rate-page-size"
+                        aria-label="Rates per page"
+                    >
+                        <option value="10" selected>10 per page</option>
+                        <option value="20">20 per page</option>
+                        <option value="50">50 per page</option>
+                    </select>
+
+                    <button
+                        id="adminRatePrev"
+                        class="btn btn-outline-secondary btn-sm"
+                        type="button"
+                    >
+                        Previous
+                    </button>
+
+                    <button
+                        id="adminRateNext"
+                        class="btn btn-primary btn-sm"
+                        type="button"
+                    >
+                        Next
+                    </button>
+                </div>
+            </div>
+        </div>
     </section>
 
     <section class="app-card">

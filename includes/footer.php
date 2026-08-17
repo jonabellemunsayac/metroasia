@@ -100,6 +100,14 @@ if ($useAdminShell):
     src="<?php echo htmlspecialchars(app_url('assets/js/app.js')); ?>?v=<?php echo htmlspecialchars($assetVersion); ?>"
 ></script>
 
+<?php if (($active ?? '') === 'admin-rates'): ?>
+<script
+    src="<?php echo htmlspecialchars(
+        app_url('assets/js/admin-rates-pagination.js')
+    ); ?>?v=<?php echo htmlspecialchars($assetVersion); ?>"
+></script>
+<?php endif; ?>
+
 <?php if (($active ?? '') === 'home'): ?>
 <script src="<?php echo htmlspecialchars(app_url('assets/js/amenities-gallery.js')); ?>?v=<?php echo htmlspecialchars($assetVersion); ?>"></script>
 <?php endif; ?>

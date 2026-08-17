@@ -123,10 +123,24 @@ function escapeHtml(value) {
 }
 
 function resourceUrl(path) {
-    const value = String(path || '');
-    if (!value) return '';
-    if (/^(https?:)?\/\//.test(value) || value.startsWith('data:')) return value;
-    return `${rootUrl}${value.replace(/^\/+/, '')}`;
+    const value = String(path || '').trim();
+
+    if (!value) {
+        return '';
+    }
+
+    // Already an absolute URL or data URL
+    if (
+        /^(https?:)?\/\//.test(value) ||
+        value.startsWith('data:')
+    ) {
+        return value;
+    }
+
+    const cleanRoot = String(rootUrl || '').replace(/\/+$/, '');
+    const cleanPath = value.replace(/^\/+/, '');
+
+    return `${cleanRoot}/${cleanPath}`;
 }
 
 function isActiveReservation(status) {
