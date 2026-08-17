@@ -3,10 +3,10 @@ require_once __DIR__ . '/auth.php';
 require_once __DIR__ . '/site-config.php';
 
 $appBrand = 'Metro Asia';
-$appTitle = 'Multi-Sport Court Scheduling & Reservation';
+$appTitle = '';
 $pageTitle = $pageTitle ?? $appTitle;
 $active = $active ?? 'home';
-$assetVersion = $assetVersion ?? '3.0.21';
+$assetVersion = $assetVersion ?? '3.0.23';
 $themeName = $themeName ?? 'metro';
 $currentAdmin = current_admin();
 $currentMember = current_member();

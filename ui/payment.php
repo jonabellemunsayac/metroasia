@@ -1,5 +1,5 @@
 <?php
-$pageTitle = 'Payment | Multi-Sport Court Scheduling & Reservation';
+$pageTitle = 'Payment';
 $active = 'payment';
 
 include __DIR__ . '/../includes/header.php';

@@ -1,5 +1,5 @@
 <?php
-$pageTitle = 'Rules and Policies | Multi-Sport Court Scheduling & Reservation';
+$pageTitle = 'Rules and Policies';
 $active = 'rules';
 include __DIR__ . '/../includes/header.php';
 ?>

@@ -1,5 +1,5 @@
 <?php
-$pageTitle = 'Contact Admin | Multi-Sport Court Scheduling & Reservation';
+$pageTitle = 'Contact Admin';
 $active = 'contact';
 include __DIR__ . '/../includes/header.php';
 $siteConfig = site_config();

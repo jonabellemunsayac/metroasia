@@ -408,3 +408,60 @@ body.admin-body{
     padding:10px!important;
   }
 }
+
+
+/* =========================================
+   ADMIN CONTENT ALIGNMENT FIX
+   ========================================= */
+
+@media (min-width: 1200px) {
+    body.admin-body .admin-content,
+    body.admin-body .admin-footer {
+        margin-left: 0 !important;
+    }
+
+    .admin-layout {
+        width: 100%;
+        grid-template-columns: var(--admin-sidebar-width) minmax(0, 1fr);
+    }
+
+    .admin-sidebar {
+        width: var(--admin-sidebar-width) !important;
+        transform: none !important;
+    }
+
+    .admin-content {
+        width: 100%;
+        min-width: 0;
+    }
+
+    .admin-content > .app-main,
+    .admin-content > main.app-main,
+    .app-main.admin-compact {
+        width: 100% !important;
+        max-width: none !important;
+        margin: 0 !important;
+        padding: 28px clamp(24px, 2.5vw, 42px) 44px !important;
+    }
+
+    .admin-content .app-card,
+    .admin-content .admin-hero {
+        width: 100%;
+        max-width: none;
+    }
+}
+
+@media (max-width: 1199.98px) {
+    body.admin-body .admin-content,
+    body.admin-body .admin-footer {
+        margin-left: 0 !important;
+    }
+
+    .admin-content > .app-main,
+    .admin-content > main.app-main,
+    .app-main.admin-compact {
+        width: min(calc(100% - 24px), 1540px) !important;
+        max-width: none !important;
+        margin-inline: auto !important;
+    }
+}

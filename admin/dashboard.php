@@ -1,7 +1,7 @@
 <?php
 require_once __DIR__ . '/../includes/auth.php';
 require_admin();
-$pageTitle = 'Admin | Multi-Sport Court Scheduling & Reservation';
+$pageTitle = 'Admin';
 $active = 'admin';
 include __DIR__ . '/../includes/header.php';
 ?>

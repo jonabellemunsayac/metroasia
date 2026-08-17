@@ -34,7 +34,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
-$pageTitle = 'Sign In | Multi-Sport Court Scheduling & Reservation';
+$pageTitle = 'Sign In';
 $active = 'member';
 include __DIR__ . '/../includes/header.php';
 ?>

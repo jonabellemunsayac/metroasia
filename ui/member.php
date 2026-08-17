@@ -89,7 +89,7 @@ $courtStmt->execute([(int) $member['id']]);
 $reservations = $courtStmt->fetchAll();
 usort($reservations, static fn (array $a, array $b): int => strcmp((string) $b['created_at'], (string) $a['created_at']));
 
-$pageTitle = 'My Bookings | Multi-Sport Court Scheduling & Reservation';
+$pageTitle = 'My Bookings';
 $active = 'member';
 include __DIR__ . '/../includes/header.php';
 ?>

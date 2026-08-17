@@ -1,7 +1,7 @@
 <?php
 require_once __DIR__ . '/../includes/auth.php';
 require_admin();
-$pageTitle = 'Court Blockings | Multi-Sport Court Scheduling & Reservation';
+$pageTitle = 'Court Blockings';
 $active = 'admin-court-blockings';
 include __DIR__ . '/../includes/header.php';
 ?>

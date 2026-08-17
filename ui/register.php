@@ -34,7 +34,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
-$pageTitle = 'Become a Member | Multi-Sport Court Scheduling & Reservation';
+$pageTitle = 'Become a Member';
 $active = 'member';
 include __DIR__ . '/../includes/header.php';
 ?>

@@ -3,7 +3,7 @@ require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/site-config.php';
 
 $admin = require_admin();
-$pageTitle = 'Site Config | Multi-Sport Court Scheduling & Reservation';
+$pageTitle = 'Site Config';
 $active = 'admin-site-config';
 $message = null;
 $error = null;
