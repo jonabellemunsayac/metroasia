@@ -1,6 +1,6 @@
 <?php
 require_once __DIR__ . '/../includes/auth.php';
-$admin = require_admin();
+$admin = require_admin_menu('admin-bookings');
 $pageTitle = 'Bookings';
 $active = 'admin-bookings';
 include __DIR__ . '/../includes/header.php';
@@ -18,30 +18,30 @@ include __DIR__ . '/../includes/header.php';
     </section>
 
     <section class="row g-3 mb-3">
-        <div class="col-6 col-lg-3">
-            <div class="stat-card h-100">
+        <div class="col-8 col-lg-4">
+            <a class="stat-card h-100 d-block text-decoration-none text-reset" href="<?php echo htmlspecialchars(app_url('admin/bookings.php?status=Held')); ?>">
                 <p class="mb-1 small text-secondary fw-bold text-uppercase">Needs Review</p>
                 <p id="adminPendingCount" class="mb-0 stat-number">0</p>
-            </div>
+            </a>
         </div>
-        <div class="col-6 col-lg-3">
-            <div class="stat-card h-100">
+        <div class="col-8 col-lg-4">
+            <a class="stat-card h-100 d-block text-decoration-none text-reset" href="<?php echo htmlspecialchars(app_url('admin/bookings.php?status=Booked')); ?>">
                 <p class="mb-1 small text-secondary fw-bold text-uppercase">Booked</p>
                 <p id="adminBookedCount" class="mb-0 stat-number">0</p>
-            </div>
+            </a>
         </div>
-        <div class="col-6 col-lg-3">
-            <div class="stat-card h-100">
+        <div class="col-8 col-lg-4">
+            <a class="stat-card h-100 d-block text-decoration-none text-reset" href="<?php echo htmlspecialchars(app_url('admin/bookings.php?status=Cancelled')); ?>">
                 <p class="mb-1 small text-secondary fw-bold text-uppercase">Cancelled</p>
                 <p id="adminCancelledCount" class="mb-0 stat-number">0</p>
-            </div>
+            </a>
         </div>
-        <div class="col-6 col-lg-3">
-            <div class="stat-card h-100">
-                <p class="mb-1 small text-secondary fw-bold text-uppercase">Default View</p>
-                <p class="mb-0 stat-number">Queue</p>
-            </div>
-        </div>
+        <!-- <div class="col-6 col-lg-3">
+            <a class="stat-card h-100 d-block text-decoration-none text-reset" href="<?php echo htmlspecialchars(app_url('admin/site-config.php')); ?>">
+                <p class="mb-1 small text-secondary fw-bold text-uppercase">System</p>
+                <p class="mb-0 stat-number">Live</p>
+            </a>
+        </div> -->
     </section>
 
     <section class="app-card p-0">

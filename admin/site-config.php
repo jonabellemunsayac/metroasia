@@ -2,7 +2,7 @@
 require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/site-config.php';
 
-$admin = require_admin();
+$admin = require_admin_menu('admin-site-config');
 $pageTitle = 'Site Config';
 $active = 'admin-site-config';
 $message = null;

@@ -1,8 +1,12 @@
 <?php
 require_once __DIR__ . '/../includes/auth.php';
-require_admin();
+require_once __DIR__ . '/../includes/data-privacy.php';
+$admin = require_admin_menu('admin-members');
+$canManageMembers = admin_can_manage_members($admin);
+$canManageStaff = admin_can_manage_staff($admin);
 $pageTitle = 'Users / Members';
 $active = 'admin-members';
+$activePrivacyPolicy = data_privacy_active_policy();
 include __DIR__ . '/../includes/header.php';
 ?>
 <main data-needs-state class="app-main admin-compact">
@@ -13,9 +17,11 @@ include __DIR__ . '/../includes/header.php';
                 <h2 class="mt-1 mb-1 fw-black">Access and account management</h2>
                 <p class="mb-0 small text-secondary fw-semibold">Manage member profiles, QR lookup, entrance-fee payments, and staff/admin accounts.</p>
             </div>
-            <button id="adminAddMember" class="btn btn-primary btn-sm" type="button">
-                <i data-lucide="user-plus" class="icon-sm"></i>Add Member
-            </button>
+            <?php if ($canManageMembers): ?>
+                <button id="adminAddMember" class="btn btn-primary btn-sm" type="button">
+                    <i data-lucide="user-plus" class="icon-sm"></i>Add Member
+                </button>
+            <?php endif; ?>
         </div>
     </section>
 
@@ -37,24 +43,35 @@ include __DIR__ . '/../includes/header.php';
                 <div id="adminMembers"></div>
             </div>
         </div>
-        <div class="col-12">
-            <div class="app-card h-100">
-                <div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-3">
-                    <div>
-                        <span class="section-kicker">Admin Users</span>
-                        <h2 class="mt-1 mb-0 fw-black">Staff access</h2>
+        <?php if ($canManageStaff): ?>
+            <div class="col-12">
+                <div class="app-card h-100">
+                    <div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-3">
+                        <div>
+                            <span class="section-kicker">Admin Users</span>
+                            <h2 class="mt-1 mb-0 fw-black">Staff access</h2>
+                        </div>
+                        <span class="badge text-bg-primary">Admin only</span>
                     </div>
-                    <span class="badge text-bg-primary">Admin / staff</span>
+                    <div id="adminUsers" class="grid gap-3"></div>
+                    <hr class="my-4">
+                    <div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-3">
+                        <div>
+                            <span class="section-kicker">Role Access</span>
+                            <h2 class="mt-1 mb-0 fw-black">Menu permissions</h2>
+                        </div>
+                        <p class="mb-0 small text-secondary fw-semibold">Choose which admin menus each staff role can open.</p>
+                    </div>
+                    <div id="adminRolePermissions"></div>
                 </div>
-                <div id="adminUsers" class="grid gap-3"></div>
             </div>
-        </div>
+        <?php endif; ?>
     </section>
 
     <div id="adminMemberModal" class="modal fade" tabindex="-1" aria-labelledby="adminMemberModalTitle" aria-hidden="true">
         <div class="modal-dialog modal-lg modal-dialog-scrollable">
             <div class="modal-content">
-                <form id="adminMemberForm">
+                <form id="adminMemberForm" enctype="multipart/form-data">
                     <div class="modal-header">
                         <div>
                             <span class="section-kicker">Member Profile</span>
@@ -62,34 +79,87 @@ include __DIR__ . '/../includes/header.php';
                         </div>
                         <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                     </div>
-                    <div class="modal-body">
+                    <div class="modal-body admin-player-account-form">
                         <input type="hidden" name="id" id="adminMemberId">
-                        <div class="row g-3">
-                            <label class="col-md-6 small fw-bold">Name
-                                <input required name="name" id="adminMemberName" class="form-input mt-1">
+                        <div class="admin-player-form-head">
+                            <div class="admin-player-icon"><i data-lucide="user" class="icon-sm"></i></div>
+                            <div>
+                                <h3>Create your player account</h3>
+                                <p>This uses the same player registration flow: required nickname, email verification, password, and skill profile. Your nickname is the only name shown on queues and public boards.</p>
+                            </div>
+                        </div>
+
+                        <div class="admin-player-form-grid">
+                            <label class="admin-player-field admin-player-field-full">
+                                <span>Full name *</span>
+                                <input required name="name" id="adminMemberName" class="form-input" placeholder="Full name *">
                             </label>
-                            <label class="col-md-6 small fw-bold">Nickname
-                                <input name="nickname" id="adminMemberNickname" class="form-input mt-1">
+                            <label class="admin-player-field admin-player-field-full">
+                                <span>Nickname for queue/public display *</span>
+                                <input required name="nickname" id="adminMemberNickname" class="form-input" placeholder="Nickname for queue/public display *">
                             </label>
-                            <label class="col-md-6 small fw-bold">Phone
-                                <input required name="phone" id="adminMemberPhone" class="form-input mt-1">
+
+                            <div class="admin-profile-upload admin-player-field-full">
+                                <div id="adminMemberProfilePreview" class="admin-profile-preview">P</div>
+                                <div>
+                                    <strong>Profile picture</strong>
+                                    <p>Shown with your nickname on live boards, leaderboards, global ranking, and operator player cards.</p>
+                                    <label class="admin-upload-link">
+                                        <i data-lucide="image-up" class="icon-xs"></i>
+                                        <span>Upload</span>
+                                        <input type="file" name="profilePicture" id="adminMemberProfilePicture" accept=".jpg,.jpeg,.png,.webp" hidden>
+                                    </label>
+                                </div>
+                            </div>
+
+                            <label class="admin-player-field admin-player-field-full">
+                                <span>Email *</span>
+                                <input required type="email" name="email" id="adminMemberEmail" class="form-input" placeholder="Email *">
                             </label>
-                            <label class="col-md-6 small fw-bold">Email
-                                <input required type="email" name="email" id="adminMemberEmail" class="form-input mt-1">
+                            <label class="admin-player-field admin-player-field-full">
+                                <span>Phone *</span>
+                                <input name="phone" id="adminMemberPhone" class="form-input" placeholder="Phone *">
                             </label>
-                            <label class="col-md-4 small fw-bold">Birth Month
-                                <select required name="birthMonth" id="adminMemberBirthMonth" class="form-select mt-1">
-                                    <option value="">Select month</option>
+
+                            <div class="admin-player-field">
+                                <span>Birth Month *</span>
+                                <select required name="birthMonth" id="adminMemberBirthMonth" class="form-select">
+                                    <option value="">Month</option>
                                     <?php foreach (range(1, 12) as $month): ?>
                                         <option value="<?php echo $month; ?>"><?php echo date('F', mktime(0, 0, 0, $month, 1)); ?></option>
                                     <?php endforeach; ?>
                                 </select>
+                            </div>
+                            <div class="admin-player-field">
+                                <span>Birth Year *</span>
+                                <select required name="birthYear" id="adminMemberBirthYear" class="form-select">
+                                    <option value="">Year</option>
+                                    <?php for ($year = (int) date('Y'); $year >= 1900; $year--): ?>
+                                        <option value="<?php echo $year; ?>"><?php echo $year; ?></option>
+                                    <?php endfor; ?>
+                                </select>
+                            </div>
+                            <p class="admin-player-help admin-player-field-full">Birth month/year are required for tournament age and category eligibility.</p>
+
+                            <label class="admin-player-field admin-password-field admin-player-field-full">
+                                <span>Create password</span>
+                                <input type="password" name="password" id="adminMemberPassword" class="form-input" minlength="8" placeholder="Create password">
+                                <button type="button" class="admin-password-toggle" data-password-toggle="adminMemberPassword" aria-label="Show password">
+                                    <i data-lucide="eye" class="icon-sm"></i>
+                                </button>
                             </label>
-                            <label class="col-md-4 small fw-bold">Birth Year
-                                <input required type="number" name="birthYear" id="adminMemberBirthYear" class="form-input mt-1" min="1900" max="<?php echo (int) date('Y'); ?>">
+                            <label class="admin-player-field admin-password-field admin-player-field-full">
+                                <span>Confirm password *</span>
+                                <input type="password" name="confirmPassword" id="adminMemberConfirmPassword" class="form-input" minlength="8" placeholder="Confirm password *">
+                                <button type="button" class="admin-password-toggle" data-password-toggle="adminMemberConfirmPassword" aria-label="Show password">
+                                    <i data-lucide="eye" class="icon-sm"></i>
+                                </button>
                             </label>
-                            <label class="col-md-4 small fw-bold">Self-Assessed Skill Level
-                                <select required name="skillLevel" id="adminMemberSkillLevel" class="form-select mt-1">
+                            <p class="admin-player-help admin-player-field-full">Use at least 8 characters with one capital letter, one number, and one special character.</p>
+
+                            <label class="admin-player-field admin-player-field-full">
+                                <span>Self-Assessed Skill Level *</span>
+                                <select required name="skillLevel" id="adminMemberSkillLevel" class="form-select">
                                     <option value="">Select a level...</option>
                                     <option value="2.0">2.0 - Just starting out</option>
                                     <option value="2.5">2.5 - Learning basic shots &amp; rules</option>
@@ -100,27 +170,25 @@ include __DIR__ . '/../includes/header.php';
                                     <option value="5.0">5.0+ - Elite / pro level</option>
                                 </select>
                             </label>
-                            <label class="col-md-6 small fw-bold">Password
-                                <input type="password" name="password" id="adminMemberPassword" class="form-input mt-1" minlength="8" placeholder="Required for new members">
-                            </label>
-                            <label class="col-md-6 small fw-bold d-flex align-items-center gap-2 mt-4">
-                                <input type="checkbox" name="isActive" id="adminMemberIsActive" value="1" checked>
-                                Active member
-                            </label>
-                            <label class="col-12 small fw-bold d-flex align-items-start gap-2">
-                                <input required type="checkbox" name="dataPrivacyActAgree" id="adminMemberPrivacyAgree" value="1" class="mt-1">
+
+                            <label class="admin-privacy-check admin-player-field-full">
+                                <input required type="checkbox" name="dataPrivacyActAgree" id="adminMemberPrivacyAgree" value="1">
                                 <span>
                                     I have read and agree to the
                                     <button type="button" class="btn btn-link btn-sm p-0 align-baseline" data-open-privacy-policy>Data Privacy Policy</button>
                                     and consent to the processing of my personal data for MetroAsia Arena platform services.
                                 </span>
                             </label>
+                            <label class="admin-active-check admin-player-field-full">
+                                <input type="checkbox" name="isActive" id="adminMemberIsActive" value="1" checked>
+                                <span>Active member</span>
+                            </label>
                         </div>
                         <div id="adminMemberFormMessage" class="hidden rounded-md p-2 text-xs font-bold mt-3"></div>
                     </div>
                     <div class="modal-footer">
-                        <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">Close</button>
-                        <button type="submit" class="btn btn-primary btn-sm">Save Member</button>
+                        <button type="submit" class="btn btn-primary btn-sm admin-register-submit">Complete Registration</button>
+                        <button type="button" class="btn btn-link btn-sm admin-register-cancel" data-bs-dismiss="modal">Cancel</button>
                     </div>
                 </form>
             </div>
@@ -131,13 +199,12 @@ include __DIR__ . '/../includes/header.php';
         <div class="modal-dialog modal-lg modal-dialog-scrollable">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h2 id="adminPrivacyPolicyTitle" class="modal-title fw-black">Data Privacy Policy</h2>
+                    <h2 id="adminPrivacyPolicyTitle" class="modal-title fw-black"><?php echo htmlspecialchars((string) $activePrivacyPolicy['title']); ?></h2>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
-                <div class="modal-body small fw-semibold text-secondary">
-                    <p>MetroAsia Arena collects member information to manage accounts, bookings, payments, QR lookup, entrance-fee records, and platform support.</p>
-                    <p>Personal data is used only for MetroAsia Arena services, operational verification, audit/history records, and legally required administration. Access is limited to authorized staff.</p>
-                    <p>Members may request correction or deactivation of their account details through MetroAsia Arena administration.</p>
+                <div class="modal-body small fw-semibold text-secondary privacy-policy-content">
+                    <?php echo (string) $activePrivacyPolicy['contentHtml']; ?>
+                    <p class="mt-3 mb-0 text-xs fw-bold text-muted">Version: <?php echo htmlspecialchars((string) $activePrivacyPolicy['version']); ?></p>
                 </div>
             </div>
         </div>

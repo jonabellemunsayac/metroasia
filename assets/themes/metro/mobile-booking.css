@@ -269,6 +269,7 @@
   }
 
   .mobile-court-time-slot.mobile-time-booked,
+  .mobile-court-time-slot.mobile-time-held,
   .mobile-court-time-slot.mobile-time-unavailable,
   .mobile-court-time-slot:disabled {
     cursor: default !important;
@@ -316,14 +317,26 @@
     color: rgba(255,255,255,.68);
   }
 
+  .mobile-time-held {
+    border-color: rgba(216, 169, 40, .45);
+    background: rgba(216, 169, 40, .16);
+    color: #7a4a00;
+  }
+
+  .mobile-time-held .mobile-court-time-state {
+    background: rgba(216, 169, 40, .24);
+    color: #7a4a00;
+  }
+
   .mobile-time-booked {
-    background: #f1f3f4;
-    color: #778087;
+    border-color: rgba(34, 117, 74, .35);
+    background: rgba(34, 117, 74, .14);
+    color: #17623b;
   }
 
   .mobile-time-booked .mobile-court-time-state {
-    background: #e1e5e8;
-    color: #6f787e;
+    background: rgba(34, 117, 74, .20);
+    color: #17623b;
   }
 
   .mobile-time-unavailable {

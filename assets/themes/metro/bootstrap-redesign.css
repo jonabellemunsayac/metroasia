@@ -537,6 +537,80 @@ a {
     box-shadow: 0 16px 34px rgba(15, 23, 42, .1) !important;
 }
 
+.public-member-account-page {
+    background: #eef4ef;
+}
+
+.public-member-account-shell {
+    width: min(100%, 980px);
+}
+
+.public-member-account-card {
+    padding: clamp(18px, 2.4vw, 28px);
+    border-radius: 22px !important;
+}
+
+.public-member-account-form {
+    max-height: none;
+    overflow: visible;
+    padding-right: 0;
+}
+
+.public-member-account-form .admin-player-form-head p {
+    max-width: 780px;
+}
+
+.public-member-account-form .admin-player-form-grid {
+    grid-template-columns: repeat(12, minmax(0, 1fr));
+    gap: 14px 16px;
+}
+
+.public-member-account-form .admin-player-field {
+    grid-column: span 6;
+}
+
+.public-member-account-form .admin-player-field-full,
+.public-member-account-form .admin-profile-upload,
+.public-member-account-form .admin-privacy-check,
+.public-member-account-form .admin-player-help {
+    grid-column: 1 / -1;
+}
+
+.public-member-account-form .public-member-span-6 {
+    grid-column: span 6;
+}
+
+.public-member-account-actions {
+    display: grid;
+    gap: 8px;
+    padding-top: 14px;
+}
+
+@media (max-width: 767.98px) {
+    .public-member-account-shell {
+        width: min(100%, 460px);
+    }
+
+    .public-member-account-form {
+        max-height: none;
+        overflow: visible;
+        padding-right: 0;
+    }
+
+    .public-member-account-form .admin-player-form-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .public-member-account-form .admin-player-field,
+    .public-member-account-form .public-member-span-6,
+    .public-member-account-form .admin-player-field-full,
+    .public-member-account-form .admin-profile-upload,
+    .public-member-account-form .admin-privacy-check,
+    .public-member-account-form .admin-player-help {
+        grid-column: 1 / -1;
+    }
+}
+
 .hero-bg {
     background-image:
         linear-gradient(90deg, rgba(5, 15, 34, .92) 0%, rgba(5, 15, 34, .7) 34%, rgba(5, 15, 34, .2) 72%, rgba(5, 15, 34, .08) 100%),
@@ -1630,6 +1704,12 @@ textarea.rounded-md:focus {
 .status-badge-pending {
     background: #fff5d6;
     color: #946200;
+}
+
+.status-badge-review {
+    background: #fff8e6;
+    color: #7a4a00;
+    box-shadow: inset 0 0 0 1px rgba(216, 169, 40, .35);
 }
 
 .status-badge-booked {

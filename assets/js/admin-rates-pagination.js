@@ -81,6 +81,11 @@
         renderPagination();
     });
 
+    document.addEventListener('admin-rates-filtered', () => {
+        currentPage = 1;
+        renderPagination();
+    });
+
     // app.js rebuilds adminRateSummary after load/save/update.
     // Observe the tbody so pagination is reapplied automatically.
     const observer = new MutationObserver(() => {

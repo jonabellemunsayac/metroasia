@@ -524,7 +524,7 @@ if ($aboutSmallImage === '') {
 
                     <section class="metro-contact-card-section">
                         <h3>Opening Hours</h3>
-                        <strong>7:00 AM - 4:00 AM</strong>
+                        <strong>8:00 AM - 12:00 MN</strong>
                         <p>Open 7 days a week</p>
                     </section>
 

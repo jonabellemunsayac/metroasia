@@ -2,7 +2,9 @@
 declare(strict_types=1);
 
 require_once dirname(__DIR__) . '/config/database.php';
+require_once dirname(__DIR__) . '/includes/auth.php';
 require_once dirname(__DIR__) . '/includes/site-config.php';
+require_once dirname(__DIR__) . '/includes/data-privacy.php';
 
 $messages = [];
 $error = null;
@@ -20,66 +22,26 @@ function run_setup(): array
         }
     }
 
-    seed_database($pdo);
+    migrate_database($pdo);
 
     return [
-        'Database created or updated.',
-        'Seeded courts, rates, time slots, and default admin if missing.',
-        'Default admin: admin@cpg.test / admin123',
+        'Database schema created or updated.',
+        'No seed data was inserted or overwritten.',
     ];
 }
 
-function seed_database(PDO $pdo): void
+function migrate_database(PDO $pdo): void
 {
     migrate_columns($pdo);
-    seed_courts($pdo);
-    seed_payment_channels($pdo);
-    seed_site_config($pdo);
-    site_config_seed_gallery_images($pdo, site_config($pdo));
-    seed_time_slots($pdo);
-    seed_rates($pdo);
-
-    $count = (int) $pdo->query('SELECT COUNT(*) FROM court_bookings')->fetchColumn();
-    if ($count === 0) {
-        $today = new DateTimeImmutable('today');
-        $date = $today->format('Y-m-d');
-        $tomorrow = $today->modify('+1 day')->format('Y-m-d');
-        $slot = $pdo->prepare('SELECT id FROM time_slots WHERE label = ?');
-        $insert = $pdo->prepare(
-            'INSERT INTO court_bookings
-             (booking_date, time_slot_id, court_id, sport, status, customer_name, customer_email, customer_phone, payment_method, base_rate, final_amount)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
-        );
-        foreach ([
-            [$date, '09:00 AM - 10:00 AM', 3, 'Pickleball', 'Booked', 'Marco Santos', 'marco@example.com', '09170000001', 'GCash'],
-            [$date, '09:00 AM - 10:00 AM', 2, 'Basketball', 'Booked', 'Nina Cruz', 'nina@example.com', '09170000002', 'BDO'],
-            [$date, '10:00 AM - 11:00 AM', 5, 'Pickleball', 'Held', 'Jay Lim', 'jay@example.com', '09170000003', 'GCash'],
-            [$date, '02:00 PM - 03:00 PM', 6, 'Pickleball', 'Booked', 'Alex Tan', 'alex@example.com', '09170000004', 'GCash'],
-            [$tomorrow, '05:00 PM - 06:00 PM', 7, 'Pickleball', 'Held', 'Rhea Park', 'rhea@example.com', '09170000005', 'BDO'],
-        ] as $booking) {
-            $slot->execute([$booking[1]]);
-            $slotId = (int) $slot->fetchColumn();
-            if ($slotId === 0 || !court_exists($pdo, (int) $booking[2])) {
-                continue;
-            }
-            $price = (float) $pdo->query('SELECT price FROM time_slots WHERE id = ' . $slotId)->fetchColumn();
-            $insert->execute([$booking[0], $slotId, $booking[2], $booking[3], $booking[4], $booking[5], $booking[6], $booking[7], $booking[8], $price, $price]);
-        }
-    }
-
-    $stmt = $pdo->prepare('SELECT COUNT(*) FROM admin_users WHERE email = ?');
-    $stmt->execute(['admin@cpg.test']);
-    if ((int) $stmt->fetchColumn() === 0) {
-        $stmt = $pdo->prepare('INSERT INTO admin_users (name, email, password_hash, role) VALUES (?, ?, ?, ?)');
-        $stmt->execute(['Metro Asia Admin', 'admin@cpg.test', password_hash('admin123', PASSWORD_DEFAULT), 'admin']);
-    }
 }
 
 function migrate_columns(PDO $pdo): void
 {
     if (table_exists($pdo, 'admin_users') && column_exists($pdo, 'admin_users', 'role')) {
-        $pdo->exec("ALTER TABLE admin_users MODIFY role ENUM('super_admin','admin','staff') NOT NULL DEFAULT 'admin'");
+        $pdo->exec("ALTER TABLE admin_users MODIFY role ENUM('super_admin','admin','reception','executive','staff') NOT NULL DEFAULT 'admin'");
+        $pdo->exec("UPDATE admin_users SET role = 'reception' WHERE role = 'staff'");
     }
+    admin_ensure_role_menu_table($pdo);
 
     if (!table_exists($pdo, 'members')) {
         $pdo->exec(
@@ -116,7 +78,7 @@ function migrate_columns(PDO $pdo): void
     if (!column_exists($pdo, 'courts', 'supported_sports')) {
         $pdo->exec("ALTER TABLE courts ADD supported_sports VARCHAR(160) NOT NULL DEFAULT 'Pickleball' AFTER surface_label");
     }
-    reset_rate_tables($pdo);
+    ensure_rate_tables($pdo);
     if (!column_exists($pdo, 'court_bookings', 'sport')) {
         $pdo->exec("ALTER TABLE court_bookings ADD sport ENUM('Pickleball','Basketball','Volleyball') NOT NULL DEFAULT 'Pickleball' AFTER court_id");
     }
@@ -208,6 +170,7 @@ function migrate_columns(PDO $pdo): void
         );
     }
     site_config_ensure_gallery_table($pdo);
+    data_privacy_ensure_table($pdo);
     if (!table_exists($pdo, 'court_blocks')) {
         $pdo->exec(
             "CREATE TABLE court_blocks (
@@ -338,6 +301,7 @@ function ensure_member_profile_columns(PDO $pdo): void
 {
     $columns = [
         'nickname' => 'ALTER TABLE members ADD nickname VARCHAR(80) NULL AFTER name',
+        'profile_picture_path' => 'ALTER TABLE members ADD profile_picture_path VARCHAR(255) NULL AFTER phone',
         'birth_month' => 'ALTER TABLE members ADD birth_month TINYINT UNSIGNED NULL AFTER phone',
         'birth_year' => 'ALTER TABLE members ADD birth_year SMALLINT UNSIGNED NULL AFTER birth_month',
         'skill_level' => "ALTER TABLE members ADD skill_level ENUM('2.0','2.5','3.0','3.5','4.0','4.5','5.0') NULL AFTER birth_year",
@@ -410,22 +374,8 @@ function migrate_reservation_statuses(PDO $pdo, string $table): void
     );
 }
 
-function reset_rate_tables(PDO $pdo): void
+function ensure_rate_tables(PDO $pdo): void
 {
-    $needsReset = table_exists($pdo, 'rate_rules')
-        || !table_exists($pdo, 'rates')
-        || !column_exists($pdo, 'rates', 'time_slot_id')
-        || !column_exists($pdo, 'rates', 'rate_per_hour')
-        || (table_exists($pdo, 'rate_audit_logs') && !column_exists($pdo, 'rate_audit_logs', 'rate_id'));
-
-    if ($needsReset) {
-        $pdo->exec('SET FOREIGN_KEY_CHECKS=0');
-        $pdo->exec('DROP TABLE IF EXISTS rate_audit_logs');
-        $pdo->exec('DROP TABLE IF EXISTS rate_rules');
-        $pdo->exec('DROP TABLE IF EXISTS rates');
-        $pdo->exec('SET FOREIGN_KEY_CHECKS=1');
-    }
-
     if (!table_exists($pdo, 'rates')) {
         $pdo->exec(
             "CREATE TABLE rates (
@@ -443,6 +393,12 @@ function reset_rate_tables(PDO $pdo): void
                 CONSTRAINT fk_rate_time_slot FOREIGN KEY (time_slot_id) REFERENCES time_slots(id)
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci"
         );
+    }
+    if (!column_exists($pdo, 'rates', 'time_slot_id')) {
+        $pdo->exec('ALTER TABLE rates ADD time_slot_id INT UNSIGNED NULL AFTER day_of_week');
+    }
+    if (!column_exists($pdo, 'rates', 'rate_per_hour')) {
+        $pdo->exec('ALTER TABLE rates ADD rate_per_hour DECIMAL(10,2) NOT NULL DEFAULT 0 AFTER time_slot_id');
     }
     if (!column_exists($pdo, 'rates', 'day_of_week')) {
         $pdo->exec(
@@ -489,170 +445,8 @@ function reset_rate_tables(PDO $pdo): void
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci"
         );
     }
-}
-
-function court_exists(PDO $pdo, int $courtId): bool
-{
-    $stmt = $pdo->prepare('SELECT COUNT(*) FROM courts WHERE id = ?');
-    $stmt->execute([$courtId]);
-    return (int) $stmt->fetchColumn() > 0;
-}
-
-function seed_courts(PDO $pdo): void
-{
-    $definitions = [
-        1 => [1, 'Lakers', 'Full-size multi-sport court', 'Multi-sport', 'Basketball,Volleyball'],
-        2 => [2, 'Miami', 'Full-size multi-sport court', 'Multi-sport', 'Basketball,Volleyball,Pickleball'],
-        3 => [1, 'Pickleball Pro Court 1', 'Dedicated pickleball court', 'Pickleball', 'Pickleball'],
-        4 => [2, 'Pickleball Pro Court 2', 'Dedicated pickleball court', 'Pickleball', 'Pickleball'],
-        5 => [3, 'Pickleball Pro Court 3', 'Dedicated pickleball court', 'Pickleball', 'Pickleball'],
-        6 => [4, 'Pickleball Pro Court 4', 'Dedicated pickleball court', 'Pickleball', 'Pickleball'],
-        7 => [5, 'Wooden Court 5', 'Subdivision of Miami', 'Wooden', 'Pickleball'],
-        8 => [6, 'Wooden Court 6', 'Subdivision of Miami', 'Wooden', 'Pickleball'],
-        9 => [7, 'Wooden Court 7', 'Subdivision of Miami', 'Wooden', 'Pickleball'],
-    ];
-
-    $update = $pdo->prepare(
-        'UPDATE courts
-         SET display_number = ?, name = ?, court_type = ?, surface_label = ?, supported_sports = ?, is_active = 1
-         WHERE id = ?'
-    );
-    $insert = $pdo->prepare(
-        'INSERT INTO courts (id, display_number, name, court_type, surface_label, supported_sports, is_active)
-         VALUES (?, ?, ?, ?, ?, ?, 1)'
-    );
-
-    foreach ($definitions as $id => $court) {
-        $exists = $pdo->prepare('SELECT COUNT(*) FROM courts WHERE id = ?');
-        $exists->execute([$id]);
-        if ((int) $exists->fetchColumn() > 0) {
-            $update->execute([$court[0], $court[1], $court[2], $court[3], $court[4], $id]);
-        } else {
-            $insert->execute([$id, $court[0], $court[1], $court[2], $court[3], $court[4]]);
-        }
-    }
-
-    $pdo->exec('UPDATE courts SET is_active = 0 WHERE id NOT IN (1, 2, 3, 4, 5, 6, 7, 8, 9)');
-}
-
-function seed_time_slots(PDO $pdo): void
-{
-    $count = (int) $pdo->query('SELECT COUNT(*) FROM time_slots')->fetchColumn();
-    if ($count > 0) {
-        return;
-    }
-
-    $slots = [
-        ['Morning', '09:00 AM - 10:00 AM', '09:00:00', '10:00:00', 265],
-        ['Morning', '10:00 AM - 11:00 AM', '10:00:00', '11:00:00', 265],
-        ['Morning', '11:00 AM - 12:00 PM', '11:00:00', '12:00:00', 265],
-        ['Afternoon', '12:00 PM - 01:00 PM', '12:00:00', '13:00:00', 265],
-        ['Afternoon', '01:00 PM - 02:00 PM', '13:00:00', '14:00:00', 265],
-        ['Afternoon', '02:00 PM - 03:00 PM', '14:00:00', '15:00:00', 265],
-        ['Afternoon', '03:00 PM - 04:00 PM', '15:00:00', '16:00:00', 315],
-        ['Evening', '04:00 PM - 05:00 PM', '16:00:00', '17:00:00', 315],
-        ['Evening', '05:00 PM - 06:00 PM', '17:00:00', '18:00:00', 365],
-        ['Evening', '06:00 PM - 07:00 PM', '18:00:00', '19:00:00', 365],
-        ['Evening', '07:00 PM - 08:00 PM', '19:00:00', '20:00:00', 365],
-    ];
-
-    $stmt = $pdo->prepare('INSERT INTO time_slots (period, label, starts_at, ends_at, price, sort_order) VALUES (?, ?, ?, ?, ?, ?)');
-    foreach ($slots as $index => $slot) {
-        $stmt->execute([$slot[0], $slot[1], $slot[2], $slot[3], $slot[4], $index + 1]);
-    }
-}
-
-function seed_rates(PDO $pdo): void
-{
-    $count = (int) $pdo->query('SELECT COUNT(*) FROM rates')->fetchColumn();
-    if ($count > 0) {
-        return;
-    }
-
-    $courts = $pdo->query('SELECT id, supported_sports FROM courts WHERE is_active = 1 ORDER BY display_number, id')->fetchAll();
-    $slots = $pdo->query('SELECT id, price FROM time_slots ORDER BY sort_order, id')->fetchAll();
-    $insert = $pdo->prepare(
-        'INSERT INTO rates (court_id, sport, time_slot_id, rate_per_hour)
-         VALUES (?, ?, ?, ?)'
-    );
-
-    foreach ($courts as $court) {
-        $sports = array_filter(array_map('trim', explode(',', (string) $court['supported_sports'])));
-        foreach ($sports as $sport) {
-            if ((int) $court['id'] === 2 && $sport === 'Pickleball') {
-                continue;
-            }
-            foreach ($slots as $slot) {
-                $insert->execute([(int) $court['id'], $sport, (int) $slot['id'], (float) $slot['price']]);
-            }
-        }
-    }
-}
-
-function seed_payment_channels(PDO $pdo): void
-{
-    $pdo->exec("UPDATE payment_channels SET account_name = 'Metro Asia' WHERE account_name = 'City Pickle Grounds'");
-    $pdo->exec("UPDATE payment_channels SET name = 'BDO Online' WHERE code = 'BDO' AND name = 'BDO'");
-    $pdo->exec("UPDATE payment_channels SET qr_path = 'assets/bdo-pay-qr.svg' WHERE code = 'BDO' AND (qr_path IS NULL OR qr_path = '')");
-    $pdo->exec("UPDATE payment_channels SET is_active = 0 WHERE code NOT IN ('GCash', 'BDO')");
-    $pdo->exec("UPDATE payment_channels SET is_active = 1 WHERE code IN ('GCash', 'BDO')");
-
-    $definitions = [
-        ['GCash', 'GCash', 'qr', 'Metro Asia', '09XX XXX XXXX', null, 'Scan the QR code, complete the transfer, then upload your receipt screenshot.', 'assets/gcash-qr.svg', 1],
-        ['BDO', 'BDO Online', 'bank', 'Metro Asia', '0000-0000-0000', 'BDO Unibank', 'Use your reservation name as the transfer note, then upload the deposit or transfer receipt.', 'assets/bdo-pay-qr.svg', 2],
-    ];
-
-    $stmt = $pdo->prepare('SELECT COUNT(*) FROM payment_channels WHERE code = ?');
-    $insert = $pdo->prepare(
-        'INSERT INTO payment_channels
-         (code, name, channel_type, account_name, account_number, bank_name, instructions, qr_path, sort_order)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)'
-    );
-
-    foreach ($definitions as $channel) {
-        $stmt->execute([$channel[0]]);
-        if ((int) $stmt->fetchColumn() === 0) {
-            $insert->execute($channel);
-        }
-    }
-}
-
-function seed_site_config(PDO $pdo): void
-{
-    $labels = [
-        'venue_name' => ['Venue Name', 'text', 10],
-        'address' => ['Address', 'text', 20],
-        'contact_phone' => ['Contact Phone', 'text', 30],
-        'contact_email' => ['Contact Email', 'text', 40],
-        'messenger_url' => ['Facebook Messenger Link', 'url', 50],
-        'map_embed_url' => ['Contact Map Embed Link', 'url', 60],
-        'hero_image_path' => ['Home Hero Image Path', 'image', 70],
-        'about_main_image_path' => ['About Main Image Path', 'image', 80],
-        'about_small_image_path' => ['About Small Image Path', 'image', 90],
-        'contact_image_path' => ['Contact Image Path', 'image', 100],
-        'gallery_1_title' => ['Gallery 1 Title', 'text', 110],
-        'gallery_1_caption' => ['Gallery 1 Caption', 'textarea', 120],
-        'gallery_1_image' => ['Gallery 1 Image Path', 'image', 130],
-        'gallery_1_images' => ['Gallery 1 Image Paths', 'textarea', 140],
-        'gallery_2_title' => ['Gallery 2 Title', 'text', 150],
-        'gallery_2_caption' => ['Gallery 2 Caption', 'textarea', 160],
-        'gallery_2_image' => ['Gallery 2 Image Path', 'image', 170],
-        'gallery_2_images' => ['Gallery 2 Image Paths', 'textarea', 180],
-        'gallery_3_title' => ['Gallery 3 Title', 'text', 190],
-        'gallery_3_caption' => ['Gallery 3 Caption', 'textarea', 200],
-        'gallery_3_image' => ['Gallery 3 Image Path', 'image', 210],
-        'gallery_3_images' => ['Gallery 3 Image Paths', 'textarea', 220],
-    ];
-
-    $stmt = $pdo->prepare(
-        'INSERT INTO site_config (config_key, config_value, label, field_type, sort_order)
-         VALUES (?, ?, ?, ?, ?)
-         ON DUPLICATE KEY UPDATE label = VALUES(label), field_type = VALUES(field_type), sort_order = VALUES(sort_order)'
-    );
-
-    foreach (site_config_defaults() as $key => $value) {
-        [$label, $type, $sort] = $labels[$key] ?? [$key, 'text', 999];
-        $stmt->execute([$key, $value, $label, $type, $sort]);
+    if (table_exists($pdo, 'rate_audit_logs') && !column_exists($pdo, 'rate_audit_logs', 'rate_id')) {
+        $pdo->exec('ALTER TABLE rate_audit_logs ADD rate_id INT UNSIGNED NULL AFTER id');
     }
 }
 

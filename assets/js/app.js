@@ -7,9 +7,16 @@ let state = null;
 let selectedDate = new Date();
 let bookingDateWindowStart = new Date();
 let adminScheduleDate = new Date();
-let adminFilter = 'Held';
+let adminScheduleSportFilter = '';
+const adminReservationFilters = ['Held', 'Booked', 'Cancelled', 'All'];
+function normalizeAdminFilter(value) {
+    return adminReservationFilters.includes(value) ? value : 'Held';
+}
+let adminFilter = normalizeAdminFilter(new URLSearchParams(window.location.search).get('status'));
 let adminReferenceSearch = '';
 let adminMemberSearch = '';
+let adminRateSportFilter = '';
+let adminRateCourtFilter = '';
 let adminQrStream = null;
 const supportedBookingSports = ['Pickleball', 'Basketball', 'Volleyball'];
 function normalizeBookingSport(value) {
@@ -52,6 +59,9 @@ const els = {
     paymentPageChannels: document.getElementById('paymentPageChannels'),
     adminPaymentChannels: document.getElementById('adminPaymentChannels'),
     adminRateSummary: document.getElementById('adminRateSummary'),
+    adminRateSportFilter: document.getElementById('adminRateSportFilter'),
+    adminRateCourtFilter: document.getElementById('adminRateCourtFilter'),
+    adminRateClearFilters: document.getElementById('adminRateClearFilters'),
     adminAddRate: document.getElementById('adminAddRate'),
     adminRateModal: document.getElementById('adminRateModal'),
     adminRateForm: document.getElementById('adminRateForm'),
@@ -80,18 +90,32 @@ const els = {
     adminRateEffectiveFrom: document.getElementById('adminRateEffectiveFrom'),
     adminRateEffectiveTo: document.getElementById('adminRateEffectiveTo'),
     adminRateAudit: document.getElementById('adminRateAudit'),
+    adminCourtManagement: document.getElementById('adminCourtManagement'),
+    adminAddCourt: document.getElementById('adminAddCourt'),
+    adminCourtModal: document.getElementById('adminCourtModal'),
+    adminCourtForm: document.getElementById('adminCourtForm'),
+    adminCourtModalTitle: document.getElementById('adminCourtModalTitle'),
+    adminCourtId: document.getElementById('adminCourtId'),
+    adminCourtDisplayNumber: document.getElementById('adminCourtDisplayNumber'),
+    adminCourtName: document.getElementById('adminCourtName'),
+    adminCourtType: document.getElementById('adminCourtType'),
+    adminCourtSurface: document.getElementById('adminCourtSurface'),
+    adminCourtActive: document.getElementById('adminCourtActive'),
     adminCourtBlocks: document.getElementById('adminCourtBlocks'),
     adminOverrideLogs: document.getElementById('adminOverrideLogs'),
     adminMembers: document.getElementById('adminMembers'),
     adminUsers: document.getElementById('adminUsers'),
+    adminRolePermissions: document.getElementById('adminRolePermissions'),
     adminScheduleGrid: document.getElementById('adminScheduleGrid'),
     adminScheduleDateLabel: document.getElementById('adminScheduleDateLabel'),
+    adminScheduleSportFilter: document.getElementById('adminScheduleSportFilter'),
     adminOverrideBookingForm: document.getElementById('adminOverrideBookingForm'),
     adminOverrideBookingMessage: document.getElementById('adminOverrideBookingMessage'),
     adminOverrideDate: document.getElementById('adminOverrideDate'),
     adminOverrideTime: document.getElementById('adminOverrideTime'),
     adminOverrideCourt: document.getElementById('adminOverrideCourt'),
     adminOverrideSport: document.getElementById('adminOverrideSport'),
+    adminOverrideCustomer: document.getElementById('adminOverrideCustomer'),
     adminOverrideContext: document.getElementById('adminOverrideContext'),
     adminOverrideBookingModal: document.getElementById('adminOverrideBookingModal'),
     adminCalendarDetailModal: document.getElementById('adminCalendarDetailModal'),
@@ -163,6 +187,9 @@ function compactTimeHeader(label) {
     if (!slot?.startsAt || !slot?.endsAt) return compactTime(label).replace(/\s+/g, '');
     const token = time => {
         const [hour] = String(time).split(':').map(Number);
+        if (hour === 0) {
+            return { displayHour: 12, suffix: 'MN' };
+        }
         const suffix = hour >= 12 ? 'PM' : 'AM';
         const displayHour = hour % 12 || 12;
         return { displayHour, suffix };
@@ -245,8 +272,10 @@ function compactStatusLabel(status) {
 }
 
 function publicSlotLabel(status, booking = null) {
-    if (status === 'Booked') return booking?.playerNickname || 'Booked';
-    if (status === 'Held') return 'Unavailable';
+    if (status === 'Booked' || status === 'Held') {
+        const nickname = String(booking?.playerNickname || '').trim();
+        return nickname ? `${status} - ${nickname}` : status;
+    }
     return compactStatusLabel(status);
 }
 
@@ -262,21 +291,25 @@ function renderAll() {
     renderAdminPaymentChannels();
     renderAdminRateSummary();
     renderAdminRateAudit();
+    renderAdminCourts();
     renderAdminCourtBlocks();
     renderAdminOverrideLogs();
     renderAdminMembers();
     renderAdminUsers();
+    renderAdminRolePermissions();
     if (window.lucide) lucide.createIcons();
 }
 
 function renderAdminPermissionsUI() {
     const canManage = adminCanManageOperations();
+    const canManageMembers = adminCanManageMembers();
     document.querySelectorAll('[data-admin-requires-manage]').forEach(element => {
         element.hidden = !canManage;
     });
-    if (els.adminAddMember) els.adminAddMember.hidden = !canManage;
+    if (els.adminAddMember) els.adminAddMember.hidden = !canManageMembers;
+    if (els.adminAddCourt) els.adminAddCourt.hidden = !canManage;
     const scanButton = document.getElementById('adminScanMemberQr');
-    if (scanButton) scanButton.hidden = !canManage;
+    if (scanButton) scanButton.hidden = !canManageMembers;
     if (els.adminOverrideBookingForm) {
         els.adminOverrideBookingForm.querySelectorAll('input, select, textarea, button').forEach(field => {
             field.disabled = !canManage;
@@ -286,12 +319,11 @@ function renderAdminPermissionsUI() {
 
 function defaultRateRule() {
     const firstCourtInfo = state?.courts?.[0] || null;
-    const firstCourt = firstCourtInfo?.id || '';
     const firstSlot = Object.values(state?.slotDetails || {})[0]?.id || '';
     return {
         id: '',
         name: '',
-        courtId: firstCourt,
+        courtId: 'all',
         sport: firstCourtInfo?.sports?.[0] || 'Pickleball',
         dayOfWeek: 'Any',
         timeSlotId: firstSlot,
@@ -367,6 +399,7 @@ function setAdminRateMode(mode, editing = false) {
 
 function populateAdminRateOptions(rule) {
     setSelectOptions(els.adminRateCourt, [
+        ['all', 'All courts'],
         ...(state?.courts || []).map(court => [court.id, court.name])
     ], rule.courtId ?? '');
     setSelectOptions(els.adminRateSport, [
@@ -376,6 +409,8 @@ function populateAdminRateOptions(rule) {
     ], rule.sport ?? '');
     setSelectOptions(els.adminRateDayOfWeek, [
         ['Any', 'Any day'],
+        ['Weekday', 'Weekday'],
+        ['Weekend', 'Weekend'],
         ['Monday', 'Monday'],
         ['Tuesday', 'Tuesday'],
         ['Wednesday', 'Wednesday'],
@@ -414,7 +449,7 @@ function simpleRateDay(value) {
 }
 
 function rateDaySortValue(value) {
-    return ['Any', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'].indexOf(value || 'Any');
+    return ['Any', 'Weekday', 'Weekend', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'].indexOf(value || 'Any');
 }
 
 function expandedRateDays(selection) {
@@ -611,12 +646,66 @@ function renderPaymentPage() {
 
 function renderRates() {
     if (!els.rates || !state) return;
-    els.rates.innerHTML = state.rates.map(rate => `
+    const date = isoDate(selectedDate);
+    const rates = bookingRateCardsForDate(date);
+    els.rates.innerHTML = rates.map(rate => `
         <div class="metro-rate-card">
             <strong>${peso.format(Number(rate.price))}<span>/hr</span></strong>
             <small>${escapeHtml(rate.time)}</small>
         </div>
-    `).join('');
+    `).join('') || '<div class="metro-rate-card"><strong>Rates<span>/hr</span></strong><small>Select a date</small></div>';
+}
+
+function bookingRateCardsForDate(date) {
+    const rules = (state?.rateRules || [])
+        .filter(rule =>
+            rule.sport === selectedSport &&
+            dayPatternMatches(rule.dayPattern || rule.dayOfWeek || 'Any', date)
+        );
+
+    if (rules.length === 0) {
+        return state.rates || [];
+    }
+
+    const uniqueSegments = new Map();
+    rules.forEach(rule => {
+        const price = Number(rule.pricePerHour || 0);
+        if (!price) return;
+        const start = rule.startsAt || '';
+        const end = rule.endsAt || '';
+        if (!start || !end) return;
+        const key = `${price}|${start}|${end}`;
+        if (!uniqueSegments.has(key)) {
+            uniqueSegments.set(key, {
+                price,
+                start,
+                end,
+                sort: timeToMinutes(start || '00:00')
+            });
+        }
+    });
+
+    const merged = [];
+    [...uniqueSegments.values()]
+        .sort((a, b) => a.sort - b.sort || timeToMinutes(a.end) - timeToMinutes(b.end) || a.price - b.price)
+        .forEach(segment => {
+            const previous = [...merged].reverse().find(item =>
+                item.price === segment.price &&
+                timeToMinutes(item.end) === timeToMinutes(segment.start)
+            );
+            if (previous && previous.price === segment.price && timeToMinutes(previous.end) === timeToMinutes(segment.start)) {
+                previous.end = segment.end;
+                return;
+            }
+            merged.push({ ...segment });
+        });
+
+    return merged
+        .sort((a, b) => timeToMinutes(a.start) - timeToMinutes(b.start) || a.price - b.price)
+        .map(group => ({
+            price: group.price,
+            time: `${formatRuleTime(group.start)} - ${formatRuleTime(group.end)}`
+        }));
 }
 
 function bookingFor(date, time, court) {
@@ -640,8 +729,10 @@ function relatedConflictFor(date, time, courtInfo) {
     const direct = bookingFor(date, time, court);
     if (direct) {
         return {
+            id: direct.id,
             status: direct.status,
             sport: direct.sport,
+            playerNickname: direct.playerNickname || '',
             shortLabel: compactStatusLabel(direct.status),
             message: `${courtDisplayName(courtInfo)} is already ${direct.status} for ${direct.sport} during ${time}.`
         };
@@ -693,17 +784,16 @@ function directBookingAt(date, time, courtId) {
 }
 
 function adminScheduleColumns() {
-    return [
-        { key: 'lakers', label: 'LAKERS', court: 1, sport: 'Basketball', openLabel: 'AVAILABLE' },
-        { key: 'miami', label: 'MIAMI', court: 2, sport: 'Basketball', openLabel: 'AVAILABLE' },
-        { key: 'pb1', label: 'PB1', court: 3, sport: 'Pickleball', openLabel: 'OPEN' },
-        { key: 'pb2', label: 'PB2', court: 4, sport: 'Pickleball', openLabel: 'OPEN' },
-        { key: 'pb3', label: 'PB3', court: 5, sport: 'Pickleball', openLabel: 'OPEN' },
-        { key: 'pb4', label: 'PB4', court: 6, sport: 'Pickleball', openLabel: 'OPEN' },
-        { key: 'w5', label: 'WOODEN 5', court: 7, sport: 'Pickleball', openLabel: 'OPEN' },
-        { key: 'w6', label: 'WOODEN 6', court: 8, sport: 'Pickleball', openLabel: 'OPEN' },
-        { key: 'w7', label: 'WOODEN 7', court: 9, sport: 'Pickleball', openLabel: 'OPEN' }
-    ];
+    return (state?.courts || []).flatMap(court => {
+        const sports = court.sports || [];
+        return sports.map(sport => ({
+            key: `${court.id}-${sport}`,
+            label: (court.labels?.[sport] || court.name || `Court ${court.id}`).toUpperCase(),
+            court: court.id,
+            sport,
+            openLabel: sport === 'Pickleball' ? 'OPEN' : 'AVAILABLE'
+        }));
+    }).filter(column => !adminScheduleSportFilter || column.sport === adminScheduleSportFilter);
 }
 
 function adminScheduleDateText(date) {
@@ -730,8 +820,17 @@ function adminCanManageOperations() {
     return Boolean(state?.currentAdmin?.canManageOperations);
 }
 
+function adminCanManageMembers() {
+    return Boolean(state?.currentAdmin?.canManageMembers);
+}
+
+function adminCanManageStaff() {
+    return Boolean(state?.currentAdmin?.canManageStaff);
+}
+
 function reservationById(id) {
-    return (state?.adminReservations || []).find(item => item.id === id)
+    return (state?.adminGroupedReservations || []).find(item => item.id === id)
+        || (state?.adminReservations || []).find(item => item.id === id)
         || Object.values(state?.bookings || {}).find(item => item.id === id)
         || null;
 }
@@ -792,10 +891,16 @@ function adminScheduleCell(date, time, column) {
     const direct = directBookingAt(date, time, column.court);
     if (direct) {
         const isSameSport = direct.sport === column.sport;
-        const label = isSameSport ? adminBookingLabel(direct, 'BOOKED') : direct.sport.toUpperCase();
+        const playerNickname = String(direct.playerNickname || '').trim();
+        const label = isSameSport ? compactStatusLabel(direct.status).toUpperCase() : direct.sport.toUpperCase();
         const status = isSameSport ? direct.status : 'Blocked';
-        const sub = isSameSport ? direct.status : `Uses ${column.label}`;
-        return scheduleCell(label, status, sub, `${column.label}: ${direct.sport} ${direct.status}`, { reservationId: direct.id });
+        const sub = isSameSport
+            ? direct.status === 'Held'
+                ? `Review Payment${playerNickname ? ` - ${playerNickname}` : ''}`
+                : playerNickname
+            : `Uses ${column.label}`;
+        const title = `${column.label}: ${direct.sport} ${direct.status}${playerNickname ? ` - ${playerNickname}` : ''}`;
+        return scheduleCell(label, status, sub, title, { reservationId: direct.id });
     }
 
     const block = blockCell(date, time, column.court, column.sport);
@@ -818,6 +923,11 @@ function renderAdminSchedule() {
     const columns = adminScheduleColumns();
     const slots = Object.values(state.timeSlots || {}).flat();
     els.adminScheduleDateLabel.textContent = adminScheduleDateText(date);
+    if (columns.length === 0) {
+        els.adminScheduleGrid.style.gridTemplateColumns = '1fr';
+        els.adminScheduleGrid.innerHTML = `<div class="p-4 text-sm fw-bold text-secondary">No active courts found${adminScheduleSportFilter ? ` for ${escapeHtml(adminScheduleSportFilter)}` : ''}.</div>`;
+        return;
+    }
     els.adminScheduleGrid.style.gridTemplateColumns = `minmax(92px, 120px) repeat(${columns.length}, minmax(90px, 1fr))`;
 
     const header = ['TIME', ...columns.map(column => column.label)].map((label, index) => `
@@ -830,12 +940,17 @@ function renderAdminSchedule() {
             const cell = adminScheduleCell(date, time, column);
             const selection = adminColumnSelection(column, cell);
             const slot = state.slotDetails?.[time] || {};
-            const actionable = cell.status === 'Available' ? adminCanManageOperations() : true;
+            const isPastAvailable = cell.status === 'Available' && slotIsPast(date, time);
+            const cellStatus = isPastAvailable ? 'Blocked' : cell.status;
+            const cellLabel = isPastAvailable ? '' : cell.label;
+            const cellSub = isPastAvailable ? '' : cell.sub;
+            const cellTitle = isPastAvailable ? 'Past dates and time slots cannot be overridden.' : cell.title;
+            const actionable = cell.status === 'Available' ? (adminCanManageOperations() && !isPastAvailable) : true;
             return `
                 <div class="admin-schedule-cell">
                     <button type="button"
-                        title="${escapeHtml(cell.title)}"
-                        class="admin-schedule-action ${adminScheduleCellClass(cell.status)}"
+                        title="${escapeHtml(cellTitle)}"
+                        class="admin-schedule-action ${adminScheduleCellClass(cellStatus)}"
                         ${actionable ? '' : 'disabled'}
                         data-admin-calendar-booking
                         data-date="${escapeHtml(date)}"
@@ -843,13 +958,13 @@ function renderAdminSchedule() {
                         data-time-slot-id="${escapeHtml(slot.id || '')}"
                         data-court-id="${escapeHtml(selection.courtId)}"
                         data-sport="${escapeHtml(selection.sport)}"
-                        data-cell-label="${escapeHtml(cell.label)}"
-                        data-cell-status="${escapeHtml(cell.status)}"
-                        data-cell-title="${escapeHtml(cell.title)}"
+                        data-cell-label="${escapeHtml(cellLabel)}"
+                        data-cell-status="${escapeHtml(cellStatus)}"
+                        data-cell-title="${escapeHtml(cellTitle)}"
                         data-reservation-id="${escapeHtml(cell.reservationId || '')}"
                         data-block-id="${escapeHtml(cell.blockId || '')}">
-                        <span>${cell.status === 'Available' ? '' : escapeHtml(cell.label)}</span>
-                        ${cell.sub ? `<span class="mt-0.5 block text-[9px] font-bold opacity-75">${escapeHtml(cell.sub)}</span>` : ''}
+                        <span>${cellStatus === 'Available' ? '' : escapeHtml(cellLabel)}</span>
+                        ${cellSub ? `<span class="mt-0.5 block text-[9px] font-bold opacity-75">${escapeHtml(cellSub)}</span>` : ''}
                     </button>
                 </div>
             `;
@@ -868,7 +983,43 @@ function renderAdminOverrideBookingForm() {
             <option value="${court.id}">${escapeHtml(adminCourtOptionLabel(court))}</option>
         `).join('');
     }
+    renderAdminOverrideCustomerOptions();
     updateAdminOverrideSports();
+}
+
+function renderAdminOverrideCustomerOptions(selectedId = '') {
+    if (!els.adminOverrideCustomer) return;
+    const members = state?.adminMembers || [];
+    const options = [
+        '<option value="">Select member</option>',
+        ...members.map(member => {
+            const label = `${member.name}${member.nickname ? ` (${member.nickname})` : ''}${member.phone ? ` - ${member.phone}` : ''}`;
+            return `<option value="${escapeHtml(member.id)}" ${String(selectedId) === String(member.id) ? 'selected' : ''}>${escapeHtml(label)}</option>`;
+        })
+    ];
+    els.adminOverrideCustomer.innerHTML = options.join('');
+}
+
+function applyAdminOverrideCustomer() {
+    if (!els.adminOverrideBookingForm || !els.adminOverrideCustomer) return;
+    const form = els.adminOverrideBookingForm;
+    const member = findAdminMember(els.adminOverrideCustomer.value);
+    const nameField = form.querySelector('[name="name"]');
+    const phoneField = form.querySelector('[name="phone"]');
+    const emailField = form.querySelector('[name="email"]');
+    if (member) {
+        if (nameField) nameField.value = member.name || '';
+        if (phoneField) phoneField.value = member.phone || '';
+        if (emailField) emailField.value = member.email || '';
+    } else {
+        if (nameField) nameField.value = '';
+        if (phoneField) phoneField.value = '';
+        if (emailField) emailField.value = '';
+    }
+
+    [nameField, phoneField, emailField].forEach(field => {
+        if (field) field.readOnly = true;
+    });
 }
 
 function updateAdminOverrideSports(preferredSport = '') {
@@ -902,6 +1053,8 @@ function openAdminCalendarBooking(button) {
     const courtLabel = court ? adminCourtOptionLabel(court) : `Court ${courtId}`;
 
     form.reset();
+    renderAdminOverrideCustomerOptions();
+    applyAdminOverrideCustomer();
     if (els.adminOverrideBookingMessage) {
         els.adminOverrideBookingMessage.textContent = '';
         els.adminOverrideBookingMessage.className = 'hidden rounded-md p-2 text-xs font-bold mt-3';
@@ -963,6 +1116,7 @@ function openAdminCalendarDetails(button) {
                         <div><dt>Date</dt><dd>${escapeHtml(niceDate(reservation.date || date))}</dd></div>
                         <div><dt>Time</dt><dd>${escapeHtml(compactTime(reservation.time || time))}</dd></div>
                         <div><dt>Status</dt><dd><span class="status-badge ${adminStatusClass(reservation.status)}">${escapeHtml(reservation.status)}</span></dd></div>
+                        ${reservation.status === 'Held' ? '<div><dt>Admin Step</dt><dd><span class="status-badge status-badge-review">Review Payment</span></dd></div>' : ''}
                         <div><dt>Reference Number</dt><dd><strong>${escapeHtml(reservation.bookingReference || 'N/A')}</strong></dd></div>
                     </dl>
                     ${reservation.receipt ? `<a class="btn btn-outline-primary btn-sm mt-3" target="_blank" rel="noopener" href="${escapeHtml(resourceUrl(reservation.receipt))}">View Receipt</a>` : ''}
@@ -1520,7 +1674,9 @@ function renderBookingGrid() {
                 ? 'booking-slot-selected'
                 : isPast
                 ? 'booking-slot-available booking-slot-past'
-                : tone === 'booked' || tone === 'pending'
+                : status === 'Held'
+                ? 'booking-slot-held'
+                : status === 'Booked'
                 ? 'booking-slot-booked'
                 : tone === 'blocked'
                 ? 'booking-slot-unavailable'
@@ -1607,15 +1763,141 @@ function renderBookingDateCards(date, today) {
         button.addEventListener('click', () => {
             selectedDate = new Date(`${button.dataset.bookingDateCard}T00:00:00`);
             clearBookingSelection();
+            renderRates();
             renderBookingGrid();
         });
     });
 }
 
+function adminReservationGroupKey(item) {
+    return item.bookingReference || item.id;
+}
+
+function adminReservationSlotStart(item) {
+    return timeToMinutes(state?.slotDetails?.[item.time]?.startsAt || '00:00');
+}
+
+function adminReservationSlotEnd(item) {
+    const details = state?.slotDetails?.[item.time];
+    if (!details) return adminReservationSlotStart(item);
+    let end = timeToMinutes(details.endsAt);
+    const start = timeToMinutes(details.startsAt);
+    if (end <= start) end += 1440;
+    return end;
+}
+
+function groupedReservationStatus(items) {
+    const statuses = [...new Set(items.map(item => item.status))];
+    if (statuses.length === 1) return statuses[0];
+    if (statuses.includes('Held')) return 'Held';
+    if (statuses.includes('Booked')) return 'Booked';
+    return statuses[0] || 'Cancelled';
+}
+
+function groupedReservationReceipt(items) {
+    return items.find(item => item.receipt)?.receipt || '';
+}
+
+function groupedReservationReviewedBy(items) {
+    return [...new Set(items.map(item => item.reviewedByName).filter(Boolean))].join(', ');
+}
+
+function groupedReservationCancelReason(items) {
+    return [...new Set(items.map(item => item.cancelReason).filter(Boolean))].join('; ');
+}
+
+function adminReservationTimeRanges(items) {
+    const byDate = new Map();
+    [...items].sort((a, b) => {
+        if (a.date !== b.date) return a.date.localeCompare(b.date);
+        return adminReservationSlotStart(a) - adminReservationSlotStart(b);
+    }).forEach(item => {
+        if (!byDate.has(item.date)) byDate.set(item.date, []);
+        byDate.get(item.date).push(item);
+    });
+
+    return [...byDate.entries()].map(([date, slots]) => {
+        const ranges = [];
+        slots.forEach(slot => {
+            const start = adminReservationSlotStart(slot);
+            const end = adminReservationSlotEnd(slot);
+            const last = ranges[ranges.length - 1];
+            if (last && last.end === start) {
+                last.end = end;
+                return;
+            }
+            ranges.push({ start, end });
+        });
+        return {
+            date,
+            label: `${niceDate(date)} - ${ranges.map(range => `${minutesToDisplay(range.start)} - ${minutesToDisplay(range.end)}`).join(', ')}`
+        };
+    });
+}
+
+function adminReservationCourtSummaries(items) {
+    const groups = new Map();
+    items.forEach(item => {
+        const label = item.courtName || `Court ${item.court}`;
+        if (!groups.has(label)) groups.set(label, 0);
+        groups.set(label, groups.get(label) + 1);
+    });
+
+    return [...groups.entries()].map(([courtName, count]) => ({
+        courtName,
+        count,
+        label: `${courtName} - ${count} time slot${count === 1 ? '' : 's'}`
+    }));
+}
+
+function groupAdminReservations(rows) {
+    const groups = new Map();
+    rows.forEach(item => {
+        const key = adminReservationGroupKey(item);
+        if (!groups.has(key)) groups.set(key, []);
+        groups.get(key).push(item);
+    });
+
+    return [...groups.values()].map(items => {
+        const sorted = [...items].sort((a, b) => {
+            if (a.date !== b.date) return a.date.localeCompare(b.date);
+            return adminReservationSlotStart(a) - adminReservationSlotStart(b);
+        });
+        const first = sorted[0];
+        const ids = sorted.map(item => String(item.id).replace(/^court:/, ''));
+        const timeRanges = adminReservationTimeRanges(sorted);
+        const courtSummaries = adminReservationCourtSummaries(sorted);
+        const status = groupedReservationStatus(sorted);
+        const total = sorted.reduce((sum, item) => sum + Number(item.finalAmount || 0), 0);
+        const courtNames = [...new Set(sorted.map(item => item.courtName || `Court ${item.court}`).filter(Boolean))];
+        const sports = [...new Set(sorted.map(item => item.sport).filter(Boolean))];
+        return {
+            ...first,
+            id: `court:${ids.join(',')}`,
+            childIds: sorted.map(item => item.id),
+            slotCount: sorted.length,
+            courtName: courtNames.join(', '),
+            sport: sports.join(', '),
+            status,
+            receipt: groupedReservationReceipt(sorted),
+            reviewedByName: groupedReservationReviewedBy(sorted),
+            cancelReason: groupedReservationCancelReason(sorted),
+            finalAmount: total,
+            timeRanges,
+            courtSummaries,
+            date: timeRanges[0]?.date || first.date,
+            time: timeRanges.map(range => range.label.replace(`${niceDate(range.date)} - `, '')).join('; '),
+            createdAt: sorted.reduce((latest, item) => item.createdAt > latest ? item.createdAt : latest, first.createdAt)
+        };
+    });
+}
+
 function renderAdmin() {
     if (!state) return;
-    const allRows = (state.adminReservations || []).filter(item => item.type === 'court');
+    const allRows = groupAdminReservations((state.adminReservations || []).filter(item => item.type === 'court'));
+    state.adminGroupedReservations = allRows;
     renderAdminStats(allRows);
+    renderAdminFilterButtons();
     if (!els.admin) return;
     const referenceNeedle = adminReferenceSearch.trim().toLowerCase();
     const rows = allRows.filter(item => {
@@ -1632,8 +1914,11 @@ function renderAdmin() {
     els.admin.innerHTML = rows.sort((a, b) => a.createdAt < b.createdAt ? 1 : -1).map(item => `
         <tr>
             <td>
-                <p class="mb-1 fw-black text-ink">${niceDate(item.date)} - ${item.time}</p>
-                <p class="mb-0 text-xs text-secondary">Court ${item.court} - ${item.sport}</p>
+                <p class="mb-1 fw-black text-ink">${escapeHtml((item.timeRanges || [{ date: item.date }]).map(range => niceDate(range.date || item.date)).join(', '))}</p>
+                ${(item.courtSummaries || [{ label: `${item.courtName || `Court ${item.court}`} - ${item.slotCount || 1} time slot${(item.slotCount || 1) === 1 ? '' : 's'}` }]).map(summary => `
+                    <p class="mb-0 text-xs text-secondary">${escapeHtml(summary.label)}</p>
+                `).join('')}
+                <p class="mb-0 text-xs text-secondary">${escapeHtml(item.sport)}</p>
             </td>
             <td>
                 <p class="mb-0 fw-black text-ink">${escapeHtml(item.bookingReference || 'N/A')}</p>
@@ -1651,6 +1936,7 @@ function renderAdmin() {
             </td>
             <td>
                 <span class="status-badge ${adminStatusClass(item.status)}">${escapeHtml(item.status)}</span>
+                ${item.status === 'Held' ? '<p class="mb-0 mt-1 text-xs fw-black text-warning">Review Payment</p>' : ''}
                 ${item.reviewedByName ? `<p class="mb-0 mt-1 text-xs text-secondary">By ${escapeHtml(item.reviewedByName)}</p>` : ''}
                 ${item.cancelReason ? `<p class="mb-0 mt-1 text-xs text-warning">Reason: ${escapeHtml(item.cancelReason)}</p>` : ''}
             </td>
@@ -1677,6 +1963,14 @@ function renderAdmin() {
     });
     els.admin.querySelectorAll('[data-admin-receipt-upload]').forEach(button => {
         button.addEventListener('click', () => openReceiptUploadModal(button.dataset.adminReceiptUpload));
+    });
+}
+
+function renderAdminFilterButtons() {
+    document.querySelectorAll('[data-admin-filter]').forEach(button => {
+        button.className = button.dataset.adminFilter === adminFilter
+            ? 'btn btn-primary btn-sm'
+            : 'btn btn-outline-secondary btn-sm';
     });
 }
 
@@ -1790,6 +2084,7 @@ function renderAdminPaymentChannels() {
 }
 
 function formatRuleTime(value) {
+    if (String(value || '').startsWith('00:00')) return '12 MN';
     const [hourRaw, minuteRaw = '00'] = String(value || '00:00').split(':');
     let hour = Number(hourRaw);
     const minute = Number(minuteRaw);
@@ -1798,10 +2093,48 @@ function formatRuleTime(value) {
     return `${hour}${minute ? `:${String(minute).padStart(2, '0')}` : ''} ${suffix}`;
 }
 
+function populateAdminRateFilters(rules) {
+    const sports = [...new Set(rules.map(rule => rule.sport).filter(Boolean))].sort();
+    const courts = [...new Map(rules.map(rule => [
+        String(rule.courtId),
+        rule.courtName || `Court ${rule.courtId}`
+    ])).entries()].sort((a, b) => String(a[1]).localeCompare(String(b[1])));
+
+    if (els.adminRateSportFilter) {
+        const current = adminRateSportFilter;
+        setSelectOptions(els.adminRateSportFilter, [
+            ['', 'All sports'],
+            ...sports.map(sport => [sport, sport])
+        ], current);
+        if (current && !sports.includes(current)) {
+            adminRateSportFilter = '';
+            els.adminRateSportFilter.value = '';
+        }
+    }
+
+    if (els.adminRateCourtFilter) {
+        const current = adminRateCourtFilter;
+        setSelectOptions(els.adminRateCourtFilter, [
+            ['', 'All courts'],
+            ...courts
+        ], current);
+        if (current && !courts.some(([id]) => id === current)) {
+            adminRateCourtFilter = '';
+            els.adminRateCourtFilter.value = '';
+        }
+    }
+}
+
 function renderAdminRateSummary() {
     if (!els.adminRateSummary || !state) return;
     bindAdminRateForm();
-    const rows = (state.adminRateRules || [])
+    const allRules = state.adminRateRules || [];
+    populateAdminRateFilters(allRules);
+    const rows = allRules
+        .filter(rule =>
+            (!adminRateSportFilter || rule.sport === adminRateSportFilter) &&
+            (!adminRateCourtFilter || String(rule.courtId) === String(adminRateCourtFilter))
+        )
         .sort((a, b) => {
             const courtCompare = String(a.courtName || 'All courts').localeCompare(String(b.courtName || 'All courts'));
             if (courtCompare) return courtCompare;
@@ -1813,7 +2146,7 @@ function renderAdminRateSummary() {
         });
 
     if (rows.length === 0) {
-        els.adminRateSummary.innerHTML = '<tr><td colspan="6" class="text-secondary">No rates configured.</td></tr>';
+        els.adminRateSummary.innerHTML = `<tr><td colspan="6" class="text-secondary">${allRules.length === 0 ? 'No rates configured.' : 'No rates match the selected filters.'}</td></tr>`;
         return;
     }
 
@@ -1862,6 +2195,112 @@ function renderAdminRateAudit() {
             <p class="text-xs font-bold text-muted">${new Date(row.createdAt).toLocaleString()} by ${escapeHtml(row.adminName)}</p>
         </div>
     `).join('');
+}
+
+function findAdminCourt(id) {
+    return (state?.adminCourts || state?.courts || []).find(court => Number(court.id) === Number(id)) || null;
+}
+
+function renderAdminCourts() {
+    if (!els.adminCourtManagement || !state) return;
+    const courts = state.adminCourts || state.courts || [];
+    const canManage = adminCanManageOperations();
+    if (courts.length === 0) {
+        els.adminCourtManagement.innerHTML = '<div class="rounded-xl border border-dashed border-line bg-white p-4 text-sm fw-bold text-secondary">No courts configured yet.</div>';
+        return;
+    }
+
+    els.adminCourtManagement.innerHTML = `
+        <div class="table-responsive">
+            <table class="table table-sm align-middle mb-0">
+                <thead>
+                    <tr class="small text-secondary">
+                        <th>Order</th>
+                        <th>Court</th>
+                        <th>Sports</th>
+                        <th class="text-center">Rates</th>
+                        <th class="text-center">Active Bookings</th>
+                        <th>Status</th>
+                        <th class="text-end">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${courts.map(court => `
+                        <tr>
+                            <td class="fw-black">${court.number}</td>
+                            <td>
+                                <div class="fw-black text-primary">${escapeHtml(court.name)}</div>
+                                <div class="text-xs fw-semibold text-muted">${escapeHtml(court.type || 'Court')}${court.surface ? ` | ${escapeHtml(court.surface)}` : ''}</div>
+                            </td>
+                            <td>
+                                <div class="d-flex flex-wrap gap-1">
+                                    ${(court.sports || []).map(sport => `<span class="status-badge bg-slate-100 text-primary">${escapeHtml(sport)}</span>`).join('')}
+                                </div>
+                            </td>
+                            <td class="text-center fw-black">${court.rateCount ?? 0}</td>
+                            <td class="text-center fw-black">${court.activeBookingCount ?? 0}</td>
+                            <td><span class="status-badge ${court.isActive ? 'status-badge-booked' : 'status-badge-cancelled'}">${court.isActive ? 'Active' : 'Inactive'}</span></td>
+                            <td class="text-end">
+                                ${canManage ? `<button type="button" class="btn btn-outline-primary btn-sm" data-admin-court-edit="${court.id}">Edit</button>` : '<span class="text-xs fw-bold text-muted">View only</span>'}
+                            </td>
+                        </tr>
+                    `).join('')}
+                </tbody>
+            </table>
+        </div>
+    `;
+
+    els.adminCourtManagement.querySelectorAll('[data-admin-court-edit]').forEach(button => {
+        button.addEventListener('click', () => openAdminCourtModal(button.dataset.adminCourtEdit));
+    });
+}
+
+function openAdminCourtModal(id = '') {
+    if (!els.adminCourtForm) return;
+    const court = id ? findAdminCourt(id) : null;
+    els.adminCourtForm.reset();
+    if (els.adminCourtModalTitle) els.adminCourtModalTitle.textContent = court ? 'Edit Court' : 'Add Court';
+    if (els.adminCourtId) els.adminCourtId.value = court?.id || '';
+    if (els.adminCourtDisplayNumber) els.adminCourtDisplayNumber.value = court?.number || ((state?.adminCourts || state?.courts || []).length + 1);
+    if (els.adminCourtName) els.adminCourtName.value = court?.name || '';
+    if (els.adminCourtType) els.adminCourtType.value = court?.type || 'Indoor';
+    if (els.adminCourtSurface) els.adminCourtSurface.value = court?.surface || '';
+    if (els.adminCourtActive) els.adminCourtActive.checked = court ? Boolean(court.isActive) : true;
+    const sports = court?.sports || ['Pickleball'];
+    els.adminCourtForm.querySelectorAll('input[name="sports[]"]').forEach(input => {
+        input.checked = sports.includes(input.value);
+    });
+    const message = document.getElementById('adminCourtFormMessage');
+    if (message) {
+        message.textContent = '';
+        message.className = 'hidden rounded-md p-2 text-xs font-bold mt-3';
+    }
+    if (window.bootstrap && els.adminCourtModal) {
+        bootstrap.Modal.getOrCreateInstance(els.adminCourtModal).show();
+    }
+}
+
+async function submitAdminCourtForm(event) {
+    event.preventDefault();
+    const form = event.currentTarget;
+    if (!form.reportValidity()) return;
+    const message = document.getElementById('adminCourtFormMessage');
+    const formData = new FormData(form);
+    if (!formData.has('isActive')) formData.set('isActive', '0');
+
+    const response = await fetch(`${api}?action=admin-court-save`, { method: 'POST', body: formData });
+    const payload = await response.json();
+    if (message) {
+        message.textContent = payload.message || 'Saved.';
+        message.className = `rounded-md p-2 text-xs font-bold mt-3 ${payload.ok ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-700'}`;
+    }
+    if (payload.ok) {
+        state = payload.state;
+        renderAll();
+        if (window.bootstrap && els.adminCourtModal) {
+            bootstrap.Modal.getInstance(els.adminCourtModal)?.hide();
+        }
+    }
 }
 
 function renderAdminCourtBlocks() {
@@ -2151,7 +2590,7 @@ function renderAdminMembers() {
     if (!els.adminMembers || !state) return;
     const query = adminMemberSearch.trim().toLowerCase();
     const members = (state.adminMembers || []).filter(member => !query || memberSearchText(member).includes(query));
-    const canManage = adminCanManageOperations();
+    const canManage = adminCanManageMembers();
 
     if (members.length === 0) {
         els.adminMembers.innerHTML = '<div class="rounded-xl border border-dashed border-line bg-white p-5 text-sm font-bold text-muted">No members match the current search.</div>';
@@ -2166,9 +2605,6 @@ function renderAdminMembers() {
                         <th scope="col">Member</th>
                         <th scope="col">Contact</th>
                         <th scope="col">Skill / Consent</th>
-                        <th scope="col" class="text-center">Courts</th>
-                        <th scope="col" class="text-center">Booked</th>
-                        <th scope="col" class="text-center">Entrance Fees</th>
                         <th scope="col">Activity</th>
                         <th scope="col">Status</th>
                         <th scope="col" class="text-end">Action</th>
@@ -2178,8 +2614,17 @@ function renderAdminMembers() {
                     ${members.map(member => `
                         <tr>
                             <td>
-                                <div class="fw-black text-ink">${escapeHtml(member.name)}</div>
-                                <div class="text-xs font-semibold text-muted">${escapeHtml(member.nickname || 'No nickname')} | Member #${member.id}</div>
+                                <div class="d-flex align-items-center gap-2">
+                                    <div class="admin-member-avatar">
+                                        ${member.profilePicture
+                                            ? `<img src="${escapeHtml(resourceUrl(member.profilePicture))}" alt="">`
+                                            : escapeHtml((member.nickname || member.name || 'P').charAt(0).toUpperCase())}
+                                    </div>
+                                    <div>
+                                        <div class="fw-black text-ink">${escapeHtml(member.name)}</div>
+                                        <div class="text-xs font-semibold text-muted">${escapeHtml(member.nickname || 'No nickname')} | Member #${member.id}</div>
+                                    </div>
+                                </div>
                             </td>
                             <td>
                                 <div class="fw-bold">${escapeHtml(member.email)}</div>
@@ -2188,12 +2633,6 @@ function renderAdminMembers() {
                             <td>
                                 <div class="fw-bold">${escapeHtml(member.skillLabel || 'No level')}</div>
                                 <div class="text-xs font-semibold ${member.dataPrivacyActAgree ? 'text-success' : 'text-danger'}">${member.dataPrivacyActAgree ? 'Privacy consent recorded' : 'Privacy consent missing'}</div>
-                            </td>
-                            <td class="text-center fw-black text-primary">${member.courtBookingsCount || 0}</td>
-                            <td class="text-center fw-black text-primary">${member.confirmedCount || 0}</td>
-                            <td class="text-center">
-                                <div class="fw-black text-primary">${member.entranceFeeCount || 0}</div>
-                                <div class="text-xs font-semibold text-muted">${peso.format(Number(member.entranceFeeTotal || 0))}</div>
                             </td>
                             <td class="text-sm fw-semibold text-secondary">
                                 ${member.lastLoginAt ? `Last login ${new Date(member.lastLoginAt).toLocaleDateString()}` : `Joined ${new Date(member.createdAt).toLocaleDateString()}`}
@@ -2212,20 +2651,6 @@ function renderAdminMembers() {
                                         </button>
                                     ` : '<span class="text-xs text-secondary">View only</span>'}
                                 </div>
-                                ${member.entranceFeeHistory?.length ? `
-                                    <details class="mt-2 text-start">
-                                        <summary class="text-xs fw-black text-primary">Entrance fee history</summary>
-                                        <div class="admin-fee-history">
-                                            ${member.entranceFeeHistory.slice(0, 8).map(item => `
-                                                <div>
-                                                    <strong>${escapeHtml(niceDate(item.paymentDate))}</strong>
-                                                    <span>${peso.format(Number(item.amount || 0))}</span>
-                                                    <small>${escapeHtml(item.referenceNumber || 'Walk-in / visit')} | Recorded by: ${escapeHtml(item.recordedByName || 'Admin')}</small>
-                                                </div>
-                                            `).join('')}
-                                        </div>
-                                    </details>
-                                ` : ''}
                             </td>
                         </tr>
                     `).join('')}
@@ -2272,8 +2697,21 @@ function openAdminMemberModal(id = '') {
     set('birthYear', member?.birthYear || '');
     set('skillLevel', member?.skillLevel || '');
     set('password', '');
+    set('confirmPassword', '');
     const password = els.adminMemberForm.querySelector('[name="password"]');
     if (password) password.required = !member;
+    const confirmPassword = els.adminMemberForm.querySelector('[name="confirmPassword"]');
+    if (confirmPassword) confirmPassword.required = !member;
+    const preview = document.getElementById('adminMemberProfilePreview');
+    if (preview) {
+        if (member?.profilePicture) {
+            preview.innerHTML = `<img src="${escapeHtml(resourceUrl(member.profilePicture))}" alt="">`;
+        } else {
+            preview.textContent = (member?.nickname || member?.name || 'P').charAt(0).toUpperCase();
+        }
+    }
+    const pictureInput = document.getElementById('adminMemberProfilePicture');
+    if (pictureInput) pictureInput.value = '';
     const active = els.adminMemberForm.querySelector('[name="isActive"]');
     if (active) active.checked = member ? Boolean(member.isActive) : true;
     const consent = els.adminMemberForm.querySelector('[name="dataPrivacyActAgree"]');
@@ -2294,6 +2732,15 @@ async function submitAdminMemberForm(event) {
     if (!form.reportValidity()) return;
     const message = document.getElementById('adminMemberFormMessage');
     const formData = new FormData(form);
+    const password = form.querySelector('[name="password"]')?.value || '';
+    const confirmPassword = form.querySelector('[name="confirmPassword"]')?.value || '';
+    if (password && password !== confirmPassword) {
+        if (message) {
+            message.textContent = 'Password confirmation does not match.';
+            message.className = 'rounded-md p-2 text-xs font-bold mt-3 bg-rose-50 text-rose-700';
+        }
+        return;
+    }
     formData.set('isActive', form.querySelector('[name="isActive"]').checked ? '1' : '0');
     formData.set('dataPrivacyActAgree', form.querySelector('[name="dataPrivacyActAgree"]').checked ? '1' : '0');
 
@@ -2447,11 +2894,18 @@ function adminUserTableRow(user = null) {
         id: '',
         name: '',
         email: '',
-        role: 'staff',
+        role: 'reception',
         isActive: true,
         lastLoginAt: null,
         createdAt: new Date().toISOString()
     };
+    const roleOptions = state?.adminRoleOptions || { admin: 'Admin', reception: 'Reception', executive: 'Executive' };
+    const isSuperAdmin = row.role === 'super_admin';
+    const roleField = isSuperAdmin
+        ? `<input type="hidden" name="role" value="super_admin"><span class="status-badge status-badge-booked">Super Admin</span>`
+        : `<select name="role" class="form-select">
+            ${Object.entries(roleOptions).map(([value, label]) => `<option value="${escapeHtml(value)}" ${row.role === value ? 'selected' : ''}>${escapeHtml(label)}</option>`).join('')}
+        </select>`;
 
     return `
         <tr data-admin-user-row>
@@ -2462,13 +2916,7 @@ function adminUserTableRow(user = null) {
             </td>
             <td><input required name="name" value="${escapeHtml(row.name)}" class="form-input" placeholder="Staff name"></td>
             <td><input required type="email" name="email" value="${escapeHtml(row.email)}" class="form-input" placeholder="staff@example.com"></td>
-            <td>
-                <select name="role" class="form-select">
-                    <option value="super_admin" ${row.role === 'super_admin' ? 'selected' : ''}>Super Admin</option>
-                    <option value="staff" ${row.role === 'staff' ? 'selected' : ''}>Staff</option>
-                    <option value="admin" ${row.role === 'admin' ? 'selected' : ''}>Admin</option>
-                </select>
-            </td>
+            <td>${roleField}</td>
             <td><input ${isNew ? 'required' : ''} type="password" name="password" class="form-input" minlength="8" placeholder="${isNew ? 'Required' : 'Leave blank'}"></td>
             <td class="text-center">
                 <label class="d-inline-flex align-items-center justify-content-center gap-2 fw-black mb-0">
@@ -2486,6 +2934,10 @@ function adminUserTableRow(user = null) {
 
 function renderAdminUsers() {
     if (!els.adminUsers || !state) return;
+    if (!adminCanManageStaff()) {
+        els.adminUsers.innerHTML = '';
+        return;
+    }
     const users = state.adminUsers || [];
     els.adminUsers.innerHTML = `
         <div class="table-responsive">
@@ -2510,6 +2962,73 @@ function renderAdminUsers() {
     `;
     els.adminUsers.querySelectorAll('[data-admin-user-save]').forEach(button => {
         button.addEventListener('click', () => submitAdminUserRow(button));
+    });
+}
+
+function renderAdminRolePermissions() {
+    if (!els.adminRolePermissions || !state) return;
+    if (!adminCanManageStaff()) {
+        els.adminRolePermissions.innerHTML = '';
+        return;
+    }
+
+    const roles = state.adminRoleOptions || {};
+    const menus = state.adminMenuCatalog || [];
+    const permissions = state.adminRoleMenuPermissions || {};
+    els.adminRolePermissions.innerHTML = Object.entries(roles).map(([role, label]) => {
+        const rolePermissions = permissions[role] || {};
+        const menuItems = menus.map(menu => {
+            const forced = menu.key === 'admin'
+                || (role === 'admin' && menu.key === 'admin-members')
+                || (role === 'executive' && ['admin-members', 'admin-reports'].includes(menu.key));
+            const checked = menu.key === 'admin'
+                || (role === 'admin' && menu.key === 'admin-members')
+                || (role === 'executive' && menu.key === 'admin-reports')
+                ? true
+                : Boolean(rolePermissions[menu.key]);
+            return `
+                <label class="admin-role-menu-item ${forced ? 'is-locked' : ''}">
+                    <input type="checkbox"
+                        name="menus[]"
+                        value="${escapeHtml(menu.key)}"
+                        ${checked ? 'checked' : ''}
+                        ${forced ? 'disabled' : ''}>
+                    <span>
+                        <strong>${escapeHtml(menu.label)}</strong>
+                        <small>${escapeHtml(role === 'executive' && menu.key === 'admin-members'
+                            ? 'Executive role has no Users / Members access.'
+                            : role === 'executive' && menu.key === 'admin-reports'
+                                ? 'Executive role always has report access.'
+                            : role === 'admin' && menu.key === 'admin-members'
+                                ? 'Admin always sees staff and members.'
+                                : (menu.sub || ''))}</small>
+                    </span>
+                </label>
+            `;
+        }).join('');
+
+        return `
+            <form class="admin-role-permission-card" data-admin-role-permission-form>
+                <input type="hidden" name="role" value="${escapeHtml(role)}">
+                <div class="admin-role-permission-head">
+                    <div>
+                        <h3>${escapeHtml(label)}</h3>
+                        <p>${role === 'reception'
+                            ? 'Reception can view members when Users / Members is enabled.'
+                            : role === 'executive'
+                                ? 'Executive can be given operational menus, excluding Users / Members.'
+                                : 'Admin can manage staff and members.'}</p>
+                    </div>
+                    <button class="btn btn-primary btn-sm" type="submit">Save</button>
+                </div>
+                <div class="admin-role-menu-grid">${menuItems}</div>
+                <div class="hidden mt-2 rounded-md p-2 text-xs font-bold" data-admin-role-permission-message></div>
+            </form>
+        `;
+    }).join('');
+
+    els.adminRolePermissions.querySelectorAll('[data-admin-role-permission-form]').forEach(form => {
+        form.addEventListener('submit', submitAdminRolePermissions);
     });
 }
 
@@ -2566,6 +3085,31 @@ async function submitAdminUserRow(button) {
     }
 }
 
+async function submitAdminRolePermissions(event) {
+    event.preventDefault();
+    const form = event.currentTarget;
+    const message = form.querySelector('[data-admin-role-permission-message]');
+    const button = form.querySelector('button[type="submit"]');
+    const formData = new FormData(form);
+
+    button.disabled = true;
+    const response = await fetch(`${api}?action=admin-role-menu-permissions`, { method: 'POST', body: formData });
+    const payload = await response.json();
+    button.disabled = false;
+
+    if (message) {
+        message.textContent = payload.message || (payload.ok ? 'Menu access saved.' : 'Could not save menu access.');
+        message.className = `mt-2 rounded-md p-2 text-xs font-bold ${payload.ok ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-700'}`;
+    }
+
+    if (payload.ok) {
+        state = payload.state;
+        renderAll();
+    } else if (response.status === 401) {
+        window.location.href = adminLoginUrl;
+    }
+}
+
 async function updateStatus(id, status) {
     const formData = new FormData();
     formData.append('id', id);
@@ -2589,7 +3133,8 @@ function openCancelReservationModal(id) {
     els.adminCancelReservationForm.reset();
     els.adminCancelReservationId.value = id;
     if (els.adminCancelReservationSummary) {
-        els.adminCancelReservationSummary.textContent = `${item.bookingReference || 'No reference'} | ${niceDate(item.date)} | ${compactTime(item.time)} | Court ${item.court} | ${item.status}`;
+        const schedule = (item.timeRanges || [{ label: `${niceDate(item.date)} - ${compactTime(item.time)}` }]).map(range => range.label).join('; ');
+        els.adminCancelReservationSummary.textContent = `${item.bookingReference || 'No reference'} | ${schedule} | ${item.courtName || `Court ${item.court}`} | ${item.status}`;
     }
     if (els.adminCancelReservationMessage) {
         els.adminCancelReservationMessage.textContent = '';
@@ -2634,7 +3179,8 @@ function openReceiptUploadModal(id) {
     els.adminReceiptUploadForm.reset();
     els.adminReceiptReservationId.value = id;
     if (els.adminReceiptUploadSummary) {
-        els.adminReceiptUploadSummary.textContent = `${item.bookingReference || 'No reference'} | ${item.customerName || ''} | ${niceDate(item.date)} ${compactTime(item.time)}`;
+        const schedule = (item.timeRanges || [{ label: `${niceDate(item.date)} - ${compactTime(item.time)}` }]).map(range => range.label).join('; ');
+        els.adminReceiptUploadSummary.textContent = `${item.bookingReference || 'No reference'} | ${item.customerName || ''} | ${schedule}`;
     }
     if (els.adminReceiptUploadMessage) {
         els.adminReceiptUploadMessage.textContent = '';
@@ -2805,12 +3351,14 @@ document.getElementById('prevDate')?.addEventListener('click', () => {
     if (isoDate(selectedDate) <= isoDate(new Date())) return;
     selectedDate.setDate(selectedDate.getDate() - 1);
     clearBookingSelection();
+    renderRates();
     renderBookingGrid();
 });
 
 document.getElementById('nextDate')?.addEventListener('click', () => {
     selectedDate.setDate(selectedDate.getDate() + 1);
     clearBookingSelection();
+    renderRates();
     renderBookingGrid();
 });
 
@@ -2821,6 +3369,11 @@ document.getElementById('adminSchedulePrev')?.addEventListener('click', () => {
 
 document.getElementById('adminScheduleNext')?.addEventListener('click', () => {
     adminScheduleDate.setDate(adminScheduleDate.getDate() + 1);
+    renderAdminSchedule();
+});
+
+els.adminScheduleSportFilter?.addEventListener('change', event => {
+    adminScheduleSportFilter = event.target.value;
     renderAdminSchedule();
 });
 
@@ -2856,10 +3409,12 @@ els.form?.addEventListener('submit', submitPayment);
 els.adminOverrideBookingForm?.addEventListener('submit', submitAdminOverrideBooking);
 els.adminCancelReservationForm?.addEventListener('submit', submitCancelReservation);
 els.adminReceiptUploadForm?.addEventListener('submit', submitReceiptUpload);
+els.adminCourtForm?.addEventListener('submit', submitAdminCourtForm);
 els.adminMemberForm?.addEventListener('submit', submitAdminMemberForm);
 els.adminEntranceFeeForm?.addEventListener('submit', submitEntranceFee);
 els.adminQrScanForm?.addEventListener('submit', submitQrLookup);
 els.adminOverrideCourt?.addEventListener('change', () => updateAdminOverrideSports());
+els.adminOverrideCustomer?.addEventListener('change', applyAdminOverrideCustomer);
 els.adminScheduleGrid?.addEventListener('click', event => {
     const button = event.target.closest('[data-admin-calendar-booking]');
     if (button) openAdminCalendarBooking(button);
@@ -2872,7 +3427,43 @@ els.adminMemberSearch?.addEventListener('input', event => {
     adminMemberSearch = event.target.value;
     renderAdminMembers();
 });
+els.adminRateSportFilter?.addEventListener('change', event => {
+    adminRateSportFilter = event.target.value;
+    renderAdminRateSummary();
+    document.dispatchEvent(new CustomEvent('admin-rates-filtered'));
+});
+els.adminRateCourtFilter?.addEventListener('change', event => {
+    adminRateCourtFilter = event.target.value;
+    renderAdminRateSummary();
+    document.dispatchEvent(new CustomEvent('admin-rates-filtered'));
+});
+els.adminRateClearFilters?.addEventListener('click', () => {
+    adminRateSportFilter = '';
+    adminRateCourtFilter = '';
+    if (els.adminRateSportFilter) els.adminRateSportFilter.value = '';
+    if (els.adminRateCourtFilter) els.adminRateCourtFilter.value = '';
+    renderAdminRateSummary();
+    document.dispatchEvent(new CustomEvent('admin-rates-filtered'));
+});
 els.adminAddMember?.addEventListener('click', () => openAdminMemberModal());
+document.getElementById('adminMemberProfilePicture')?.addEventListener('change', event => {
+    const file = event.target.files?.[0];
+    const preview = document.getElementById('adminMemberProfilePreview');
+    if (!file || !preview) return;
+    preview.innerHTML = `<img src="${escapeHtml(URL.createObjectURL(file))}" alt="">`;
+});
+document.querySelectorAll('[data-password-toggle]').forEach(button => {
+    button.addEventListener('click', () => {
+        const input = document.getElementById(button.dataset.passwordToggle || '');
+        if (!input) return;
+        const show = input.type === 'password';
+        input.type = show ? 'text' : 'password';
+        button.setAttribute('aria-label', show ? 'Hide password' : 'Show password');
+        button.innerHTML = `<i data-lucide="${show ? 'eye-off' : 'eye'}" class="icon-sm"></i>`;
+        if (window.lucide) lucide.createIcons();
+    });
+});
+els.adminAddCourt?.addEventListener('click', () => openAdminCourtModal());
 document.querySelectorAll('[data-open-privacy-policy]').forEach(button => {
     button.addEventListener('click', () => {
         if (window.bootstrap && els.adminPrivacyPolicyModal) {
@@ -2914,6 +3505,7 @@ document.querySelectorAll('[data-sport]').forEach(button => {
             item.className = 'sport-option btn w-100 justify-content-start';
         });
         button.className = 'sport-option-active btn w-100 justify-content-start';
+        renderRates();
         renderBookingGrid();
     });
 });

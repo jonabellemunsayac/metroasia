@@ -1,6 +1,6 @@
 <?php
 require_once __DIR__ . '/../includes/auth.php';
-require_admin();
+$admin = require_admin_menu('admin-rates');
 $pageTitle = 'Rates';
 $active = 'admin-rates';
 include __DIR__ . '/../includes/header.php';
@@ -15,6 +15,21 @@ include __DIR__ . '/../includes/header.php';
             <button id="adminAddRate" class="btn btn-primary btn-sm" type="button">
                 <i data-lucide="plus" class="icon-sm"></i>Add Rate
             </button>
+        </div>
+        <div class="row g-2 align-items-end mb-3">
+            <label class="col-md-4 col-lg-3 small fw-bold">Filter by Sport
+                <select id="adminRateSportFilter" class="form-select">
+                    <option value="">All sports</option>
+                </select>
+            </label>
+            <label class="col-md-4 col-lg-3 small fw-bold">Filter by Court
+                <select id="adminRateCourtFilter" class="form-select">
+                    <option value="">All courts</option>
+                </select>
+            </label>
+            <div class="col-md-4 col-lg-3">
+                <button id="adminRateClearFilters" class="btn btn-outline-secondary btn-sm" type="button">Clear Filters</button>
+            </div>
         </div>
         <div class="table-responsive">
             <table class="table table-sm align-middle mb-0">
@@ -94,15 +109,17 @@ include __DIR__ . '/../includes/header.php';
                         <input type="hidden" name="id" id="adminRateId">
                         <input type="hidden" name="reason" id="adminRateReason" value="Regular rate">
                         <div class="row g-2">
-                            <label class="col-md-4 small fw-bold">Court
-                                <select required name="courtId" id="adminRateCourt" class="form-select"></select>
-                            </label>
                             <label class="col-md-4 small fw-bold">Sport
                                 <select required name="sport" id="adminRateSport" class="form-select"></select>
+                            </label>
+                            <label class="col-md-4 small fw-bold">Court
+                                <select required name="courtId" id="adminRateCourt" class="form-select"></select>
                             </label>
                             <label class="col-md-4 small fw-bold">Day of Week
                                 <select required name="dayOfWeek" id="adminRateDayOfWeek" class="form-select">
                                     <option value="Any">Any day</option>
+                                    <option value="Weekday">Weekday</option>
+                                    <option value="Weekend">Weekend</option>
                                     <option value="Monday">Monday</option>
                                     <option value="Tuesday">Tuesday</option>
                                     <option value="Wednesday">Wednesday</option>

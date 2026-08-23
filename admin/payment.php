@@ -1,6 +1,6 @@
 <?php
 require_once __DIR__ . '/../includes/auth.php';
-require_admin();
+$admin = require_admin_menu('admin-payment');
 $pageTitle = 'Payment Setup';
 $active = 'admin-payment';
 include __DIR__ . '/../includes/header.php';

@@ -17,11 +17,10 @@
     if (isPast) return { label: 'Past', css: 'mobile-time-unavailable', disabled: true };
     if (status === 'Available') return { label: '', css: 'mobile-time-available', disabled: false };
     if (tone === 'blocked') return { label: 'Unavailable', css: 'mobile-time-unavailable', disabled: true };
-    if (status === 'Held') return { label: 'Unavailable', css: 'mobile-time-booked', disabled: true };
 
     return {
-      label: publicSlotLabel(status),
-      css: 'mobile-time-booked',
+      label: publicSlotLabel(status, conflict),
+      css: status === 'Held' ? 'mobile-time-held' : 'mobile-time-booked',
       disabled: true
     };
   }

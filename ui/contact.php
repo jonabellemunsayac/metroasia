@@ -56,7 +56,7 @@ $wazeUrl = 'https://waze.com/ul?q=' . rawurlencode($mapQuery) . '&navigate=yes';
 
             <section class="metro-contact-card-section">
                 <h2>Opening Hours</h2>
-                <strong>7:00 AM - 4:00 AM</strong>
+                <strong>8:00 AM - 12:00 MN</strong>
                 <p>Open 7 days a week</p>
             </section>
 

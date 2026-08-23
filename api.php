@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/includes/auth.php';
 require_once __DIR__ . '/includes/site-config.php';
+require_once __DIR__ . '/includes/data-privacy.php';
 
 header('Access-Control-Allow-Origin: *');
 
@@ -15,7 +16,8 @@ const BLOCKING_RESERVATION_STATUS_SQL = "'Held','Booked'";
 
 $receiptUploadDir = __DIR__ . DIRECTORY_SEPARATOR . 'uploads' . DIRECTORY_SEPARATOR . 'receipts';
 $paymentUploadDir = __DIR__ . DIRECTORY_SEPARATOR . 'uploads' . DIRECTORY_SEPARATOR . 'payment';
-foreach ([$receiptUploadDir, $paymentUploadDir] as $dir) {
+$memberUploadDir = __DIR__ . DIRECTORY_SEPARATOR . 'uploads' . DIRECTORY_SEPARATOR . 'members';
+foreach ([$receiptUploadDir, $paymentUploadDir, $memberUploadDir] as $dir) {
     if (!is_dir($dir)) {
         mkdir($dir, 0775, true);
     }
@@ -201,6 +203,40 @@ function save_payment_qr(string $uploadDir): ?string
     return 'uploads/payment/' . $filename;
 }
 
+function save_member_profile_picture(string $uploadDir): ?string
+{
+    if (!isset($_FILES['profilePicture']) || $_FILES['profilePicture']['error'] === UPLOAD_ERR_NO_FILE) {
+        return null;
+    }
+
+    if ($_FILES['profilePicture']['error'] !== UPLOAD_ERR_OK) {
+        json_response(['ok' => false, 'message' => 'Profile picture upload failed.'], 422);
+    }
+
+    if ($_FILES['profilePicture']['size'] > 4 * 1024 * 1024) {
+        json_response(['ok' => false, 'message' => 'Profile picture must be 4MB or smaller.'], 422);
+    }
+
+    $tmp = $_FILES['profilePicture']['tmp_name'];
+    $mime = mime_content_type($tmp) ?: '';
+    $allowed = [
+        'image/jpeg' => 'jpg',
+        'image/png' => 'png',
+        'image/webp' => 'webp',
+    ];
+
+    if (!isset($allowed[$mime])) {
+        json_response(['ok' => false, 'message' => 'Use a JPG, PNG, or WEBP profile picture.'], 422);
+    }
+
+    $filename = 'member-profile-' . date('Ymd-His') . '-' . bin2hex(random_bytes(4)) . '.' . $allowed[$mime];
+    if (!move_uploaded_file($tmp, $uploadDir . DIRECTORY_SEPARATOR . $filename)) {
+        json_response(['ok' => false, 'message' => 'Could not save profile picture.'], 500);
+    }
+
+    return 'uploads/members/' . $filename;
+}
+
 function payment_channels(PDO $pdo, bool $includeInactive = false): array
 {
     $where = $includeInactive
@@ -241,6 +277,26 @@ function require_active_payment_channel(PDO $pdo, string $code): void
 function active_status_sql(): string
 {
     return BLOCKING_RESERVATION_STATUS_SQL;
+}
+
+function display_player_nickname(array $row): string
+{
+    $nickname = trim((string) ($row['player_nickname'] ?? ''));
+    if ($nickname !== '') {
+        return $nickname;
+    }
+
+    $memberNickname = trim((string) ($row['member_nickname'] ?? ''));
+    if ($memberNickname !== '') {
+        return $memberNickname;
+    }
+
+    $name = trim((string) ($row['customer_name'] ?? ''));
+    if ($name !== '') {
+        return strtok($name, ' ') ?: $name;
+    }
+
+    return '';
 }
 
 function booking_status_for_receipt(?string $receipt): string
@@ -344,9 +400,43 @@ function duration_hours(string $startsAt, string $endsAt): float
     return max(0.25, ($end - $start) / 3600);
 }
 
+function time_minutes_for_range(string $time, bool $isEnd = false): int
+{
+    $parts = explode(':', $time);
+    $minutes = ((int) ($parts[0] ?? 0) * 60) + (int) ($parts[1] ?? 0);
+    return $isEnd && $minutes === 0 ? 1440 : $minutes;
+}
+
+function display_time_label(string $time): string
+{
+    $time = substr($time, 0, 5);
+    if ($time === '00:00') {
+        return '12 MN';
+    }
+
+    return date('g A', strtotime('2000-01-01 ' . $time));
+}
+
 function valid_rate_days(): array
 {
     return ['Any', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+}
+
+function valid_rate_day_selections(): array
+{
+    return ['Any', 'Weekday', 'Weekend', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+}
+
+function expand_rate_day_selection(string $selection): array
+{
+    if ($selection === 'Weekday') {
+        return ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
+    }
+    if ($selection === 'Weekend') {
+        return ['Saturday', 'Sunday'];
+    }
+
+    return [$selection];
 }
 
 function rate_rules(PDO $pdo, bool $includeInactive = false): array
@@ -443,8 +533,69 @@ function booking_rate_snapshot(array $source, array $rate, string $kind = 'court
     ], JSON_THROW_ON_ERROR);
 }
 
+function normalize_supported_sports(array|string|null $value): array
+{
+    $raw = is_array($value) ? $value : explode(',', (string) ($value ?? ''));
+    $valid = ['Pickleball', 'Basketball', 'Volleyball'];
+    $sports = [];
+    foreach ($raw as $sport) {
+        $sport = trim((string) $sport);
+        if (in_array($sport, $valid, true) && !in_array($sport, $sports, true)) {
+            $sports[] = $sport;
+        }
+    }
+
+    return $sports;
+}
+
+function court_payload(array $court): array
+{
+    $sports = normalize_supported_sports($court['supported_sports'] ?? '');
+    return [
+        'id' => (int) $court['id'],
+        'number' => (int) $court['display_number'],
+        'name' => $court['name'],
+        'type' => $court['court_type'],
+        'surface' => $court['surface_label'],
+        'sports' => $sports,
+        'isActive' => isset($court['is_active']) ? (bool) $court['is_active'] : true,
+        'labels' => [
+            'Pickleball' => public_court_name((int) $court['id'], 'Pickleball'),
+            'Basketball' => public_court_name((int) $court['id'], 'Basketball'),
+            'Volleyball' => public_court_name((int) $court['id'], 'Volleyball'),
+        ],
+    ];
+}
+
+function backfill_default_rates_for_court(PDO $pdo, int $courtId, array $sports): void
+{
+    $slots = $pdo->query('SELECT id, price FROM time_slots ORDER BY sort_order, id')->fetchAll();
+    $insert = $pdo->prepare(
+        "INSERT IGNORE INTO rates (court_id, sport, day_of_week, time_slot_id, rate_per_hour)
+         VALUES (?, ?, 'Any', ?, ?)"
+    );
+    foreach ($sports as $sport) {
+        foreach ($slots as $slot) {
+            $insert->execute([$courtId, $sport, (int) $slot['id'], (float) $slot['price']]);
+        }
+    }
+}
+
 function public_court_name(int $courtId, string $sport): string
 {
+    static $courtNames = null;
+    if ($courtNames === null) {
+        try {
+            $stmt = db()->query('SELECT id, name FROM courts');
+            $courtNames = [];
+            foreach ($stmt->fetchAll() as $row) {
+                $courtNames[(int) $row['id']] = (string) $row['name'];
+            }
+        } catch (Throwable) {
+            $courtNames = [];
+        }
+    }
+
     return match ($courtId) {
         1 => 'Lakers',
         2 => 'Miami',
@@ -455,7 +606,7 @@ function public_court_name(int $courtId, string $sport): string
         7 => 'Wooden Court 5',
         8 => 'Wooden Court 6',
         9 => 'Wooden Court 7',
-        default => 'Court ' . $courtId,
+        default => $courtNames[$courtId] ?? 'Court ' . $courtId,
     };
 }
 
@@ -687,14 +838,39 @@ function active_blocks_for_booking(PDO $pdo, string $date, int $slotId, int $cou
 function get_state(PDO $pdo, bool $includeAdmin = false): array
 {
     $courts = $pdo->query('SELECT id, display_number, name, court_type, surface_label, supported_sports FROM courts WHERE is_active = 1 ORDER BY display_number, id')->fetchAll();
-    $rates = $pdo->query(
-        "SELECT CAST(r.rate_per_hour AS UNSIGNED) AS price,
-                CONCAT(DATE_FORMAT(MIN(ts.starts_at), '%l %p'), ' - ', DATE_FORMAT(MAX(ts.ends_at), '%l %p')) AS time
+    $rateRows = $pdo->query(
+        "SELECT r.rate_per_hour, ts.starts_at, ts.ends_at, ts.sort_order
          FROM rates r
          JOIN time_slots ts ON ts.id = r.time_slot_id
-         GROUP BY r.rate_per_hour
-         ORDER BY MIN(ts.sort_order), r.rate_per_hour"
+         WHERE r.day_of_week = 'Any'
+         ORDER BY r.rate_per_hour, ts.sort_order"
     )->fetchAll();
+    $rateGroups = [];
+    foreach ($rateRows as $row) {
+        $key = (string) $row['rate_per_hour'];
+        if (!isset($rateGroups[$key])) {
+            $rateGroups[$key] = [
+                'price' => (float) $row['rate_per_hour'],
+                'start' => (string) $row['starts_at'],
+                'end' => (string) $row['ends_at'],
+                'sort' => (int) $row['sort_order'],
+            ];
+            continue;
+        }
+
+        if ((int) $row['sort_order'] < $rateGroups[$key]['sort']) {
+            $rateGroups[$key]['sort'] = (int) $row['sort_order'];
+            $rateGroups[$key]['start'] = (string) $row['starts_at'];
+        }
+        if (time_minutes_for_range((string) $row['ends_at'], true) > time_minutes_for_range((string) $rateGroups[$key]['end'], true)) {
+            $rateGroups[$key]['end'] = (string) $row['ends_at'];
+        }
+    }
+    usort($rateGroups, static fn (array $a, array $b): int => $a['sort'] <=> $b['sort'] ?: $a['price'] <=> $b['price']);
+    $rates = array_map(static fn (array $group): array => [
+        'price' => (int) $group['price'],
+        'time' => display_time_label($group['start']) . ' - ' . display_time_label($group['end']),
+    ], $rateGroups);
     $slotRows = $pdo->query('SELECT id, period, label, starts_at, ends_at, CAST(price AS UNSIGNED) AS price FROM time_slots ORDER BY sort_order, id')->fetchAll();
 
     $timeSlots = [];
@@ -714,11 +890,12 @@ function get_state(PDO $pdo, bool $includeAdmin = false): array
     $bookings = [];
     $stmt = $pdo->query(
         "SELECT cb.id, cb.booking_reference, cb.member_id, cb.booking_date, ts.label AS time_label, cb.court_id, cb.sport, cb.status,
-                cb.customer_name, cb.player_nickname, cb.customer_email, cb.customer_phone, cb.payment_method,
+                cb.customer_name, cb.player_nickname, m.nickname AS member_nickname, cb.customer_email, cb.customer_phone, cb.payment_method,
                 cb.receipt_path, cb.base_rate, cb.final_amount, cb.created_at
          FROM court_bookings cb
          JOIN courts c ON c.id = cb.court_id AND c.is_active = 1
          JOIN time_slots ts ON ts.id = cb.time_slot_id
+         LEFT JOIN members m ON m.id = cb.member_id
          WHERE cb.status IN (" . BLOCKING_RESERVATION_STATUS_SQL . ")"
     );
     foreach ($stmt->fetchAll() as $row) {
@@ -735,7 +912,7 @@ function get_state(PDO $pdo, bool $includeAdmin = false): array
             'baseRate' => (float) $row['base_rate'],
             'finalAmount' => (float) $row['final_amount'],
             'customerName' => $includeAdmin ? $row['customer_name'] : '',
-            'playerNickname' => trim((string) ($row['player_nickname'] ?? '')),
+            'playerNickname' => display_player_nickname($row),
             'customerEmail' => $includeAdmin ? ($row['customer_email'] ?? '') : '',
             'customerPhone' => $includeAdmin ? ($row['customer_phone'] ?? '') : '',
             'paymentMethod' => $row['payment_method'],
@@ -801,19 +978,7 @@ function get_state(PDO $pdo, bool $includeAdmin = false): array
             'courts' => 7,
             'currency' => 'PHP',
         ],
-        'courts' => array_map(static fn (array $court): array => [
-            'id' => (int) $court['id'],
-            'number' => (int) $court['display_number'],
-            'name' => $court['name'],
-            'type' => $court['court_type'],
-            'surface' => $court['surface_label'],
-            'sports' => array_values(array_filter(array_map('trim', explode(',', $court['supported_sports'])))),
-            'labels' => [
-                'Pickleball' => public_court_name((int) $court['id'], 'Pickleball'),
-                'Basketball' => public_court_name((int) $court['id'], 'Basketball'),
-                'Volleyball' => public_court_name((int) $court['id'], 'Volleyball'),
-            ],
-        ], $courts),
+        'courts' => array_map(static fn (array $court): array => court_payload($court), $courts),
         'rates' => $rates,
         'rateRules' => rate_rules($pdo, false),
         'timeSlots' => $timeSlots,
@@ -831,21 +996,30 @@ function get_state(PDO $pdo, bool $includeAdmin = false): array
 
     if ($includeAdmin) {
         $admin = current_admin();
+        $rolePermissions = admin_role_menu_permissions($pdo);
         $state['currentAdmin'] = $admin ? [
             'id' => (int) $admin['id'],
             'name' => $admin['name'],
             'email' => $admin['email'],
             'role' => $admin['role'],
+            'roleLabel' => admin_role_label((string) $admin['role']),
             'canManageOperations' => admin_can_manage_operations($admin),
+            'canManageMembers' => admin_can_manage_members($admin),
+            'canManageStaff' => admin_can_manage_staff($admin),
+            'menuPermissions' => $rolePermissions[$admin['role'] === 'staff' ? 'reception' : (string) $admin['role']] ?? [],
         ] : null;
+        $state['adminRoleOptions'] = admin_role_options();
+        $state['adminMenuCatalog'] = array_values(admin_menu_catalog());
+        $state['adminRoleMenuPermissions'] = $rolePermissions;
         $state['adminReservations'] = admin_reservations($pdo);
         $state['adminPaymentChannels'] = payment_channels($pdo, true);
         $state['adminRateRules'] = rate_rules($pdo, true);
         $state['adminRateAudit'] = rate_audit_logs($pdo);
+        $state['adminCourts'] = admin_courts($pdo);
         $state['adminCourtBlocks'] = court_blocks($pdo, true);
         $state['adminOverrideLogs'] = override_logs($pdo);
-        $state['adminMembers'] = admin_members($pdo);
-        $state['adminUsers'] = admin_users_list($pdo);
+        $state['adminMembers'] = $admin && admin_menu_allowed('admin-members', $admin) ? admin_members($pdo) : [];
+        $state['adminUsers'] = $admin && admin_can_manage_staff($admin) ? admin_users_list($pdo) : [];
     }
 
     $member = current_member();
@@ -861,6 +1035,24 @@ function get_state(PDO $pdo, bool $includeAdmin = false): array
     }
 
     return $state;
+}
+
+function admin_courts(PDO $pdo): array
+{
+    $stmt = $pdo->query(
+        "SELECT c.*,
+                (SELECT COUNT(*) FROM rates r WHERE r.court_id = c.id) AS rate_count,
+                (SELECT COUNT(*) FROM court_bookings cb WHERE cb.court_id = c.id AND cb.status IN (" . BLOCKING_RESERVATION_STATUS_SQL . ")) AS active_booking_count
+         FROM courts c
+         ORDER BY c.is_active DESC, c.display_number, c.id"
+    );
+
+    return array_map(static function (array $court): array {
+        $payload = court_payload($court);
+        $payload['rateCount'] = (int) $court['rate_count'];
+        $payload['activeBookingCount'] = (int) $court['active_booking_count'];
+        return $payload;
+    }, $stmt->fetchAll());
 }
 
 function member_reservations(PDO $pdo, int $memberId): array
@@ -957,7 +1149,7 @@ function override_logs(PDO $pdo): array
 function admin_members(PDO $pdo): array
 {
     $stmt = $pdo->query(
-        "SELECT m.id, m.name, m.nickname, m.email, m.phone, m.birth_month, m.birth_year, m.skill_level,
+        "SELECT m.id, m.name, m.nickname, m.email, m.phone, m.profile_picture_path, m.birth_month, m.birth_year, m.skill_level,
                 m.data_privacy_act_agree, m.data_privacy_policy_version, m.data_privacy_agreed_at,
                 m.member_lookup_token, m.is_active, m.last_login_at, m.created_at,
                 (SELECT COUNT(*) FROM court_bookings cb WHERE cb.member_id = m.id) AS court_bookings_count,
@@ -973,6 +1165,7 @@ function admin_members(PDO $pdo): array
         'nickname' => $row['nickname'] ?? '',
         'email' => $row['email'],
         'phone' => $row['phone'],
+        'profilePicture' => $row['profile_picture_path'] ?? '',
         'birthMonth' => $row['birth_month'] !== null ? (int) $row['birth_month'] : null,
         'birthYear' => $row['birth_year'] !== null ? (int) $row['birth_year'] : null,
         'skillLevel' => $row['skill_level'] ?? '',
@@ -1043,6 +1236,7 @@ function admin_users_list(PDO $pdo): array
         'name' => $row['name'],
         'email' => $row['email'],
         'role' => $row['role'],
+        'roleLabel' => admin_role_label((string) $row['role']),
         'isActive' => (bool) $row['is_active'],
         'lastLoginAt' => $row['last_login_at'] ? date(DATE_ATOM, strtotime($row['last_login_at'])) : null,
         'createdAt' => date(DATE_ATOM, strtotime($row['created_at'])),
@@ -1056,7 +1250,7 @@ function admin_reservations(PDO $pdo): array
                 cb.booking_date AS date,
                 ts.label AS time, cb.court_id AS court, cb.sport, NULL AS session_id, NULL AS session_title,
                 cb.status, cb.customer_name, cb.player_nickname, cb.customer_email, cb.customer_phone, cb.payment_method,
-                cb.receipt_path, cb.final_amount, m.name AS member_name, cb.cancel_reason, cb.created_at, cb.reviewed_at, cb.cancelled_at,
+                cb.receipt_path, cb.final_amount, m.name AS member_name, m.nickname AS member_nickname, cb.cancel_reason, cb.created_at, cb.reviewed_at, cb.cancelled_at,
                 reviewer.name AS reviewed_by_name, canceller.name AS cancelled_by_name
          FROM court_bookings cb
          JOIN time_slots ts ON ts.id = cb.time_slot_id
@@ -1070,7 +1264,7 @@ function admin_reservations(PDO $pdo): array
                 ops.session_date AS date,
                 ops.session_time AS time, NULL AS court, 'Open Play' AS sport, opr.session_id, ops.title AS session_title,
                 opr.status, opr.customer_name, NULL AS player_nickname, opr.customer_email, opr.customer_phone, opr.payment_method,
-                opr.receipt_path, opr.final_amount, m.name AS member_name, opr.cancel_reason, opr.created_at, opr.reviewed_at, opr.cancelled_at,
+                opr.receipt_path, opr.final_amount, m.name AS member_name, m.nickname AS member_nickname, opr.cancel_reason, opr.created_at, opr.reviewed_at, opr.cancelled_at,
                 reviewer.name AS reviewed_by_name, canceller.name AS cancelled_by_name
          FROM open_play_reservations opr
          JOIN open_play_sessions ops ON ops.id = opr.session_id
@@ -1089,12 +1283,13 @@ function admin_reservations(PDO $pdo): array
         'date' => $row['date'],
         'time' => $row['time'],
         'court' => $row['court'] !== null ? (int) $row['court'] : null,
+        'courtName' => $row['court'] !== null ? public_court_name((int) $row['court'], (string) $row['sport']) : null,
         'sport' => $row['sport'],
         'sessionId' => $row['session_id'] !== null ? (string) $row['session_id'] : null,
         'sessionTitle' => $row['session_title'],
         'status' => $row['status'],
         'customerName' => $row['customer_name'],
-        'playerNickname' => $row['player_nickname'] ?? '',
+        'playerNickname' => display_player_nickname($row),
         'customerEmail' => $row['customer_email'] ?? '',
         'customerPhone' => $row['customer_phone'] ?? '',
         'paymentMethod' => $row['payment_method'],
@@ -1141,6 +1336,9 @@ if ($action === 'book') {
         $name = (string) $member['name'];
         $phone = (string) $member['phone'];
         $email = (string) $member['email'];
+        if ($nickname === '') {
+            $nickname = trim((string) ($member['nickname'] ?? ''));
+        }
     }
     if ($nickname === '') {
         $nickname = strtok($name, ' ') ?: $name;
@@ -1321,18 +1519,20 @@ if ($action === 'admin-status') {
     }
 
     [$type, $rawId] = array_pad(explode(':', $id, 2), 2, '');
-    $reservationId = (int) $rawId;
-    if ($reservationId <= 0 || !in_array($type, ['court', 'openplay'], true)) {
+    $reservationIds = array_values(array_unique(array_filter(array_map('intval', explode(',', $rawId)), static fn (int $value): bool => $value > 0)));
+    if ($reservationIds === [] || !in_array($type, ['court', 'openplay'], true) || ($type === 'openplay' && count($reservationIds) > 1)) {
         json_response(['ok' => false, 'message' => 'Invalid reservation id.'], 422);
     }
+    $reservationId = $reservationIds[0];
+    $idPlaceholders = implode(',', array_fill(0, count($reservationIds), '?'));
 
     $table = $type === 'court' ? 'court_bookings' : 'open_play_reservations';
     $nextStatus = $status;
 
-    $existsStmt = $pdo->prepare("SELECT status FROM {$table} WHERE id = ?");
-    $existsStmt->execute([$reservationId]);
-    $currentStatus = (string) ($existsStmt->fetchColumn() ?: '');
-    if ($currentStatus === '') {
+    $existsStmt = $pdo->prepare("SELECT id, status FROM {$table} WHERE id IN ({$idPlaceholders})");
+    $existsStmt->execute($reservationIds);
+    $statusRows = $existsStmt->fetchAll();
+    if (count($statusRows) !== count($reservationIds)) {
         json_response(['ok' => false, 'message' => 'Reservation not found.'], 404);
     }
     $allowedTransitions = [
@@ -1340,25 +1540,29 @@ if ($action === 'admin-status') {
         'Booked' => ['Cancelled'],
         'Cancelled' => [],
     ];
-    if (!in_array($nextStatus, $allowedTransitions[$currentStatus] ?? [], true)) {
-        json_response(['ok' => false, 'message' => "Invalid transition from {$currentStatus} to {$nextStatus}."], 422);
+    foreach ($statusRows as $statusRow) {
+        $currentStatus = (string) $statusRow['status'];
+        if (!in_array($nextStatus, $allowedTransitions[$currentStatus] ?? [], true)) {
+            json_response(['ok' => false, 'message' => "Invalid transition from {$currentStatus} to {$nextStatus}."], 422);
+        }
     }
 
     if ($nextStatus === 'Booked') {
         if ($type === 'court') {
-            $stmt = $pdo->prepare('SELECT booking_date, time_slot_id, court_id, sport FROM court_bookings WHERE id = ?');
-            $stmt->execute([$reservationId]);
-            $booking = $stmt->fetch();
-            $conflict = active_court_conflict(
-                $pdo,
-                (string) $booking['booking_date'],
-                (int) $booking['time_slot_id'],
-                (int) $booking['court_id'],
-                (string) $booking['sport'],
-                $reservationId
-            );
-            if ($conflict !== null) {
-                json_response(['ok' => false, 'message' => $conflict['message']], 409);
+            $stmt = $pdo->prepare("SELECT id, booking_date, time_slot_id, court_id, sport FROM court_bookings WHERE id IN ({$idPlaceholders})");
+            $stmt->execute($reservationIds);
+            foreach ($stmt->fetchAll() as $booking) {
+                $conflict = active_court_conflict(
+                    $pdo,
+                    (string) $booking['booking_date'],
+                    (int) $booking['time_slot_id'],
+                    (int) $booking['court_id'],
+                    (string) $booking['sport'],
+                    (int) $booking['id']
+                );
+                if ($conflict !== null) {
+                    json_response(['ok' => false, 'message' => $conflict['message']], 409);
+                }
             }
         } else {
             $stmt = $pdo->prepare(
@@ -1378,15 +1582,15 @@ if ($action === 'admin-status') {
     }
 
     if ($nextStatus === 'Booked') {
-        $stmt = $pdo->prepare("UPDATE {$table} SET status = 'Booked', reviewed_by = ?, reviewed_at = NOW(), cancelled_by = NULL, cancelled_at = NULL, cancel_reason = NULL WHERE id = ?");
-        $stmt->execute([(int) $admin['id'], $reservationId]);
+        $stmt = $pdo->prepare("UPDATE {$table} SET status = 'Booked', reviewed_by = ?, reviewed_at = NOW(), cancelled_by = NULL, cancelled_at = NULL, cancel_reason = NULL WHERE id IN ({$idPlaceholders})");
+        $stmt->execute(array_merge([(int) $admin['id']], $reservationIds));
     } elseif ($nextStatus === 'Cancelled') {
         $reason = trim((string) ($_POST['reason'] ?? ''));
         if ($reason === '') {
             json_response(['ok' => false, 'message' => 'Cancellation reason is required.'], 422);
         }
-        $stmt = $pdo->prepare("UPDATE {$table} SET status = 'Cancelled', cancelled_by = ?, cancelled_at = NOW(), cancel_reason = ? WHERE id = ?");
-        $stmt->execute([(int) $admin['id'], $reason, $reservationId]);
+        $stmt = $pdo->prepare("UPDATE {$table} SET status = 'Cancelled', cancelled_by = ?, cancelled_at = NOW(), cancel_reason = ? WHERE id IN ({$idPlaceholders})");
+        $stmt->execute(array_merge([(int) $admin['id'], $reason], $reservationIds));
     }
 
     json_response([
@@ -1403,9 +1607,11 @@ if ($action === 'admin-override-booking') {
     $timeSlotId = (int) require_field('timeSlotId');
     $courtId = (int) require_field('courtId');
     $sport = require_field('sport');
-    $name = require_field('name');
-    $phone = require_field('phone');
+    $memberId = (int) ($_POST['memberId'] ?? 0);
+    $name = trim((string) ($_POST['name'] ?? ''));
+    $phone = trim((string) ($_POST['phone'] ?? ''));
     $email = trim((string) ($_POST['email'] ?? ''));
+    $playerNickname = '';
     $status = trim((string) ($_POST['status'] ?? 'Booked')) ?: 'Booked';
     $paymentMethod = trim((string) ($_POST['paymentMethod'] ?? 'Admin Override')) ?: 'Admin Override';
     $reason = trim((string) ($_POST['overrideReason'] ?? 'Admin override'));
@@ -1420,6 +1626,30 @@ if ($action === 'admin-override-booking') {
     }
     if (!in_array($status, ['Held', 'Booked'], true)) {
         json_response(['ok' => false, 'message' => 'Invalid override booking status.'], 422);
+    }
+
+    if ($memberId <= 0) {
+        json_response(['ok' => false, 'message' => 'Select a member for admin override booking.'], 422);
+    }
+    $memberStmt = $pdo->prepare('SELECT id, name, nickname, phone, email FROM members WHERE id = ? AND is_active = 1');
+    $memberStmt->execute([$memberId]);
+    $member = $memberStmt->fetch();
+    if (!$member) {
+        json_response(['ok' => false, 'message' => 'Selected member was not found or is inactive.'], 422);
+    }
+    $name = (string) $member['name'];
+    $phone = (string) $member['phone'];
+    $email = (string) $member['email'];
+    $playerNickname = trim((string) ($member['nickname'] ?? ''));
+
+    if ($name === '') {
+        json_response(['ok' => false, 'message' => 'Customer name is required.'], 422);
+    }
+    if ($phone === '') {
+        json_response(['ok' => false, 'message' => 'Customer phone is required.'], 422);
+    }
+    if ($email !== '' && !filter_var($email, FILTER_VALIDATE_EMAIL)) {
+        json_response(['ok' => false, 'message' => 'Use a valid customer email.'], 422);
     }
 
     $slotStmt = $pdo->prepare('SELECT id, label, starts_at, ends_at, price FROM time_slots WHERE id = ?');
@@ -1484,18 +1714,19 @@ if ($action === 'admin-override-booking') {
 
         $stmt = $pdo->prepare(
             'INSERT INTO court_bookings
-             (booking_reference, booking_date, time_slot_id, court_id, sport, status, customer_name, player_nickname, customer_email, customer_phone, payment_method, base_rate, final_amount, rate_snapshot, reviewed_by, reviewed_at)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CASE WHEN ? = "Booked" THEN NOW() ELSE NULL END)'
+             (booking_reference, member_id, booking_date, time_slot_id, court_id, sport, status, customer_name, player_nickname, customer_email, customer_phone, payment_method, base_rate, final_amount, rate_snapshot, reviewed_by, reviewed_at)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CASE WHEN ? = "Booked" THEN NOW() ELSE NULL END)'
         );
         $stmt->execute([
             $bookingReference,
+            $memberId > 0 ? $memberId : null,
             $date,
             $timeSlotId,
             $courtId,
             $sport,
             $status,
             $name,
-            strtok($name, ' ') ?: $name,
+            $playerNickname !== '' ? $playerNickname : (strtok($name, ' ') ?: $name),
             $email,
             $phone,
             $paymentMethod,
@@ -1550,9 +1781,9 @@ if ($action === 'admin-rate-rule') {
     $admin = function_exists('require_operations_admin_json') ? require_operations_admin_json() : require_admin_json();
 
     $id = (int) ($_POST['id'] ?? 0);
-    $courtId = (int) require_field('courtId');
+    $courtValue = (string) require_field('courtId');
     $sport = require_field('sport');
-    $dayOfWeek = (string) ($_POST['dayOfWeek'] ?? 'Any');
+    $daySelection = (string) ($_POST['dayOfWeek'] ?? 'Any');
     $rateMode = $id > 0 ? 'single' : (string) ($_POST['rateMode'] ?? 'single');
     $pricePerHour = (float) require_field('pricePerHour');
     $reason = trim((string) ($_POST['reason'] ?? 'Regular rate'));
@@ -1560,19 +1791,44 @@ if ($action === 'admin-rate-rule') {
         $reason = 'Regular rate';
     }
 
-    $stmt = $pdo->prepare('SELECT COUNT(*) FROM courts WHERE id = ? AND is_active = 1');
-    $stmt->execute([$courtId]);
-    if ((int) $stmt->fetchColumn() === 0) {
-        json_response(['ok' => false, 'message' => 'Invalid court.'], 422);
-    }
     if (!in_array($sport, ['Pickleball', 'Basketball', 'Volleyball'], true)) {
         json_response(['ok' => false, 'message' => 'Invalid sport.'], 422);
     }
-    if (!in_array($dayOfWeek, valid_rate_days(), true)) {
+    if (!in_array($daySelection, valid_rate_day_selections(), true)) {
         json_response(['ok' => false, 'message' => 'Invalid day of week.'], 422);
+    }
+    $daySelections = expand_rate_day_selection($daySelection);
+    if ($id > 0 && count($daySelections) > 1) {
+        json_response(['ok' => false, 'message' => 'Weekday and Weekend shortcuts are only available when adding rates.'], 422);
     }
     if ($pricePerHour <= 0) {
         json_response(['ok' => false, 'message' => 'Rate per hour must be greater than zero.'], 422);
+    }
+
+    $applyAllCourts = $id === 0 && strtolower($courtValue) === 'all';
+    if ($id > 0 && strtolower($courtValue) === 'all') {
+        json_response(['ok' => false, 'message' => 'All courts is only available when adding rates.'], 422);
+    }
+
+    if ($applyAllCourts) {
+        $stmt = $pdo->prepare(
+            'SELECT id FROM courts
+             WHERE is_active = 1 AND FIND_IN_SET(?, supported_sports) > 0
+             ORDER BY display_number, id'
+        );
+        $stmt->execute([$sport]);
+        $courtIds = array_map('intval', array_column($stmt->fetchAll(), 'id'));
+        if ($courtIds === []) {
+            json_response(['ok' => false, 'message' => 'No active courts support the selected sport.'], 422);
+        }
+    } else {
+        $courtId = (int) $courtValue;
+        $stmt = $pdo->prepare('SELECT COUNT(*) FROM courts WHERE id = ? AND is_active = 1');
+        $stmt->execute([$courtId]);
+        if ((int) $stmt->fetchColumn() === 0) {
+            json_response(['ok' => false, 'message' => 'Invalid court.'], 422);
+        }
+        $courtIds = [$courtId];
     }
 
     $slotIds = [];
@@ -1586,6 +1842,8 @@ if ($action === 'admin-rate-rule') {
     };
 
     if ($id > 0) {
+        $courtId = $courtIds[0];
+        $dayOfWeek = $daySelections[0];
         $timeSlotId = (int) require_field('timeSlotId');
         $stmt = $pdo->prepare('SELECT COUNT(*) FROM time_slots WHERE id = ?');
         $stmt->execute([$timeSlotId]);
@@ -1651,18 +1909,21 @@ if ($action === 'admin-rate-rule') {
             if ($rangeStart === null || $rangeEnd === null) {
                 json_response(['ok' => false, 'message' => 'Select a valid start and end time.'], 422);
             }
-            if (strtotime('2000-01-01 ' . $rangeEnd) <= strtotime('2000-01-01 ' . $rangeStart)) {
+            $rangeStartMinutes = time_minutes_for_range($rangeStart);
+            $rangeEndMinutes = time_minutes_for_range($rangeEnd, true);
+            if ($rangeEndMinutes <= $rangeStartMinutes) {
                 json_response(['ok' => false, 'message' => 'End time must be after start time.'], 422);
             }
 
-            $stmt = $pdo->prepare(
-                'SELECT id
-                 FROM time_slots
-                 WHERE starts_at >= ? AND ends_at <= ?
-                 ORDER BY sort_order, id'
-            );
-            $stmt->execute([$rangeStart, $rangeEnd]);
-            $slotIds = array_map('intval', array_column($stmt->fetchAll(), 'id'));
+            $slotRows = $pdo->query('SELECT id, starts_at, ends_at FROM time_slots ORDER BY sort_order, id')->fetchAll();
+            $slotIds = [];
+            foreach ($slotRows as $slotRow) {
+                $slotStart = time_minutes_for_range((string) $slotRow['starts_at']);
+                $slotEnd = time_minutes_for_range((string) $slotRow['ends_at'], true);
+                if ($slotStart >= $rangeStartMinutes && $slotEnd <= $rangeEndMinutes) {
+                    $slotIds[] = (int) $slotRow['id'];
+                }
+            }
             if ($slotIds === []) {
                 json_response(['ok' => false, 'message' => 'No hourly slots exist inside the selected range.'], 422);
             }
@@ -1701,31 +1962,35 @@ if ($action === 'admin-rate-rule') {
         $updated = 0;
         $pdo->beginTransaction();
         try {
-            foreach ($slotIds as $slotId) {
-                $lookup->execute([$courtId, $sport, $dayOfWeek, $slotId]);
-                $previous = $lookup->fetch();
-                if ($previous) {
-                    $currentId = (int) $previous['id'];
-                    $update->execute([$pricePerHour, $currentId]);
-                    $actionName = 'updated';
-                    $updated++;
-                } else {
-                    $insert->execute([$courtId, $sport, $dayOfWeek, $slotId, $pricePerHour]);
-                    $currentId = (int) $pdo->lastInsertId();
-                    $actionName = 'created';
-                    $created++;
-                }
+            foreach ($courtIds as $courtId) {
+                foreach ($daySelections as $dayOfWeek) {
+                    foreach ($slotIds as $slotId) {
+                        $lookup->execute([$courtId, $sport, $dayOfWeek, $slotId]);
+                        $previous = $lookup->fetch();
+                        if ($previous) {
+                            $currentId = (int) $previous['id'];
+                            $update->execute([$pricePerHour, $currentId]);
+                            $actionName = 'updated';
+                            $updated++;
+                        } else {
+                            $insert->execute([$courtId, $sport, $dayOfWeek, $slotId, $pricePerHour]);
+                            $currentId = (int) $pdo->lastInsertId();
+                            $actionName = 'created';
+                            $created++;
+                        }
 
-                $selectCurrent->execute([$currentId]);
-                $current = $selectCurrent->fetch();
-                $audit->execute([
-                    $currentId,
-                    (int) $admin['id'],
-                    $actionName,
-                    $previous ? json_encode($previous, JSON_THROW_ON_ERROR) : null,
-                    json_encode($current, JSON_THROW_ON_ERROR),
-                    $reason,
-                ]);
+                        $selectCurrent->execute([$currentId]);
+                        $current = $selectCurrent->fetch();
+                        $audit->execute([
+                            $currentId,
+                            (int) $admin['id'],
+                            $actionName,
+                            $previous ? json_encode($previous, JSON_THROW_ON_ERROR) : null,
+                            json_encode($current, JSON_THROW_ON_ERROR),
+                            $reason,
+                        ]);
+                    }
+                }
             }
             $pdo->commit();
         } catch (Throwable $exception) {
@@ -1740,7 +2005,7 @@ if ($action === 'admin-rate-rule') {
         'ok' => true,
         'message' => $id > 0
             ? 'Rate saved.'
-            : sprintf('Rate saved for %d slot%s%s.', count($slotIds), count($slotIds) === 1 ? '' : 's', isset($updated, $created) ? " ({$updated} updated, {$created} created)" : ''),
+            : sprintf('Rate saved for %d court%s, %d day%s, and %d slot%s%s.', count($courtIds), count($courtIds) === 1 ? '' : 's', count($daySelections), count($daySelections) === 1 ? '' : 's', count($slotIds), count($slotIds) === 1 ? '' : 's', isset($updated, $created) ? " ({$updated} updated, {$created} created)" : ''),
         'state' => get_state($pdo, true),
     ]);
 }
@@ -1773,6 +2038,68 @@ if ($action === 'admin-rate-delete') {
     json_response([
         'ok' => true,
         'message' => 'Rate deleted.',
+        'state' => get_state($pdo, true),
+    ]);
+}
+
+if ($action === 'admin-court-save') {
+    require_operations_admin_json();
+
+    $id = (int) ($_POST['id'] ?? 0);
+    $displayNumber = (int) require_field('displayNumber');
+    $name = trim((string) require_field('name'));
+    $courtType = trim((string) require_field('courtType'));
+    $surfaceLabel = trim((string) ($_POST['surfaceLabel'] ?? ''));
+    $sports = normalize_supported_sports($_POST['sports'] ?? []);
+    $isActive = isset($_POST['isActive']) && $_POST['isActive'] === '1';
+
+    if ($displayNumber <= 0) {
+        json_response(['ok' => false, 'message' => 'Display order must be greater than zero.'], 422);
+    }
+    if ($name === '' || strlen($name) > 80) {
+        json_response(['ok' => false, 'message' => 'Enter a valid court name.'], 422);
+    }
+    if ($courtType === '' || strlen($courtType) > 80) {
+        json_response(['ok' => false, 'message' => 'Enter a valid court type.'], 422);
+    }
+    if ($surfaceLabel !== '' && strlen($surfaceLabel) > 80) {
+        json_response(['ok' => false, 'message' => 'Surface label is too long.'], 422);
+    }
+    if ($sports === []) {
+        json_response(['ok' => false, 'message' => 'Select at least one supported sport.'], 422);
+    }
+
+    $sportsValue = implode(',', $sports);
+    if ($id > 0) {
+        $stmt = $pdo->prepare('SELECT COUNT(*) FROM courts WHERE id = ?');
+        $stmt->execute([$id]);
+        if ((int) $stmt->fetchColumn() === 0) {
+            json_response(['ok' => false, 'message' => 'Court not found.'], 404);
+        }
+
+        $stmt = $pdo->prepare(
+            'UPDATE courts
+             SET display_number = ?, name = ?, court_type = ?, surface_label = ?, supported_sports = ?, is_active = ?
+             WHERE id = ?'
+        );
+        $stmt->execute([$displayNumber, $name, $courtType, $surfaceLabel !== '' ? $surfaceLabel : null, $sportsValue, $isActive ? 1 : 0, $id]);
+        $courtId = $id;
+    } else {
+        $stmt = $pdo->prepare(
+            'INSERT INTO courts (display_number, name, court_type, surface_label, supported_sports, is_active)
+             VALUES (?, ?, ?, ?, ?, ?)'
+        );
+        $stmt->execute([$displayNumber, $name, $courtType, $surfaceLabel !== '' ? $surfaceLabel : null, $sportsValue, $isActive ? 1 : 0]);
+        $courtId = (int) $pdo->lastInsertId();
+    }
+
+    if ($isActive) {
+        backfill_default_rates_for_court($pdo, $courtId, $sports);
+    }
+
+    json_response([
+        'ok' => true,
+        'message' => 'Court saved.',
         'state' => get_state($pdo, true),
     ]);
 }
@@ -1958,7 +2285,7 @@ if ($action === 'admin-payment-channel') {
 }
 
 if ($action === 'admin-member-status') {
-    require_operations_admin_json();
+    require_members_admin_json();
 
     $id = (int) require_field('id');
     $isActive = isset($_POST['isActive']) && $_POST['isActive'] === '1' ? 1 : 0;
@@ -1984,22 +2311,26 @@ if ($action === 'admin-member-status') {
 }
 
 if ($action === 'admin-member-save') {
-    require_operations_admin_json();
+    require_members_admin_json();
 
     $id = (int) ($_POST['id'] ?? 0);
     $name = require_field('name');
     $nickname = trim((string) ($_POST['nickname'] ?? ''));
-    $phone = require_field('phone');
+    $phone = trim((string) ($_POST['phone'] ?? ''));
     $email = strtolower(require_field('email'));
     $birthMonth = (int) ($_POST['birthMonth'] ?? 0);
     $birthYear = (int) ($_POST['birthYear'] ?? 0);
     $skillLevel = trim((string) ($_POST['skillLevel'] ?? ''));
     $password = trim((string) ($_POST['password'] ?? ''));
+    $confirmPassword = trim((string) ($_POST['confirmPassword'] ?? ''));
     $isActive = isset($_POST['isActive']) && $_POST['isActive'] === '1' ? 1 : 0;
     $privacyAgree = isset($_POST['dataPrivacyActAgree']) && $_POST['dataPrivacyActAgree'] === '1';
 
     if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
         json_response(['ok' => false, 'message' => 'Use a valid member email.'], 422);
+    }
+    if ($nickname === '') {
+        json_response(['ok' => false, 'message' => 'Nickname is required.'], 422);
     }
     if ($birthMonth < 1 || $birthMonth > 12) {
         json_response(['ok' => false, 'message' => 'Choose a valid birth month.'], 422);
@@ -2020,6 +2351,12 @@ if ($action === 'admin-member-save') {
     if ($password !== '' && strlen($password) < 8) {
         json_response(['ok' => false, 'message' => 'Password must be at least 8 characters.'], 422);
     }
+    if ($password !== '' && $password !== $confirmPassword) {
+        json_response(['ok' => false, 'message' => 'Password confirmation does not match.'], 422);
+    }
+    $privacyPolicy = data_privacy_active_policy($pdo);
+    $privacyVersion = (string) ($privacyPolicy['version'] ?? 'default');
+    $profilePicture = save_member_profile_picture($memberUploadDir);
 
     $duplicate = $pdo->prepare('SELECT id FROM members WHERE email = ? AND id <> ?');
     $duplicate->execute([$email, $id]);
@@ -2028,44 +2365,45 @@ if ($action === 'admin-member-save') {
     }
 
     if ($id > 0) {
-        $stmt = $pdo->prepare('SELECT id, member_lookup_token FROM members WHERE id = ?');
+        $stmt = $pdo->prepare('SELECT id, member_lookup_token, profile_picture_path FROM members WHERE id = ?');
         $stmt->execute([$id]);
         $existing = $stmt->fetch();
         if (!$existing) {
             json_response(['ok' => false, 'message' => 'Member not found.'], 404);
         }
         $token = $existing['member_lookup_token'] ?: member_lookup_token_value();
+        $profilePicturePath = $profilePicture ?? ($existing['profile_picture_path'] ?? null);
 
         if ($password !== '') {
             $stmt = $pdo->prepare(
                 'UPDATE members
-                 SET name = ?, nickname = ?, email = ?, phone = ?, birth_month = ?, birth_year = ?,
+                 SET name = ?, nickname = ?, email = ?, phone = ?, profile_picture_path = ?, birth_month = ?, birth_year = ?,
                      skill_level = ?, data_privacy_act_agree = 1, data_privacy_policy_version = ?,
                      data_privacy_agreed_at = COALESCE(data_privacy_agreed_at, NOW()),
                      member_lookup_token = ?, password_hash = ?, is_active = ?
                  WHERE id = ?'
             );
-            $stmt->execute([$name, $nickname, $email, $phone, $birthMonth, $birthYear, $skillLevel, '2026-08', $token, password_hash($password, PASSWORD_DEFAULT), $isActive, $id]);
+            $stmt->execute([$name, $nickname, $email, $phone, $profilePicturePath, $birthMonth, $birthYear, $skillLevel, $privacyVersion, $token, password_hash($password, PASSWORD_DEFAULT), $isActive, $id]);
         } else {
             $stmt = $pdo->prepare(
                 'UPDATE members
-                 SET name = ?, nickname = ?, email = ?, phone = ?, birth_month = ?, birth_year = ?,
+                 SET name = ?, nickname = ?, email = ?, phone = ?, profile_picture_path = ?, birth_month = ?, birth_year = ?,
                      skill_level = ?, data_privacy_act_agree = 1, data_privacy_policy_version = ?,
                      data_privacy_agreed_at = COALESCE(data_privacy_agreed_at, NOW()),
                      member_lookup_token = ?, is_active = ?
                  WHERE id = ?'
             );
-            $stmt->execute([$name, $nickname, $email, $phone, $birthMonth, $birthYear, $skillLevel, '2026-08', $token, $isActive, $id]);
+            $stmt->execute([$name, $nickname, $email, $phone, $profilePicturePath, $birthMonth, $birthYear, $skillLevel, $privacyVersion, $token, $isActive, $id]);
         }
         $message = 'Member updated.';
     } else {
         $stmt = $pdo->prepare(
             'INSERT INTO members
-             (name, nickname, email, phone, birth_month, birth_year, skill_level, data_privacy_act_agree,
+             (name, nickname, email, phone, profile_picture_path, birth_month, birth_year, skill_level, data_privacy_act_agree,
               data_privacy_policy_version, data_privacy_agreed_at, member_lookup_token, password_hash, is_active)
-             VALUES (?, ?, ?, ?, ?, ?, ?, 1, ?, NOW(), ?, ?, ?)'
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, ?, NOW(), ?, ?, ?)'
         );
-        $stmt->execute([$name, $nickname, $email, $phone, $birthMonth, $birthYear, $skillLevel, '2026-08', member_lookup_token_value(), password_hash($password, PASSWORD_DEFAULT), $isActive]);
+        $stmt->execute([$name, $nickname, $email, $phone, $profilePicture, $birthMonth, $birthYear, $skillLevel, $privacyVersion, member_lookup_token_value(), password_hash($password, PASSWORD_DEFAULT), $isActive]);
         $message = 'Member created.';
     }
 
@@ -2077,7 +2415,7 @@ if ($action === 'admin-member-save') {
 }
 
 if ($action === 'admin-member-lookup') {
-    require_admin_json();
+    require_members_admin_json();
 
     $query = trim((string) ($_POST['query'] ?? $_GET['query'] ?? ''));
     $qrPayload = normalize_member_qr_payload(trim((string) ($_POST['qrPayload'] ?? $_GET['qrPayload'] ?? '')));
@@ -2107,10 +2445,11 @@ if ($action === 'admin-receipt-upload') {
 
     $id = require_field('id');
     [$type, $rawId] = array_pad(explode(':', $id, 2), 2, '');
-    $reservationId = (int) $rawId;
-    if ($reservationId <= 0 || !in_array($type, ['court', 'openplay'], true)) {
+    $reservationIds = array_values(array_unique(array_filter(array_map('intval', explode(',', $rawId)), static fn (int $value): bool => $value > 0)));
+    if ($reservationIds === [] || !in_array($type, ['court', 'openplay'], true) || ($type === 'openplay' && count($reservationIds) > 1)) {
         json_response(['ok' => false, 'message' => 'Invalid reservation id.'], 422);
     }
+    $idPlaceholders = implode(',', array_fill(0, count($reservationIds), '?'));
 
     $receipt = save_receipt($receiptUploadDir);
     if ($receipt === null) {
@@ -2118,8 +2457,8 @@ if ($action === 'admin-receipt-upload') {
     }
 
     $table = $type === 'court' ? 'court_bookings' : 'open_play_reservations';
-    $stmt = $pdo->prepare("UPDATE {$table} SET receipt_path = ? WHERE id = ?");
-    $stmt->execute([$receipt, $reservationId]);
+    $stmt = $pdo->prepare("UPDATE {$table} SET receipt_path = ? WHERE id IN ({$idPlaceholders})");
+    $stmt->execute(array_merge([$receipt], $reservationIds));
 
     json_response([
         'ok' => true,
@@ -2129,7 +2468,7 @@ if ($action === 'admin-receipt-upload') {
 }
 
 if ($action === 'admin-entrance-fee') {
-    $admin = require_operations_admin_json();
+    $admin = require_members_admin_json();
 
     $memberId = (int) require_field('memberId');
     $amount = (float) ($_POST['amount'] ?? 50);
@@ -2177,14 +2516,14 @@ if ($action === 'admin-user-save') {
     $id = (int) ($_POST['id'] ?? 0);
     $name = require_field('name');
     $email = strtolower(require_field('email'));
-    $role = trim((string) ($_POST['role'] ?? 'staff')) ?: 'staff';
+    $role = trim((string) ($_POST['role'] ?? 'reception')) ?: 'reception';
     $password = trim((string) ($_POST['password'] ?? ''));
     $isActive = isset($_POST['isActive']) && $_POST['isActive'] === '1' ? 1 : 0;
 
     if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
         json_response(['ok' => false, 'message' => 'Use a valid admin email.'], 422);
     }
-    if (!in_array($role, ['super_admin', 'admin', 'staff'], true)) {
+    if (!in_array($role, array_keys(admin_role_options()), true)) {
         json_response(['ok' => false, 'message' => 'Invalid admin role.'], 422);
     }
     if ($id === 0 && strlen($password) < 8) {
@@ -2204,10 +2543,14 @@ if ($action === 'admin-user-save') {
     }
 
     if ($id > 0) {
-        $exists = $pdo->prepare('SELECT COUNT(*) FROM admin_users WHERE id = ?');
+        $exists = $pdo->prepare('SELECT role FROM admin_users WHERE id = ?');
         $exists->execute([$id]);
-        if ((int) $exists->fetchColumn() === 0) {
+        $existingRole = $exists->fetchColumn();
+        if ($existingRole === false) {
             json_response(['ok' => false, 'message' => 'Admin user not found.'], 404);
+        }
+        if ($existingRole === 'super_admin') {
+            $role = 'super_admin';
         }
 
         if ($password !== '') {
@@ -2227,6 +2570,46 @@ if ($action === 'admin-user-save') {
     json_response([
         'ok' => true,
         'message' => $message,
+        'state' => get_state($pdo, true),
+    ]);
+}
+
+if ($action === 'admin-role-menu-permissions') {
+    $admin = require_operations_admin_json();
+    $role = trim((string) ($_POST['role'] ?? ''));
+    $allowedMenus = $_POST['menus'] ?? [];
+    if (!is_array($allowedMenus)) {
+        $allowedMenus = [$allowedMenus];
+    }
+
+    if (!array_key_exists($role, admin_role_options())) {
+        json_response(['ok' => false, 'message' => 'Invalid role.'], 422);
+    }
+
+    $catalog = admin_menu_catalog();
+    $allowedSet = array_fill_keys(array_values(array_filter(array_map('strval', $allowedMenus))), true);
+    $allowedSet['admin'] = true;
+    if ($role === 'admin') {
+        $allowedSet['admin-members'] = true;
+    }
+    if ($role === 'executive') {
+        $allowedSet['admin-reports'] = true;
+        unset($allowedSet['admin-members']);
+    }
+
+    admin_ensure_role_menu_table($pdo);
+    $stmt = $pdo->prepare(
+        'INSERT INTO admin_role_menu_permissions (role, menu_key, is_allowed, updated_by, updated_at)
+         VALUES (?, ?, ?, ?, NOW())
+         ON DUPLICATE KEY UPDATE is_allowed = VALUES(is_allowed), updated_by = VALUES(updated_by), updated_at = NOW()'
+    );
+    foreach (array_keys($catalog) as $menuKey) {
+        $stmt->execute([$role, $menuKey, !empty($allowedSet[$menuKey]) ? 1 : 0, (int) $admin['id']]);
+    }
+
+    json_response([
+        'ok' => true,
+        'message' => admin_role_label($role) . ' menu access updated.',
         'state' => get_state($pdo, true),
     ]);
 }

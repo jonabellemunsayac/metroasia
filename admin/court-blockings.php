@@ -1,6 +1,6 @@
 <?php
 require_once __DIR__ . '/../includes/auth.php';
-require_admin();
+$admin = require_admin_menu('admin-court-blockings');
 $pageTitle = 'Court Blockings';
 $active = 'admin-court-blockings';
 include __DIR__ . '/../includes/header.php';

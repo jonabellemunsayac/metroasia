@@ -1,6 +1,6 @@
 <?php
 require_once __DIR__ . '/../includes/auth.php';
-require_admin();
+$admin = require_admin_menu('admin');
 $pageTitle = 'Admin';
 $active = 'admin';
 include __DIR__ . '/../includes/header.php';
@@ -21,8 +21,8 @@ include __DIR__ . '/../includes/header.php';
     </section>
 
     <section class="row g-3 mb-3">
-        <div class="col-6 col-lg-3">
-            <div class="stat-card h-100">
+        <div class="col-8 col-lg-4">
+            <a class="stat-card h-100 d-block text-decoration-none text-reset" href="<?php echo htmlspecialchars(app_url('admin/bookings.php?status=Held')); ?>">
                 <div class="d-flex align-items-start justify-content-between gap-3">
                     <div>
                         <p class="mb-1 small text-secondary fw-bold text-uppercase">Needs Review</p>
@@ -31,10 +31,10 @@ include __DIR__ . '/../includes/header.php';
                     <span class="metric-icon bg-warning-subtle text-warning"><i data-lucide="timer" class="icon-sm"></i></span>
                 </div>
                         <p class="mb-0 mt-2 small text-secondary fw-semibold">Submitted reservations</p>
-            </div>
+            </a>
         </div>
-        <div class="col-6 col-lg-3">
-            <div class="stat-card h-100">
+        <div class="col-8 col-lg-4">
+            <a class="stat-card h-100 d-block text-decoration-none text-reset" href="<?php echo htmlspecialchars(app_url('admin/bookings.php?status=Booked')); ?>">
                 <div class="d-flex align-items-start justify-content-between gap-3">
                     <div>
                         <p class="mb-1 small text-secondary fw-bold text-uppercase">Booked</p>
@@ -43,10 +43,10 @@ include __DIR__ . '/../includes/header.php';
                     <span class="metric-icon bg-success-subtle text-success"><i data-lucide="badge-check" class="icon-sm"></i></span>
                 </div>
                 <p class="mb-0 mt-2 small text-secondary fw-semibold">Paid reservations</p>
-            </div>
+            </a>
         </div>
-        <div class="col-6 col-lg-3">
-            <div class="stat-card h-100">
+        <div class="col-8 col-lg-4">
+            <a class="stat-card h-100 d-block text-decoration-none text-reset" href="<?php echo htmlspecialchars(app_url('admin/bookings.php?status=Cancelled')); ?>">
                 <div class="d-flex align-items-start justify-content-between gap-3">
                     <div>
                         <p class="mb-1 small text-secondary fw-bold text-uppercase">Cancelled</p>
@@ -55,10 +55,10 @@ include __DIR__ . '/../includes/header.php';
                     <span class="metric-icon bg-danger-subtle text-danger"><i data-lucide="ban" class="icon-sm"></i></span>
                 </div>
                         <p class="mb-0 mt-2 small text-secondary fw-semibold">Released reservations</p>
-            </div>
+            </a>
         </div>
-        <div class="col-6 col-lg-3">
-            <div class="stat-card h-100">
+        <!-- <div class="col-6 col-lg-3">
+            <a class="stat-card h-100 d-block text-decoration-none text-reset" href="<?php echo htmlspecialchars(app_url('admin/site-config.php')); ?>">
                 <div class="d-flex align-items-start justify-content-between gap-3">
                     <div>
                         <p class="mb-1 small text-secondary fw-bold text-uppercase">System</p>
@@ -69,8 +69,8 @@ include __DIR__ . '/../includes/header.php';
                 <div class="progress mt-2" style="height: 6px;">
                     <div class="progress-bar bg-success" style="width: 76%;"></div>
                 </div>
-            </div>
-        </div>
+            </a>
+        </div> -->
     </section>
 
     <section id="schedule-dashboard" class="app-card p-0 mb-3">
@@ -80,14 +80,24 @@ include __DIR__ . '/../includes/header.php';
                 <h2 class="mt-1 mb-1 fw-black">Daily court matrix</h2>
                 <p class="mb-0 small text-secondary fw-semibold">Available cells can be booked by Admin or Super Admin. Occupied cells open details.</p>
             </div>
-            <div class="btn-group btn-group-sm">
-                <button id="adminSchedulePrev" class="btn btn-outline-secondary" type="button" aria-label="Previous schedule date">
-                    <i data-lucide="chevron-left" class="icon-sm"></i>
-                </button>
-                <span class="btn btn-light disabled text-dark">DATE: <span id="adminScheduleDateLabel"></span></span>
-                <button id="adminScheduleNext" class="btn btn-outline-secondary" type="button" aria-label="Next schedule date">
-                    <i data-lucide="chevron-right" class="icon-sm"></i>
-                </button>
+            <div class="d-flex flex-wrap align-items-end gap-2">
+                <label class="small fw-bold text-secondary">Sport
+                    <select id="adminScheduleSportFilter" class="form-select form-select-sm">
+                        <option value="">All sports</option>
+                        <option value="Pickleball">Pickleball</option>
+                        <option value="Basketball">Basketball</option>
+                        <option value="Volleyball">Volleyball</option>
+                    </select>
+                </label>
+                <div class="btn-group btn-group-sm">
+                    <button id="adminSchedulePrev" class="btn btn-outline-secondary" type="button" aria-label="Previous schedule date">
+                        <i data-lucide="chevron-left" class="icon-sm"></i>
+                    </button>
+                    <span class="btn btn-light disabled text-dark">DATE: <span id="adminScheduleDateLabel"></span></span>
+                    <button id="adminScheduleNext" class="btn btn-outline-secondary" type="button" aria-label="Next schedule date">
+                        <i data-lucide="chevron-right" class="icon-sm"></i>
+                    </button>
+                </div>
             </div>
         </div>
         <div class="table-responsive bg-light p-3">
@@ -95,16 +105,16 @@ include __DIR__ . '/../includes/header.php';
         </div>
         <div class="d-flex flex-wrap align-items-center gap-3 border-top px-3 py-2 small fw-bold text-secondary">
             <span class="text-primary">Click occupied cells for details.</span>
-            <span><span class="legend-dot bg-light border"></span>Available/Open</span>
-            <span><span class="legend-dot bg-warning-subtle border border-warning-subtle"></span>Temporary block</span>
-            <span><span class="legend-dot bg-success-subtle border border-success-subtle"></span>Booked</span>
-            <span><span class="legend-dot bg-danger-subtle border border-danger-subtle"></span>Conflict/block</span>
+            <span><span class="legend-dot legend-dot-available"></span>Available / Open</span>
+            <span><span class="legend-dot legend-dot-held"></span>Held</span>
+            <span><span class="legend-dot legend-dot-booked"></span>Booked</span>
+            <span><span class="legend-dot legend-dot-blocked"></span>Blocked / Past unavailable</span>
         </div>
     </section>
 
     <div id="adminOverrideBookingModal" class="modal fade" tabindex="-1" aria-labelledby="adminOverrideBookingTitle" aria-hidden="true">
-        <div class="modal-dialog modal-lg modal-dialog-scrollable">
-            <div class="modal-content">
+        <div class="modal-dialog modal-lg modal-dialog-scrollable admin-override-dialog">
+            <div class="modal-content admin-override-modal-content">
                 <form id="adminOverrideBookingForm">
                     <div class="modal-header">
                         <div>
@@ -117,33 +127,37 @@ include __DIR__ . '/../includes/header.php';
                     <div class="modal-body">
                         <input required type="hidden" name="date" id="adminOverrideDate">
                         <input required type="hidden" name="timeSlotId" id="adminOverrideTime">
-                        <div class="row g-2">
-                            <label class="col-md-6 small fw-bold">Court
+                        <div class="row g-3 admin-override-single-column">
+                            <label class="col-12 small fw-bold">Court
                                 <select required name="courtId" id="adminOverrideCourt" class="form-select"></select>
                             </label>
-                            <label class="col-md-6 small fw-bold">Sport
+                            <label class="col-12 small fw-bold">Sport
                                 <select required name="sport" id="adminOverrideSport" class="form-select"></select>
                             </label>
-                            <label class="col-md-4 small fw-bold">Customer
-                                <input required name="name" class="form-input" placeholder="Walk-in / event name">
+                            <label class="col-12 small fw-bold">Member
+                                <select required name="memberId" id="adminOverrideCustomer" class="form-select"></select>
                             </label>
-                            <label class="col-md-4 small fw-bold">Phone
-                                <input required name="phone" class="form-input" placeholder="09XX XXX XXXX">
+                            <div class="col-12 small text-secondary fw-semibold" id="adminOverrideCustomerHelp">Choose an active member. Contact details will be filled automatically.</div>
+                            <label class="col-12 small fw-bold">Customer name
+                                <input required readonly name="name" id="adminOverrideName" class="form-input" placeholder="Selected member name">
                             </label>
-                            <label class="col-md-4 small fw-bold">Email
-                                <input type="email" name="email" class="form-input" placeholder="optional@email.com">
+                            <label class="col-12 small fw-bold">Phone
+                                <input required readonly name="phone" id="adminOverridePhone" class="form-input" placeholder="Selected member phone">
                             </label>
-                            <label class="col-md-6 small fw-bold">Status
+                            <label class="col-12 small fw-bold">Email
+                                <input readonly type="email" name="email" id="adminOverrideEmail" class="form-input" placeholder="Selected member email">
+                            </label>
+                            <label class="col-12 small fw-bold">Status
                                 <select name="status" class="form-select">
                                     <option value="Booked">Booked</option>
                                     <option value="Held">Held</option>
                                 </select>
                             </label>
-                            <label class="col-md-6 small fw-bold">Payment
+                            <label class="col-12 small fw-bold">Payment
                                 <input name="paymentMethod" class="form-input" value="Admin Override">
                             </label>
                             <label class="col-12 small fw-bold">Reason
-                                <input required name="overrideReason" class="form-input" placeholder="Example: Walk-in booking approved by admin">
+                                <input required name="overrideReason" class="form-input" placeholder="Example: Member booking approved by admin">
                             </label>
                         </div>
                         <div id="adminOverrideBookingMessage" class="hidden rounded-md p-2 text-xs font-bold mt-3"></div>

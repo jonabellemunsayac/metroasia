@@ -9,10 +9,20 @@ CREATE TABLE IF NOT EXISTS admin_users (
     name VARCHAR(120) NOT NULL,
     email VARCHAR(190) NOT NULL UNIQUE,
     password_hash VARCHAR(255) NOT NULL,
-    role ENUM('super_admin','admin','staff') NOT NULL DEFAULT 'admin',
+    role ENUM('super_admin','admin','reception','executive','staff') NOT NULL DEFAULT 'admin',
     is_active TINYINT(1) NOT NULL DEFAULT 1,
     last_login_at DATETIME NULL,
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS admin_role_menu_permissions (
+    role VARCHAR(40) NOT NULL,
+    menu_key VARCHAR(80) NOT NULL,
+    is_allowed TINYINT(1) NOT NULL DEFAULT 0,
+    updated_by INT UNSIGNED NULL,
+    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (role, menu_key),
+    CONSTRAINT fk_role_menu_updated_by FOREIGN KEY (updated_by) REFERENCES admin_users(id) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS members (
@@ -21,6 +31,7 @@ CREATE TABLE IF NOT EXISTS members (
     nickname VARCHAR(80) NULL,
     email VARCHAR(190) NOT NULL UNIQUE,
     phone VARCHAR(60) NOT NULL,
+    profile_picture_path VARCHAR(255) NULL,
     birth_month TINYINT UNSIGNED NULL,
     birth_year SMALLINT UNSIGNED NULL,
     skill_level ENUM('2.0','2.5','3.0','3.5','4.0','4.5','5.0') NULL,
@@ -123,6 +134,22 @@ CREATE TABLE IF NOT EXISTS gallery_images (
     updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     INDEX idx_gallery_public (category, is_active, sort_order, id),
     CONSTRAINT fk_gallery_images_uploaded_by FOREIGN KEY (uploaded_by) REFERENCES admin_users(id) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS data_privacy_policies (
+    id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    title VARCHAR(160) NOT NULL,
+    version VARCHAR(40) NOT NULL,
+    content_html MEDIUMTEXT NOT NULL,
+    status ENUM('Draft','Active','Archived') NOT NULL DEFAULT 'Draft',
+    created_by INT UNSIGNED NULL,
+    updated_by INT UNSIGNED NULL,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_privacy_status (status, updated_at),
+    UNIQUE KEY uniq_privacy_version (version),
+    CONSTRAINT fk_privacy_created_by FOREIGN KEY (created_by) REFERENCES admin_users(id),
+    CONSTRAINT fk_privacy_updated_by FOREIGN KEY (updated_by) REFERENCES admin_users(id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS court_blocks (

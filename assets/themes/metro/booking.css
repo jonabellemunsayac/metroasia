@@ -899,6 +899,7 @@ button.metro-schedule-slot.booking-slot-selected:not(:disabled) {
 }
 
 .metro-schedule-slot:disabled,
+button.metro-schedule-slot.booking-slot-held,
 button.metro-schedule-slot.booking-slot-booked,
 button.metro-schedule-slot.booking-slot-unavailable {
     cursor: default !important;
@@ -926,14 +927,42 @@ button.metro-schedule-slot.booking-slot-past {
     color: #fff;
 }
 
-.metro-schedule-slot.booking-slot-booked,
+.metro-schedule-slot.booking-slot-held {
+    cursor: default !important;
+    border-color: rgba(216, 169, 40, .45);
+    background: rgba(216, 169, 40, .16);
+    color: #7a4a00;
+}
+
+.metro-schedule-slot.booking-slot-booked {
+    cursor: default !important;
+    border-color: rgba(34, 117, 74, .35);
+    background: rgba(34, 117, 74, .14);
+    color: #17623b;
+}
+
 .metro-schedule-slot.booking-slot-unavailable {
     cursor: default !important;
     background: #edf2f7;
     color: #a9b4c2;
 }
 
+.metro-schedule-slot.booking-slot-held .slot-label {
+    color: #7a4a00;
+}
+
+.metro-schedule-slot.booking-slot-booked .slot-label {
+    color: #17623b;
+}
+
+.metro-schedule-slot.booking-slot-held .slot-label,
 .metro-schedule-slot.booking-slot-booked .slot-label,
+.metro-schedule-slot.booking-slot-unavailable .slot-label {
+    max-width: 100%;
+    white-space: normal;
+    line-height: 1.15;
+}
+
 .metro-schedule-slot.booking-slot-unavailable .slot-label {
     color: #9aa7b7;
 }

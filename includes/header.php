@@ -6,8 +6,9 @@ $appBrand = 'Metro Asia';
 $appTitle = '';
 $pageTitle = $pageTitle ?? $appTitle;
 $active = $active ?? 'home';
-$assetVersion = $assetVersion ?? '3.1.2';
+$assetVersion = $assetVersion ?? '3.1.38';
 $themeName = $themeName ?? 'metro';
+$memberAccountStyles = $memberAccountStyles ?? false;
 $currentAdmin = current_admin();
 $currentMember = current_member();
 $useAdminShell = $currentAdmin !== null && str_starts_with($active, 'admin');
@@ -20,15 +21,13 @@ $publicNavItems = [
     ['key' => 'contact', 'label' => 'Contact', 'href' => app_url('ui/index.php#contact-us')],
 ];
 
-$adminNavItems = [
-    ['key' => 'admin', 'label' => 'Dashboard', 'sub' => 'Court matrix and SLA', 'href' => app_url('admin/dashboard.php'), 'icon' => 'layout-dashboard'],
-    ['key' => 'admin-bookings', 'label' => 'Bookings', 'sub' => 'Reservations and payments', 'href' => app_url('admin/bookings.php'), 'icon' => 'calendar-check'],
-    ['key' => 'admin-court-blockings', 'label' => 'Court blockings', 'sub' => 'Maintenance and events', 'href' => app_url('admin/court-blockings.php'), 'icon' => 'shield-alert'],
-    ['key' => 'admin-rates', 'label' => 'Rates', 'sub' => 'Court pricing', 'href' => app_url('admin/rates.php'), 'icon' => 'badge-dollar-sign'],
-    ['key' => 'admin-payment', 'label' => 'Payment Setup', 'sub' => 'GCash and BDO', 'href' => app_url('admin/payment.php'), 'icon' => 'credit-card'],
-    ['key' => 'admin-site-config', 'label' => 'Site Config', 'sub' => 'Public content and links', 'href' => app_url('admin/site-config.php'), 'icon' => 'settings'],
-    ['key' => 'admin-members', 'label' => 'Users / Members', 'sub' => 'Access and accounts', 'href' => app_url('admin/members.php'), 'icon' => 'users'],
-];
+$adminNavItems = array_values(array_filter(array_map(static function (array $item) use ($currentAdmin): ?array {
+    if ($currentAdmin !== null && !admin_menu_allowed($item['key'], $currentAdmin)) {
+        return null;
+    }
+    $item['href'] = app_url($item['path']);
+    return $item;
+}, admin_menu_catalog())));
 
 $isPublicHome = !$useAdminShell && $active === 'home';
 $memberCtaLabel = $currentMember ? 'My Bookings' : 'Login';
@@ -66,7 +65,7 @@ if ($active === 'member' && $pageTitle !== '') {
         href="<?php echo htmlspecialchars(app_url('assets/themes/' . $themeName . '/bootstrap-redesign.css')); ?>?v=<?php echo htmlspecialchars($assetVersion); ?>"
     >
 
-    <?php if ($useAdminShell): ?>
+    <?php if ($useAdminShell || $memberAccountStyles): ?>
     <link
         rel="stylesheet"
         href="<?php echo htmlspecialchars(
@@ -74,7 +73,7 @@ if ($active === 'member' && $pageTitle !== '') {
         ); ?>?v=<?php echo htmlspecialchars($assetVersion); ?>"
     >
 
-        <?php if (($active ?? '') === 'admin-rates'): ?>
+        <?php if ($useAdminShell && ($active ?? '') === 'admin-rates'): ?>
         <link
             rel="stylesheet"
             href="<?php echo htmlspecialchars(
