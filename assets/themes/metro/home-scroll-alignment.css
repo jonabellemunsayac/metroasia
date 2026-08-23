@@ -1,0 +1,127 @@
+/* Home-only layout overrides loaded after home.css. */
+.metro-home-page .metro-container,
+.metro-home-hero .metro-hero-inner,
+.metro-home-page .metro-panel {
+    width: min(calc(100% - 48px), var(--metro-container));
+    max-width: var(--metro-container);
+    margin-inline: auto;
+}
+
+.metro-home-page .metro-home-block {
+    padding-inline: 0;
+}
+
+.metro-home-hero .metro-hero-copy {
+    padding-bottom: 8px;
+}
+
+.metro-home-page .metro-section {
+    padding-block: 58px;
+}
+
+.metro-home-page .metro-about-section,
+.metro-home-page .metro-membership-section {
+    padding-block: 72px;
+}
+
+.metro-home-page .metro-about {
+    align-items: start;
+    gap: clamp(52px, 7vw, 92px);
+}
+
+.metro-home-page .metro-about-copy {
+    padding-top: 0;
+}
+
+.metro-home-page .metro-about-small {
+    margin-top: 0;
+}
+
+.metro-home-page .metro-testimonials-section {
+    padding-block: 0 64px;
+}
+
+.metro-home-page .metro-home-block {
+    padding-bottom: 34px;
+}
+
+.metro-home-page .metro-services-panel {
+    padding-block: 48px 40px;
+}
+
+.metro-home-page .metro-difference-panel {
+    padding-block: 52px 34px;
+}
+
+.metro-home-page .metro-stats-section {
+    padding-block: 34px 42px;
+}
+
+.metro-home-page .metro-gallery-section {
+    padding-block: 42px 58px;
+}
+
+.metro-home-page .metro-contact-section {
+    padding-block: 58px 68px;
+}
+
+@media (max-width: 1000px) {
+    .metro-home-page .metro-container,
+    .metro-home-hero .metro-hero-inner,
+    .metro-home-page .metro-panel {
+        width: min(calc(100% - 32px), var(--metro-container));
+    }
+
+    .metro-home-page .metro-section,
+    .metro-home-page .metro-about-section,
+    .metro-home-page .metro-membership-section,
+    .metro-home-page .metro-gallery-section,
+    .metro-home-page .metro-contact-section {
+        padding-block: 46px;
+    }
+
+    .metro-home-page .metro-home-block {
+        padding-bottom: 26px;
+    }
+
+    .metro-home-page .metro-testimonials-section {
+        padding-block: 0 46px;
+    }
+
+    .metro-home-page .metro-about {
+        gap: 34px;
+    }
+}
+
+@media (max-width: 640px) {
+    .metro-home-page .metro-container,
+    .metro-home-hero .metro-hero-inner,
+    .metro-home-page .metro-panel {
+        width: min(calc(100% - 28px), var(--metro-container));
+    }
+
+    .metro-home-page .metro-section,
+    .metro-home-page .metro-about-section,
+    .metro-home-page .metro-membership-section,
+    .metro-home-page .metro-gallery-section,
+    .metro-home-page .metro-contact-section {
+        padding-block: 38px;
+    }
+
+    .metro-home-page .metro-home-block {
+        padding-bottom: 20px;
+    }
+
+    .metro-home-page .metro-services-panel,
+    .metro-home-page .metro-difference-panel {
+        padding-block: 34px 24px;
+    }
+
+    .metro-home-page .metro-stats-section {
+        padding-block: 26px 30px;
+    }
+
+    .metro-home-page .metro-testimonials-section {
+        padding-block: 0 38px;
+    }
+}

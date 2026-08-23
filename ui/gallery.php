@@ -39,8 +39,35 @@ $heroImage = $gallery[0]['image'] ?? $siteConfig['contact_image_path'];
 
     <section class="mt-6 grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         <?php foreach ($gallery as $item): ?>
-            <article class="venue-card">
-                <img src="<?php echo htmlspecialchars(site_asset_url((string) $item['image'])); ?>" alt="<?php echo htmlspecialchars((string) $item['title']); ?>" class="h-[220px] w-full object-cover">
+            <?php
+            $itemImages = array_values(array_filter(array_map(
+                static fn ($image): string => site_asset_url((string) $image),
+                (array) ($item['images'] ?? [$item['image'] ?? ''])
+            )));
+            if (empty($itemImages)) {
+                continue;
+            }
+            ?>
+            <article
+                class="venue-card"
+                data-gallery-card
+                data-gallery-images="<?php echo htmlspecialchars(json_encode($itemImages, JSON_UNESCAPED_SLASHES), ENT_QUOTES); ?>"
+                data-gallery-title="<?php echo htmlspecialchars((string) $item['title']); ?>"
+                role="button"
+                tabindex="0"
+                aria-label="Open <?php echo htmlspecialchars((string) $item['title']); ?> gallery"
+            >
+                <figure
+                    class="landing-gallery-card gallery-page-card"
+                >
+                    <img
+                        src="<?php echo htmlspecialchars($itemImages[0]); ?>"
+                        alt="<?php echo htmlspecialchars((string) $item['title']); ?>"
+                        class="h-[220px] w-full object-cover"
+                        data-gallery-image
+                        onerror="this.closest('figure').classList.add('image-missing')"
+                    >
+                </figure>
                 <div class="p-4">
                     <h2 class="text-lg font-black"><?php echo htmlspecialchars((string) $item['title']); ?></h2>
                     <p class="mt-2 text-sm font-semibold leading-6 text-muted"><?php echo htmlspecialchars((string) $item['caption']); ?></p>

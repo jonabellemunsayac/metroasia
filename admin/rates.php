@@ -22,6 +22,7 @@ include __DIR__ . '/../includes/header.php';
                     <tr class="small text-secondary">
                         <th>Court</th>
                         <th>Sport</th>
+                        <th>Day</th>
                         <th>Time</th>
                         <th class="text-end">Rate / hr</th>
                         <th class="text-end">Actions</th>
@@ -29,7 +30,7 @@ include __DIR__ . '/../includes/header.php';
                 </thead>
                 <tbody id="adminRateSummary" class="small fw-semibold">
                     <tr>
-                        <td colspan="5" class="text-secondary">Loading rates...</td>
+                        <td colspan="6" class="text-secondary">Loading rates...</td>
                     </tr>
                 </tbody>
             </table>
@@ -99,12 +100,41 @@ include __DIR__ . '/../includes/header.php';
                             <label class="col-md-4 small fw-bold">Sport
                                 <select required name="sport" id="adminRateSport" class="form-select"></select>
                             </label>
-                            <label class="col-md-4 small fw-bold">Time Slot
+                            <label class="col-md-4 small fw-bold">Day of Week
+                                <select required name="dayOfWeek" id="adminRateDayOfWeek" class="form-select">
+                                    <option value="Any">Any day</option>
+                                    <option value="Monday">Monday</option>
+                                    <option value="Tuesday">Tuesday</option>
+                                    <option value="Wednesday">Wednesday</option>
+                                    <option value="Thursday">Thursday</option>
+                                    <option value="Friday">Friday</option>
+                                    <option value="Saturday">Saturday</option>
+                                    <option value="Sunday">Sunday</option>
+                                </select>
+                            </label>
+                            <label class="col-md-4 small fw-bold">Apply Rate To
+                                <select required name="rateMode" id="adminRateMode" class="form-select">
+                                    <option value="single">Single time slot</option>
+                                    <option value="range">Time range</option>
+                                </select>
+                            </label>
+                            <label id="adminRateTimeSlotWrap" class="col-md-4 small fw-bold">Time Slot
                                 <select required name="timeSlotId" id="adminRateTimeSlot" class="form-select"></select>
                             </label>
+                            <div id="adminRateRangeWrap" class="col-md-8 row g-2 m-0 p-0" hidden>
+                                <label class="col-md-6 small fw-bold">Start Time
+                                    <select name="rangeStart" id="adminRateRangeStart" class="form-select"></select>
+                                </label>
+                                <label class="col-md-6 small fw-bold">End Time
+                                    <select name="rangeEnd" id="adminRateRangeEnd" class="form-select"></select>
+                                </label>
+                            </div>
                             <label class="col-md-4 small fw-bold">Rate / hr
                                 <input required type="number" min="1" step="1" name="pricePerHour" id="adminRatePrice" class="form-input">
                             </label>
+                            <p id="adminRateRangeHelp" class="col-12 small fw-semibold text-secondary mb-0" hidden>
+                                The rate will be applied to every existing hourly slot fully inside the selected range. Existing matching rates will be updated.
+                            </p>
                         </div>
                         <div class="hidden rounded-md p-2 text-xs font-bold mt-3" data-rate-rule-message></div>
                     </div>

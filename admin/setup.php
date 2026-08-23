@@ -35,6 +35,7 @@ function seed_database(PDO $pdo): void
     seed_courts($pdo);
     seed_payment_channels($pdo);
     seed_site_config($pdo);
+    site_config_seed_gallery_images($pdo, site_config($pdo));
     seed_time_slots($pdo);
     seed_rates($pdo);
 
@@ -76,13 +77,25 @@ function seed_database(PDO $pdo): void
 
 function migrate_columns(PDO $pdo): void
 {
+    if (table_exists($pdo, 'admin_users') && column_exists($pdo, 'admin_users', 'role')) {
+        $pdo->exec("ALTER TABLE admin_users MODIFY role ENUM('super_admin','admin','staff') NOT NULL DEFAULT 'admin'");
+    }
+
     if (!table_exists($pdo, 'members')) {
         $pdo->exec(
             "CREATE TABLE members (
                 id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
                 name VARCHAR(160) NOT NULL,
+                nickname VARCHAR(80) NULL,
                 email VARCHAR(190) NOT NULL UNIQUE,
                 phone VARCHAR(60) NOT NULL,
+                birth_month TINYINT UNSIGNED NULL,
+                birth_year SMALLINT UNSIGNED NULL,
+                skill_level ENUM('2.0','2.5','3.0','3.5','4.0','4.5','5.0') NULL,
+                data_privacy_act_agree TINYINT(1) NOT NULL DEFAULT 0,
+                data_privacy_policy_version VARCHAR(40) NULL,
+                data_privacy_agreed_at DATETIME NULL,
+                member_lookup_token VARCHAR(64) NULL UNIQUE,
                 password_hash VARCHAR(255) NOT NULL,
                 is_active TINYINT(1) NOT NULL DEFAULT 1,
                 last_login_at DATETIME NULL,
@@ -91,6 +104,7 @@ function migrate_columns(PDO $pdo): void
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci"
         );
     }
+    ensure_member_profile_columns($pdo);
     if (!column_exists($pdo, 'courts', 'display_number')) {
         $pdo->exec('ALTER TABLE courts ADD display_number INT UNSIGNED NULL AFTER id');
         $pdo->exec('UPDATE courts SET display_number = id');
@@ -112,10 +126,17 @@ function migrate_columns(PDO $pdo): void
         $pdo->exec('ALTER TABLE court_bookings ADD CONSTRAINT fk_court_booking_member FOREIGN KEY (member_id) REFERENCES members(id)');
     }
     if (!column_exists($pdo, 'court_bookings', 'booking_reference')) {
-        $pdo->exec('ALTER TABLE court_bookings ADD booking_reference VARCHAR(40) NULL UNIQUE AFTER id');
+        $pdo->exec('ALTER TABLE court_bookings ADD booking_reference VARCHAR(40) NULL AFTER id');
     }
+    normalize_booking_reference_index($pdo);
     if (column_exists($pdo, 'court_bookings', 'status')) {
         migrate_reservation_statuses($pdo, 'court_bookings');
+    }
+    if (!column_exists($pdo, 'court_bookings', 'player_nickname')) {
+        $pdo->exec('ALTER TABLE court_bookings ADD player_nickname VARCHAR(80) NULL AFTER customer_name');
+    }
+    if (!column_exists($pdo, 'court_bookings', 'customer_notes')) {
+        $pdo->exec('ALTER TABLE court_bookings ADD customer_notes TEXT NULL AFTER customer_phone');
     }
     if (!column_exists($pdo, 'court_bookings', 'base_rate')) {
         $pdo->exec('ALTER TABLE court_bookings ADD base_rate DECIMAL(10,2) NOT NULL DEFAULT 0 AFTER receipt_path');
@@ -126,6 +147,7 @@ function migrate_columns(PDO $pdo): void
     if (!column_exists($pdo, 'court_bookings', 'rate_snapshot')) {
         $pdo->exec('ALTER TABLE court_bookings ADD rate_snapshot JSON NULL AFTER final_amount');
     }
+    ensure_entrance_fee_table($pdo);
     $pdo->exec(
         'UPDATE court_bookings cb
          JOIN time_slots ts ON ts.id = cb.time_slot_id
@@ -185,6 +207,7 @@ function migrate_columns(PDO $pdo): void
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci"
         );
     }
+    site_config_ensure_gallery_table($pdo);
     if (!table_exists($pdo, 'court_blocks')) {
         $pdo->exec(
             "CREATE TABLE court_blocks (
@@ -255,21 +278,135 @@ function column_exists(PDO $pdo, string $table, string $column): bool
     return (int) $stmt->fetchColumn() > 0;
 }
 
+function index_exists(PDO $pdo, string $table, string $index): bool
+{
+    $stmt = $pdo->prepare(
+        'SELECT COUNT(*)
+         FROM information_schema.STATISTICS
+         WHERE TABLE_SCHEMA = ? AND TABLE_NAME = ? AND INDEX_NAME = ?'
+    );
+    $stmt->execute([DB_NAME, $table, $index]);
+    return (int) $stmt->fetchColumn() > 0;
+}
+
+function index_columns(PDO $pdo, string $table, string $index): array
+{
+    $stmt = $pdo->prepare(
+        'SELECT COLUMN_NAME
+         FROM information_schema.STATISTICS
+         WHERE TABLE_SCHEMA = ? AND TABLE_NAME = ? AND INDEX_NAME = ?
+         ORDER BY SEQ_IN_INDEX'
+    );
+    $stmt->execute([DB_NAME, $table, $index]);
+    return array_map('strval', array_column($stmt->fetchAll(), 'COLUMN_NAME'));
+}
+
+function normalize_booking_reference_index(PDO $pdo): void
+{
+    if (!column_exists($pdo, 'court_bookings', 'booking_reference')) {
+        return;
+    }
+
+    $stmt = $pdo->prepare(
+        "SELECT INDEX_NAME, NON_UNIQUE
+         FROM information_schema.STATISTICS
+         WHERE TABLE_SCHEMA = ? AND TABLE_NAME = 'court_bookings' AND COLUMN_NAME = 'booking_reference'
+         ORDER BY INDEX_NAME"
+    );
+    $stmt->execute([DB_NAME]);
+    $indexes = $stmt->fetchAll();
+
+    foreach ($indexes as $index) {
+        if ((int) $index['NON_UNIQUE'] === 0 && $index['INDEX_NAME'] !== 'PRIMARY') {
+            $indexName = str_replace('`', '``', (string) $index['INDEX_NAME']);
+            $pdo->exec("ALTER TABLE court_bookings DROP INDEX `{$indexName}`");
+        }
+    }
+
+    $stmt = $pdo->prepare(
+        "SELECT COUNT(*)
+         FROM information_schema.STATISTICS
+         WHERE TABLE_SCHEMA = ? AND TABLE_NAME = 'court_bookings' AND INDEX_NAME = 'idx_booking_reference'"
+    );
+    $stmt->execute([DB_NAME]);
+    if ((int) $stmt->fetchColumn() === 0) {
+        $pdo->exec('ALTER TABLE court_bookings ADD INDEX idx_booking_reference (booking_reference)');
+    }
+}
+
+function ensure_member_profile_columns(PDO $pdo): void
+{
+    $columns = [
+        'nickname' => 'ALTER TABLE members ADD nickname VARCHAR(80) NULL AFTER name',
+        'birth_month' => 'ALTER TABLE members ADD birth_month TINYINT UNSIGNED NULL AFTER phone',
+        'birth_year' => 'ALTER TABLE members ADD birth_year SMALLINT UNSIGNED NULL AFTER birth_month',
+        'skill_level' => "ALTER TABLE members ADD skill_level ENUM('2.0','2.5','3.0','3.5','4.0','4.5','5.0') NULL AFTER birth_year",
+        'data_privacy_act_agree' => 'ALTER TABLE members ADD data_privacy_act_agree TINYINT(1) NOT NULL DEFAULT 0 AFTER skill_level',
+        'data_privacy_policy_version' => 'ALTER TABLE members ADD data_privacy_policy_version VARCHAR(40) NULL AFTER data_privacy_act_agree',
+        'data_privacy_agreed_at' => 'ALTER TABLE members ADD data_privacy_agreed_at DATETIME NULL AFTER data_privacy_policy_version',
+        'member_lookup_token' => 'ALTER TABLE members ADD member_lookup_token VARCHAR(64) NULL UNIQUE AFTER data_privacy_agreed_at',
+    ];
+
+    foreach ($columns as $column => $sql) {
+        if (!column_exists($pdo, 'members', $column)) {
+            $pdo->exec($sql);
+        }
+    }
+
+    $stmt = $pdo->query("SELECT id FROM members WHERE member_lookup_token IS NULL OR member_lookup_token = ''");
+    $update = $pdo->prepare('UPDATE members SET member_lookup_token = ? WHERE id = ?');
+    foreach ($stmt->fetchAll() as $row) {
+        $update->execute([member_lookup_token(), (int) $row['id']]);
+    }
+}
+
+function member_lookup_token(): string
+{
+    return 'mem_' . bin2hex(random_bytes(16));
+}
+
+function ensure_entrance_fee_table(PDO $pdo): void
+{
+    if (table_exists($pdo, 'member_entrance_fee_payments')) {
+        return;
+    }
+
+    $pdo->exec(
+        "CREATE TABLE member_entrance_fee_payments (
+            id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+            member_id INT UNSIGNED NOT NULL,
+            amount DECIMAL(10,2) NOT NULL DEFAULT 50.00,
+            payment_date DATE NOT NULL,
+            payment_time TIME NOT NULL,
+            booking_id INT UNSIGNED NULL,
+            reference_number VARCHAR(80) NULL,
+            payment_method VARCHAR(80) NULL,
+            receipt_path VARCHAR(255) NULL,
+            recorded_by INT UNSIGNED NULL,
+            notes VARCHAR(255) NULL,
+            created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            INDEX idx_member_entrance_member (member_id, payment_date, payment_time),
+            CONSTRAINT fk_entrance_fee_member FOREIGN KEY (member_id) REFERENCES members(id),
+            CONSTRAINT fk_entrance_fee_booking FOREIGN KEY (booking_id) REFERENCES court_bookings(id) ON DELETE SET NULL,
+            CONSTRAINT fk_entrance_fee_admin FOREIGN KEY (recorded_by) REFERENCES admin_users(id)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci"
+    );
+}
+
 function migrate_reservation_statuses(PDO $pdo, string $table): void
 {
     $pdo->exec(
         "ALTER TABLE {$table}
          MODIFY status ENUM('Available','Pending Payment','Held','Booked','Payment Pending','Payment Submitted','Under Review','Confirmed','Cancelled','Rejected','Expired','Completed','No Show','Pending')
-         NOT NULL DEFAULT 'Pending Payment'"
+         NOT NULL DEFAULT 'Held'"
     );
     $pdo->exec("UPDATE {$table} SET status = 'Booked' WHERE status IN ('Confirmed','Completed')");
-    $pdo->exec("UPDATE {$table} SET status = 'Held' WHERE status IN ('Held','Payment Submitted','Under Review')");
-    $pdo->exec("UPDATE {$table} SET status = 'Pending Payment' WHERE status IN ('Payment Pending','Pending')");
-    $pdo->exec("UPDATE {$table} SET status = 'Available' WHERE status IN ('Cancelled','Rejected','Expired','No Show')");
+    $pdo->exec("UPDATE {$table} SET status = 'Held' WHERE status IN ('Held','Payment Submitted','Under Review','Payment Pending','Pending','Pending Payment')");
+    $pdo->exec("UPDATE {$table} SET status = 'Cancelled' WHERE status IN ('Available','Cancelled','Rejected','Expired','No Show')");
     $pdo->exec(
         "ALTER TABLE {$table}
-         MODIFY status ENUM('Available','Pending Payment','Held','Booked')
-         NOT NULL DEFAULT 'Pending Payment'"
+         MODIFY status ENUM('Held','Booked','Cancelled')
+         NOT NULL DEFAULT 'Held'"
     );
 }
 
@@ -295,16 +432,38 @@ function reset_rate_tables(PDO $pdo): void
                 id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
                 court_id INT UNSIGNED NOT NULL,
                 sport ENUM('Pickleball','Basketball','Volleyball') NOT NULL,
+                day_of_week ENUM('Any','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday') NOT NULL DEFAULT 'Any',
                 time_slot_id INT UNSIGNED NOT NULL,
                 rate_per_hour DECIMAL(10,2) NOT NULL,
                 created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
                 updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-                UNIQUE KEY uniq_rate_lookup (court_id, sport, time_slot_id),
-                INDEX idx_rates_lookup (court_id, sport, time_slot_id),
+                UNIQUE KEY uniq_rate_lookup (court_id, sport, day_of_week, time_slot_id),
+                INDEX idx_rates_lookup (court_id, sport, day_of_week, time_slot_id),
                 CONSTRAINT fk_rate_court FOREIGN KEY (court_id) REFERENCES courts(id),
                 CONSTRAINT fk_rate_time_slot FOREIGN KEY (time_slot_id) REFERENCES time_slots(id)
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci"
         );
+    }
+    if (!column_exists($pdo, 'rates', 'day_of_week')) {
+        $pdo->exec(
+            "ALTER TABLE rates
+             ADD day_of_week ENUM('Any','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday') NOT NULL DEFAULT 'Any'
+             AFTER sport"
+        );
+    }
+    $rateUniqueColumns = index_columns($pdo, 'rates', 'uniq_rate_lookup');
+    if ($rateUniqueColumns !== ['court_id', 'sport', 'day_of_week', 'time_slot_id']) {
+        if (index_exists($pdo, 'rates', 'uniq_rate_lookup')) {
+            $pdo->exec('ALTER TABLE rates DROP INDEX uniq_rate_lookup');
+        }
+        $pdo->exec('ALTER TABLE rates ADD UNIQUE KEY uniq_rate_lookup (court_id, sport, day_of_week, time_slot_id)');
+    }
+    $rateLookupColumns = index_columns($pdo, 'rates', 'idx_rates_lookup');
+    if ($rateLookupColumns !== ['court_id', 'sport', 'day_of_week', 'time_slot_id']) {
+        if (index_exists($pdo, 'rates', 'idx_rates_lookup')) {
+            $pdo->exec('ALTER TABLE rates DROP INDEX idx_rates_lookup');
+        }
+        $pdo->exec('ALTER TABLE rates ADD INDEX idx_rates_lookup (court_id, sport, day_of_week, time_slot_id)');
     }
     if (column_exists($pdo, 'rates', 'senior_discount')) {
         $pdo->exec('ALTER TABLE rates DROP COLUMN senior_discount');
@@ -468,16 +627,21 @@ function seed_site_config(PDO $pdo): void
         'messenger_url' => ['Facebook Messenger Link', 'url', 50],
         'map_embed_url' => ['Contact Map Embed Link', 'url', 60],
         'hero_image_path' => ['Home Hero Image Path', 'image', 70],
-        'contact_image_path' => ['Contact Image Path', 'image', 80],
+        'about_main_image_path' => ['About Main Image Path', 'image', 80],
+        'about_small_image_path' => ['About Small Image Path', 'image', 90],
+        'contact_image_path' => ['Contact Image Path', 'image', 100],
         'gallery_1_title' => ['Gallery 1 Title', 'text', 110],
         'gallery_1_caption' => ['Gallery 1 Caption', 'textarea', 120],
         'gallery_1_image' => ['Gallery 1 Image Path', 'image', 130],
-        'gallery_2_title' => ['Gallery 2 Title', 'text', 140],
-        'gallery_2_caption' => ['Gallery 2 Caption', 'textarea', 150],
-        'gallery_2_image' => ['Gallery 2 Image Path', 'image', 160],
-        'gallery_3_title' => ['Gallery 3 Title', 'text', 170],
-        'gallery_3_caption' => ['Gallery 3 Caption', 'textarea', 180],
-        'gallery_3_image' => ['Gallery 3 Image Path', 'image', 190],
+        'gallery_1_images' => ['Gallery 1 Image Paths', 'textarea', 140],
+        'gallery_2_title' => ['Gallery 2 Title', 'text', 150],
+        'gallery_2_caption' => ['Gallery 2 Caption', 'textarea', 160],
+        'gallery_2_image' => ['Gallery 2 Image Path', 'image', 170],
+        'gallery_2_images' => ['Gallery 2 Image Paths', 'textarea', 180],
+        'gallery_3_title' => ['Gallery 3 Title', 'text', 190],
+        'gallery_3_caption' => ['Gallery 3 Caption', 'textarea', 200],
+        'gallery_3_image' => ['Gallery 3 Image Path', 'image', 210],
+        'gallery_3_images' => ['Gallery 3 Image Paths', 'textarea', 220],
     ];
 
     $stmt = $pdo->prepare(

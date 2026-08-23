@@ -5,9 +5,18 @@ const rootUrl = window.appConfig?.rootUrl || '';
 
 let state = null;
 let selectedDate = new Date();
+let bookingDateWindowStart = new Date();
 let adminScheduleDate = new Date();
-let adminFilter = 'Pending Payment';
-let selectedSport = 'Pickleball';
+let adminFilter = 'Held';
+let adminReferenceSearch = '';
+let adminMemberSearch = '';
+let adminQrStream = null;
+const supportedBookingSports = ['Pickleball', 'Basketball', 'Volleyball'];
+function normalizeBookingSport(value) {
+    const requested = String(value || '').trim().toLowerCase();
+    return supportedBookingSports.find(sport => sport.toLowerCase() === requested) || 'Pickleball';
+}
+let selectedSport = normalizeBookingSport(window.metroBookingSport || new URLSearchParams(window.location.search).get('sport'));
 let selectedBookingSlots = [];
 let activeBookingSlots = [];
 let bookingModalStep = 0;
@@ -17,6 +26,7 @@ const els = {
     rates: document.getElementById('rateCards'),
     grid: document.getElementById('bookingGrid'),
     dateLabel: document.getElementById('bookingDateLabel'),
+    dateCards: document.getElementById('bookingDateCards'),
     admin: document.getElementById('adminRows'),
     modal: document.getElementById('bookingModal'),
     modalTitle: document.getElementById('modalTitle'),
@@ -36,6 +46,9 @@ const els = {
     bookingSelectionBar: document.getElementById('bookingSelectionBar'),
     bookingSelectionSummary: document.getElementById('bookingSelectionSummary'),
     bookingSelectionBookNow: document.getElementById('bookingSelectionBookNow'),
+    inlineReservation: document.getElementById('bookingInlineReservation'),
+    inlineEmpty: document.getElementById('bookingInlineEmpty'),
+    bookingSummaryDateLabel: document.getElementById('bookingSummaryDateLabel'),
     paymentPageChannels: document.getElementById('paymentPageChannels'),
     adminPaymentChannels: document.getElementById('adminPaymentChannels'),
     adminRateSummary: document.getElementById('adminRateSummary'),
@@ -46,7 +59,14 @@ const els = {
     adminRateId: document.getElementById('adminRateId'),
     adminRateCourt: document.getElementById('adminRateCourt'),
     adminRateSport: document.getElementById('adminRateSport'),
+    adminRateDayOfWeek: document.getElementById('adminRateDayOfWeek'),
+    adminRateMode: document.getElementById('adminRateMode'),
+    adminRateTimeSlotWrap: document.getElementById('adminRateTimeSlotWrap'),
     adminRateTimeSlot: document.getElementById('adminRateTimeSlot'),
+    adminRateRangeWrap: document.getElementById('adminRateRangeWrap'),
+    adminRateRangeStart: document.getElementById('adminRateRangeStart'),
+    adminRateRangeEnd: document.getElementById('adminRateRangeEnd'),
+    adminRateRangeHelp: document.getElementById('adminRateRangeHelp'),
     adminRateDay: document.getElementById('adminRateDay'),
     adminRateStart: document.getElementById('adminRateStart'),
     adminRateEnd: document.getElementById('adminRateEnd'),
@@ -73,7 +93,42 @@ const els = {
     adminOverrideCourt: document.getElementById('adminOverrideCourt'),
     adminOverrideSport: document.getElementById('adminOverrideSport'),
     adminOverrideContext: document.getElementById('adminOverrideContext'),
-    adminOverrideBookingModal: document.getElementById('adminOverrideBookingModal')
+    adminOverrideBookingModal: document.getElementById('adminOverrideBookingModal'),
+    adminCalendarDetailModal: document.getElementById('adminCalendarDetailModal'),
+    adminCalendarDetailTitle: document.getElementById('adminCalendarDetailTitle'),
+    adminCalendarDetailMeta: document.getElementById('adminCalendarDetailMeta'),
+    adminCalendarDetailBody: document.getElementById('adminCalendarDetailBody'),
+    adminReferenceSearch: document.getElementById('adminReferenceSearch'),
+    adminCancelReservationModal: document.getElementById('adminCancelReservationModal'),
+    adminCancelReservationForm: document.getElementById('adminCancelReservationForm'),
+    adminCancelReservationId: document.getElementById('adminCancelReservationId'),
+    adminCancelReservationSummary: document.getElementById('adminCancelReservationSummary'),
+    adminCancelReservationMessage: document.getElementById('adminCancelReservationMessage'),
+    adminReceiptUploadModal: document.getElementById('adminReceiptUploadModal'),
+    adminReceiptUploadForm: document.getElementById('adminReceiptUploadForm'),
+    adminReceiptReservationId: document.getElementById('adminReceiptReservationId'),
+    adminReceiptUploadSummary: document.getElementById('adminReceiptUploadSummary'),
+    adminReceiptUploadMessage: document.getElementById('adminReceiptUploadMessage'),
+    adminMemberSearch: document.getElementById('adminMemberSearch'),
+    adminAddMember: document.getElementById('adminAddMember'),
+    adminMemberModal: document.getElementById('adminMemberModal'),
+    adminMemberForm: document.getElementById('adminMemberForm'),
+    adminMemberModalTitle: document.getElementById('adminMemberModalTitle'),
+    adminPrivacyPolicyModal: document.getElementById('adminPrivacyPolicyModal'),
+    adminMemberQrModal: document.getElementById('adminMemberQrModal'),
+    adminMemberQrTitle: document.getElementById('adminMemberQrTitle'),
+    adminMemberQrBody: document.getElementById('adminMemberQrBody'),
+    adminQrScanModal: document.getElementById('adminQrScanModal'),
+    adminQrScanForm: document.getElementById('adminQrScanForm'),
+    adminQrPayload: document.getElementById('adminQrPayload'),
+    adminQrScanMessage: document.getElementById('adminQrScanMessage'),
+    adminQrVideo: document.getElementById('adminQrVideo'),
+    adminStartQrCamera: document.getElementById('adminStartQrCamera'),
+    adminEntranceFeeModal: document.getElementById('adminEntranceFeeModal'),
+    adminEntranceFeeForm: document.getElementById('adminEntranceFeeForm'),
+    adminEntranceMemberId: document.getElementById('adminEntranceMemberId'),
+    adminEntranceMemberSummary: document.getElementById('adminEntranceMemberSummary'),
+    adminEntranceFeeMessage: document.getElementById('adminEntranceFeeMessage')
 };
 
 function isoDate(date) {
@@ -91,8 +146,33 @@ function niceDate(iso) {
     });
 }
 
+function shortWeekday(iso) {
+    return new Date(`${iso}T00:00:00`).toLocaleDateString('en-US', { weekday: 'short' });
+}
+
+function shortMonthDay(iso) {
+    return new Date(`${iso}T00:00:00`).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+}
+
 function compactTime(label) {
     return label.replace(/\b0(\d:)/g, '$1');
+}
+
+function compactTimeHeader(label) {
+    const slot = state?.slotDetails?.[label];
+    if (!slot?.startsAt || !slot?.endsAt) return compactTime(label).replace(/\s+/g, '');
+    const token = time => {
+        const [hour] = String(time).split(':').map(Number);
+        const suffix = hour >= 12 ? 'PM' : 'AM';
+        const displayHour = hour % 12 || 12;
+        return { displayHour, suffix };
+    };
+    const start = token(slot.startsAt);
+    const end = token(slot.endsAt);
+    if (start.suffix === end.suffix) {
+        return `${start.displayHour}-${end.displayHour}${end.suffix}`;
+    }
+    return `${start.displayHour}${start.suffix}-${end.displayHour}${end.suffix}`;
 }
 
 async function loadState() {
@@ -144,27 +224,34 @@ function resourceUrl(path) {
 }
 
 function isActiveReservation(status) {
-    return ['Pending Payment', 'Held', 'Booked'].includes(status);
+    return ['Held', 'Booked'].includes(status);
 }
 
 function statusTone(status) {
-    if (status === 'Available') return 'available';
     if (status === 'Booked') return 'booked';
+    if (status === 'Cancelled') return 'cancelled';
     if (status === 'Blocked') return 'blocked';
     return 'pending';
 }
 
 function compactStatusLabel(status) {
     return {
-        'Pending Payment': 'Pending Payment',
         Available: 'Available',
         Booked: 'Booked',
         Held: 'Held',
+        Cancelled: 'Cancelled',
         Blocked: 'Blocked'
     }[status] || status;
 }
 
+function publicSlotLabel(status, booking = null) {
+    if (status === 'Booked') return booking?.playerNickname || 'Booked';
+    if (status === 'Held') return 'Unavailable';
+    return compactStatusLabel(status);
+}
+
 function renderAll() {
+    renderAdminPermissionsUI();
     renderRates();
     renderBookingGrid();
     renderAdmin();
@@ -182,6 +269,21 @@ function renderAll() {
     if (window.lucide) lucide.createIcons();
 }
 
+function renderAdminPermissionsUI() {
+    const canManage = adminCanManageOperations();
+    document.querySelectorAll('[data-admin-requires-manage]').forEach(element => {
+        element.hidden = !canManage;
+    });
+    if (els.adminAddMember) els.adminAddMember.hidden = !canManage;
+    const scanButton = document.getElementById('adminScanMemberQr');
+    if (scanButton) scanButton.hidden = !canManage;
+    if (els.adminOverrideBookingForm) {
+        els.adminOverrideBookingForm.querySelectorAll('input, select, textarea, button').forEach(field => {
+            field.disabled = !canManage;
+        });
+    }
+}
+
 function defaultRateRule() {
     const firstCourtInfo = state?.courts?.[0] || null;
     const firstCourt = firstCourtInfo?.id || '';
@@ -191,6 +293,7 @@ function defaultRateRule() {
         name: '',
         courtId: firstCourt,
         sport: firstCourtInfo?.sports?.[0] || 'Pickleball',
+        dayOfWeek: 'Any',
         timeSlotId: firstSlot,
         pricePerHour: 400,
         memberPricePerHour: '',
@@ -226,6 +329,42 @@ function setSelectOptions(select, options, selected) {
     }).join('');
 }
 
+function sortedRateSlots() {
+    return Object.values(state?.slotDetails || {}).sort((a, b) => timeToMinutes(a.startsAt) - timeToMinutes(b.startsAt));
+}
+
+function populateAdminRateRangeOptions(rule) {
+    const slots = sortedRateSlots();
+    setSelectOptions(els.adminRateRangeStart, slots.map(slot => [
+        slot.startsAt,
+        formatRuleTime(slot.startsAt)
+    ]), rule.startsAt || slots[0]?.startsAt || '');
+    setSelectOptions(els.adminRateRangeEnd, slots.map(slot => [
+        slot.endsAt,
+        formatRuleTime(slot.endsAt)
+    ]), rule.endsAt || slots[slots.length - 1]?.endsAt || '');
+}
+
+function setAdminRateMode(mode, editing = false) {
+    const isRange = mode === 'range' && !editing;
+    if (els.adminRateMode) {
+        els.adminRateMode.value = isRange ? 'range' : 'single';
+        els.adminRateMode.disabled = editing;
+    }
+    if (els.adminRateTimeSlotWrap) els.adminRateTimeSlotWrap.hidden = isRange;
+    if (els.adminRateRangeWrap) els.adminRateRangeWrap.hidden = !isRange;
+    if (els.adminRateRangeHelp) els.adminRateRangeHelp.hidden = !isRange;
+    if (els.adminRateTimeSlot) {
+        els.adminRateTimeSlot.disabled = isRange;
+        els.adminRateTimeSlot.required = !isRange;
+    }
+    [els.adminRateRangeStart, els.adminRateRangeEnd].forEach(select => {
+        if (!select) return;
+        select.disabled = !isRange;
+        select.required = isRange;
+    });
+}
+
 function populateAdminRateOptions(rule) {
     setSelectOptions(els.adminRateCourt, [
         ...(state?.courts || []).map(court => [court.id, court.name])
@@ -235,18 +374,35 @@ function populateAdminRateOptions(rule) {
         ['Basketball', 'Basketball'],
         ['Volleyball', 'Volleyball']
     ], rule.sport ?? '');
+    setSelectOptions(els.adminRateDayOfWeek, [
+        ['Any', 'Any day'],
+        ['Monday', 'Monday'],
+        ['Tuesday', 'Tuesday'],
+        ['Wednesday', 'Wednesday'],
+        ['Thursday', 'Thursday'],
+        ['Friday', 'Friday'],
+        ['Saturday', 'Saturday'],
+        ['Sunday', 'Sunday']
+    ], rule.dayOfWeek || rule.dayPattern || 'Any');
     setSelectOptions(els.adminRateTimeSlot, Object.values(state?.slotDetails || {}).map(slot => [
         slot.id,
         compactTime(slot.label)
     ]), rule.timeSlotId ?? '');
+    populateAdminRateRangeOptions(rule);
     if (els.adminRateReason) els.adminRateReason.value = rule.changeReason || 'Regular rate';
 }
 
 function currentRateRuleName() {
     const court = els.adminRateCourt?.selectedOptions?.[0]?.textContent || 'All courts';
     const sport = els.adminRateSport?.value || 'All sports';
+    const day = els.adminRateDayOfWeek?.selectedOptions?.[0]?.textContent || 'Any day';
+    if (els.adminRateMode?.value === 'range') {
+        const start = els.adminRateRangeStart?.selectedOptions?.[0]?.textContent || '';
+        const end = els.adminRateRangeEnd?.selectedOptions?.[0]?.textContent || '';
+        return `${court} ${sport} ${day} ${start}-${end}`.trim();
+    }
     const slot = els.adminRateTimeSlot?.selectedOptions?.[0]?.textContent || '';
-    return `${court} ${sport} ${slot}`.trim();
+    return `${court} ${sport} ${day} ${slot}`.trim();
 }
 
 function simpleRateDay(value) {
@@ -255,6 +411,10 @@ function simpleRateDay(value) {
     if (day === 'Saturday-Sunday') return 'Saturday - Sunday';
     if (day === 'Any') return 'All days';
     return ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'].includes(day) ? day : 'All days';
+}
+
+function rateDaySortValue(value) {
+    return ['Any', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'].indexOf(value || 'Any');
 }
 
 function expandedRateDays(selection) {
@@ -266,10 +426,12 @@ function expandedRateDays(selection) {
 function matchingRateRuleId(formData, day, fallbackId = '') {
     const courtId = String(formData.get('courtId') || '');
     const sport = String(formData.get('sport') || '');
+    const dayOfWeek = String(formData.get('dayOfWeek') || 'Any');
     const timeSlotId = String(formData.get('timeSlotId') || '');
     const match = (state?.adminRateRules || []).find(rule =>
         String(rule.courtId ?? '') === courtId &&
         String(rule.sport ?? '') === sport &&
+        String(rule.dayOfWeek || rule.dayPattern || 'Any') === dayOfWeek &&
         String(rule.timeSlotId || '') === timeSlotId
     );
 
@@ -283,7 +445,9 @@ function openAdminRateModal(ruleId = '') {
 
     populateAdminRateOptions(rule);
     if (els.adminRateModalTitle) els.adminRateModalTitle.textContent = existing ? 'Edit Rate' : 'Add Rate';
+    setAdminRateMode(existing ? 'single' : (els.adminRateMode?.value || 'single'), Boolean(existing));
     if (els.adminRateId) els.adminRateId.value = rule.id || '';
+    if (els.adminRateDayOfWeek) els.adminRateDayOfWeek.value = rule.dayOfWeek || rule.dayPattern || 'Any';
     if (els.adminRateName) els.adminRateName.value = rule.name || '';
     if (els.adminRateStart) els.adminRateStart.value = rule.startsAt || '08:00';
     if (els.adminRateEnd) els.adminRateEnd.value = rule.endsAt || '17:00';
@@ -316,6 +480,10 @@ function bindAdminRateForm() {
         els.adminRateForm.addEventListener('submit', submitRateRule);
         els.adminRateForm.dataset.bound = '1';
     }
+    if (els.adminRateMode && !els.adminRateMode.dataset.bound) {
+        els.adminRateMode.addEventListener('change', event => setAdminRateMode(event.target.value, Boolean(els.adminRateId?.value)));
+        els.adminRateMode.dataset.bound = '1';
+    }
 }
 
 function renderPaymentInstructions(method) {
@@ -337,28 +505,28 @@ function renderPaymentInstructions(method) {
         ? 'Registered members can upload payment proof directly on the website. Admin confirms payment after review.'
         : `After payment, non-members should send proof through ${messengerText} with the reservation name, date, sport, court, and time.`;
     const qrImage = details.qrPath
-        ? `<img src="${escapeHtml(resourceUrl(details.qrPath))}" alt="${escapeHtml(details.name)} payment QR code" class="h-32 w-32 rounded-md border border-slate-200 bg-white p-2" onerror="this.classList.add('hidden'); this.nextElementSibling.classList.remove('hidden');"><div class="hidden grid h-32 w-32 place-items-center rounded-md border border-dashed border-slate-300 bg-white p-2 text-center text-xs font-bold text-slate-500">QR image not found</div>`
-        : '<div class="grid h-32 w-32 place-items-center rounded-md border border-dashed border-slate-300 bg-white p-2 text-center text-xs font-bold text-slate-500">No QR uploaded</div>';
+        ? `<img src="${escapeHtml(resourceUrl(details.qrPath))}" alt="${escapeHtml(details.name)} payment QR code" class="metro-payment-qr-image" onerror="this.classList.add('hidden'); this.nextElementSibling.classList.remove('hidden');"><div class="hidden metro-payment-qr-placeholder">QR image not found</div>`
+        : '<div class="metro-payment-qr-placeholder">No QR uploaded</div>';
     const downloadLink = details.qrPath
-        ? `<a href="${escapeHtml(resourceUrl(details.qrPath))}" download class="inline-flex w-32 justify-center rounded-md border border-line bg-white px-3 py-2 text-xs font-black text-primary">Download QR</a>`
+        ? `<a href="${escapeHtml(resourceUrl(details.qrPath))}" download class="metro-payment-download">Download QR</a>`
         : '';
 
     if (details.type === 'qr') {
         els.paymentInstructions.innerHTML = `
-            <div class="grid gap-4 sm:grid-cols-[132px_1fr]">
-                <div class="grid gap-2">
+            <div class="metro-payment-display">
+                <div class="metro-payment-qr-block">
                     ${qrImage}
                     ${downloadLink}
                 </div>
-                <div>
-                    <p class="text-sm font-black uppercase tracking-[.14em] text-court">${escapeHtml(details.name)} QR</p>
-                    <h4 class="mt-1 text-lg font-black">Send payment via ${escapeHtml(details.name)}</h4>
-                    <dl class="mt-3 grid gap-1 text-sm">
-                        <div><dt class="inline font-black">Account name:</dt> <dd class="inline text-slate-600">${escapeHtml(details.accountName || '-')}</dd></div>
-                        <div><dt class="inline font-black">Account no.:</dt> <dd class="inline text-slate-600">${escapeHtml(details.accountNumber || '-')}</dd></div>
+                <div class="metro-payment-detail-block">
+                    <p class="metro-payment-channel-label">${escapeHtml(details.name)} QR</p>
+                    <h4>Send payment via ${escapeHtml(details.name)}</h4>
+                    <dl>
+                        <div><dt>Account name</dt><dd>${escapeHtml(details.accountName || '-')}</dd></div>
+                        <div><dt>Account no.</dt><dd>${escapeHtml(details.accountNumber || '-')}</dd></div>
                     </dl>
-                    <p class="mt-3 text-xs font-semibold text-slate-500">${escapeHtml(details.instructions || 'Complete the transfer, then upload your receipt.')}</p>
-                    <p class="mt-2 rounded-md bg-white px-3 py-2 text-xs font-bold text-slate-600">${proofNote}</p>
+                    <p class="metro-payment-instruction-text">${escapeHtml(details.instructions || 'Complete the transfer, then upload your receipt.')}</p>
+                    <p class="metro-payment-proof-note">${proofNote}</p>
                 </div>
             </div>
         `;
@@ -366,21 +534,21 @@ function renderPaymentInstructions(method) {
     }
 
     els.paymentInstructions.innerHTML = `
-        <div class="grid gap-4 sm:grid-cols-[132px_1fr]">
-            <div class="grid gap-2">
+        <div class="metro-payment-display">
+            <div class="metro-payment-qr-block">
                 ${qrImage}
                 ${downloadLink}
             </div>
-            <div>
-                <p class="text-sm font-black uppercase tracking-[.14em] text-court">${escapeHtml(details.bankName || details.name)}</p>
-                <h4 class="mt-1 text-lg font-black">${escapeHtml(details.name)} transfer</h4>
-                <dl class="mt-3 grid gap-2 text-sm">
-                    <div class="flex justify-between gap-4 rounded-md bg-white px-3 py-2"><dt class="font-black">Bank information</dt><dd class="text-right text-slate-600">${escapeHtml(details.bankName || details.name)}</dd></div>
-                    <div class="flex justify-between gap-4 rounded-md bg-white px-3 py-2"><dt class="font-black">Account name</dt><dd class="text-right text-slate-600">${escapeHtml(details.accountName || '-')}</dd></div>
-                    <div class="flex justify-between gap-4 rounded-md bg-white px-3 py-2"><dt class="font-black">Account no.</dt><dd class="text-right text-slate-600">${escapeHtml(details.accountNumber || '-')}</dd></div>
+            <div class="metro-payment-detail-block">
+                <p class="metro-payment-channel-label">${escapeHtml(details.bankName || details.name)}</p>
+                <h4>${escapeHtml(details.name)} transfer</h4>
+                <dl>
+                    <div><dt>Bank information</dt><dd>${escapeHtml(details.bankName || details.name)}</dd></div>
+                    <div><dt>Account name</dt><dd>${escapeHtml(details.accountName || '-')}</dd></div>
+                    <div><dt>Account no.</dt><dd>${escapeHtml(details.accountNumber || '-')}</dd></div>
                 </dl>
-                <p class="mt-3 text-xs font-semibold text-slate-500">${escapeHtml(details.instructions || 'Upload the deposit or transfer receipt before submitting.')}</p>
-                <p class="mt-2 rounded-md bg-white px-3 py-2 text-xs font-bold text-slate-600">${proofNote}</p>
+                <p class="metro-payment-instruction-text">${escapeHtml(details.instructions || 'Upload the deposit or transfer receipt before submitting.')}</p>
+                <p class="metro-payment-proof-note">${proofNote}</p>
             </div>
         </div>
     `;
@@ -395,22 +563,22 @@ function renderPaymentOptions() {
 
 function paymentChannelCard(channel) {
     const qrPanel = channel.qrPath
-        ? `<div class="grid gap-2"><img src="${escapeHtml(resourceUrl(channel.qrPath))}" alt="${escapeHtml(channel.name)} payment QR code" class="h-32 w-32 rounded-md border border-slate-200 bg-slate-50 p-2" onerror="this.classList.add('hidden'); this.nextElementSibling.classList.remove('hidden');"><div class="hidden grid h-32 w-32 place-items-center rounded-md border border-dashed border-slate-300 bg-slate-50 p-2 text-center text-xs font-bold text-slate-500">QR image not found</div><a href="${escapeHtml(resourceUrl(channel.qrPath))}" download class="inline-flex w-32 justify-center rounded-md border border-line px-3 py-2 text-xs font-black text-primary">Download QR</a></div>`
-        : '<div class="grid h-32 w-32 place-items-center rounded-md border border-dashed border-slate-300 bg-slate-50 p-2 text-center text-xs font-bold text-slate-500">No QR uploaded</div>';
+        ? `<div class="metro-payment-qr-block"><img src="${escapeHtml(resourceUrl(channel.qrPath))}" alt="${escapeHtml(channel.name)} payment QR code" class="metro-payment-qr-image" onerror="this.classList.add('hidden'); this.nextElementSibling.classList.remove('hidden');"><div class="hidden metro-payment-qr-placeholder">QR image not found</div><a href="${escapeHtml(resourceUrl(channel.qrPath))}" download class="metro-payment-download">Download QR</a></div>`
+        : '<div class="metro-payment-qr-block"><div class="metro-payment-qr-placeholder">No QR uploaded</div></div>';
 
     if (channel.type === 'qr') {
         return `
             <article class="public-card p-4">
                 <p class="text-xs font-black uppercase tracking-[.12em] text-muted">QR / Wallet</p>
                 <h2 class="mt-2 text-2xl font-black">${escapeHtml(channel.name)}</h2>
-                <div class="mt-4 grid gap-4 sm:grid-cols-[132px_1fr]">
+                <div class="metro-payment-display mt-4">
                     ${qrPanel}
-                    <div>
-                        <p class="text-sm font-semibold leading-6 text-muted">${escapeHtml(channel.instructions || 'Scan to pay, then upload the receipt in the booking form.')}</p>
-                        <dl class="mt-3 grid gap-2 text-sm">
-                            <div class="rounded-md bg-slate-50 p-2.5"><dt class="font-black">Account name</dt><dd class="mt-1 text-slate-600">${escapeHtml(channel.accountName || '-')}</dd></div>
-                            <div class="rounded-md bg-slate-50 p-2.5"><dt class="font-black">Account no.</dt><dd class="mt-1 text-slate-600">${escapeHtml(channel.accountNumber || '-')}</dd></div>
+                    <div class="metro-payment-detail-block">
+                        <dl>
+                            <div><dt>Account name</dt><dd>${escapeHtml(channel.accountName || '-')}</dd></div>
+                            <div><dt>Account no.</dt><dd>${escapeHtml(channel.accountNumber || '-')}</dd></div>
                         </dl>
+                        <p class="metro-payment-instruction-text">${escapeHtml(channel.instructions || 'Scan to pay, then upload the receipt in the booking form.')}</p>
                     </div>
                 </div>
             </article>
@@ -421,15 +589,15 @@ function paymentChannelCard(channel) {
         <article class="public-card p-4">
             <p class="text-xs font-black uppercase tracking-[.12em] text-muted">Bank</p>
             <h2 class="mt-2 text-2xl font-black">${escapeHtml(channel.name)}</h2>
-            <div class="mt-4 grid gap-4 sm:grid-cols-[132px_1fr]">
+            <div class="metro-payment-display mt-4">
                 ${qrPanel}
-                <div>
-                    <dl class="grid gap-2 text-sm">
-                        <div class="flex justify-between gap-4 rounded-md bg-slate-50 p-2.5"><dt class="font-black">Bank information</dt><dd class="text-right text-slate-600">${escapeHtml(channel.bankName || channel.name)}</dd></div>
-                        <div class="flex justify-between gap-4 rounded-md bg-slate-50 p-2.5"><dt class="font-black">Account name</dt><dd class="text-right text-slate-600">${escapeHtml(channel.accountName || '-')}</dd></div>
-                        <div class="flex justify-between gap-4 rounded-md bg-slate-50 p-2.5"><dt class="font-black">Account no.</dt><dd class="text-right text-slate-600">${escapeHtml(channel.accountNumber || '-')}</dd></div>
+                <div class="metro-payment-detail-block">
+                    <dl>
+                        <div><dt>Bank information</dt><dd>${escapeHtml(channel.bankName || channel.name)}</dd></div>
+                        <div><dt>Account name</dt><dd>${escapeHtml(channel.accountName || '-')}</dd></div>
+                        <div><dt>Account no.</dt><dd>${escapeHtml(channel.accountNumber || '-')}</dd></div>
                     </dl>
-                    <p class="mt-3 text-sm font-semibold leading-6 text-muted">${escapeHtml(channel.instructions || 'Upload a deposit or transfer receipt for admin review.')}</p>
+                    <p class="metro-payment-instruction-text">${escapeHtml(channel.instructions || 'Upload a deposit or transfer receipt for admin review.')}</p>
                 </div>
             </div>
         </article>
@@ -444,9 +612,9 @@ function renderPaymentPage() {
 function renderRates() {
     if (!els.rates || !state) return;
     els.rates.innerHTML = state.rates.map(rate => `
-        <div class="inline-flex items-center gap-2 rounded-md border border-line bg-white px-3 py-2 text-sm">
-            <span class="font-black text-primary">${peso.format(Number(rate.price))}</span>
-            <span class="font-semibold text-muted">${rate.time}</span>
+        <div class="metro-rate-card">
+            <strong>${peso.format(Number(rate.price))}<span>/hr</span></strong>
+            <small>${escapeHtml(rate.time)}</small>
         </div>
     `).join('');
 }
@@ -558,8 +726,38 @@ function adminBookingLabel(booking, pickleballLabel = 'BOOKED') {
     return compactStatusLabel(booking.status).toUpperCase();
 }
 
-function scheduleCell(label, status = 'Available', sub = '', title = '') {
-    return { label, status, sub, title: title || sub || label };
+function adminCanManageOperations() {
+    return Boolean(state?.currentAdmin?.canManageOperations);
+}
+
+function reservationById(id) {
+    return (state?.adminReservations || []).find(item => item.id === id)
+        || Object.values(state?.bookings || {}).find(item => item.id === id)
+        || null;
+}
+
+function bookingBySlot(date, time, courtId, sport = '') {
+    return Object.values(state?.bookings || {}).find(item =>
+        item.date === date &&
+        item.time === time &&
+        Number(item.court) === Number(courtId) &&
+        (!sport || item.sport === sport)
+    ) || null;
+}
+
+function qrImageUrl(payload) {
+    return `https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(payload)}`;
+}
+
+function memberSearchText(member) {
+    return [member.name, member.nickname, member.phone, member.email, member.lookupToken]
+        .filter(Boolean)
+        .join(' ')
+        .toLowerCase();
+}
+
+function scheduleCell(label, status = 'Available', sub = '', title = '', meta = {}) {
+    return { label, status, sub, title: title || sub || label, ...meta };
 }
 
 function adminColumnSelection(column, cell) {
@@ -578,9 +776,16 @@ function adminCourtOptionLabel(court) {
 }
 
 function blockCell(date, time, courtId, sport) {
-    const conflict = blockConflictFor(date, time, courtId, sport);
-    if (!conflict) return null;
-    return scheduleCell('BLOCKED', 'Blocked', conflict.message, conflict.message);
+    const block = (state?.courtBlocks || []).find(item =>
+        item.status === 'Active'
+        && item.date === date
+        && item.time === time
+        && courtBlockApplies(item.courtId, item.sport, courtId, sport)
+    );
+    if (!block) return null;
+    const scope = block.sport ? `${block.courtName} ${block.sport}` : block.courtName;
+    const message = `${scope} is blocked for ${block.reason}${block.notes ? `: ${block.notes}` : ''}.`;
+    return scheduleCell('BLOCKED', 'Blocked', 'Court Blocking', message, { blockId: block.id });
 }
 
 function adminScheduleCell(date, time, column) {
@@ -590,7 +795,7 @@ function adminScheduleCell(date, time, column) {
         const label = isSameSport ? adminBookingLabel(direct, 'BOOKED') : direct.sport.toUpperCase();
         const status = isSameSport ? direct.status : 'Blocked';
         const sub = isSameSport ? direct.status : `Uses ${column.label}`;
-        return scheduleCell(label, status, sub, `${column.label}: ${direct.sport} ${direct.status}`);
+        return scheduleCell(label, status, sub, `${column.label}: ${direct.sport} ${direct.status}`, { reservationId: direct.id });
     }
 
     const block = blockCell(date, time, column.court, column.sport);
@@ -601,10 +806,10 @@ function adminScheduleCell(date, time, column) {
 
 function adminScheduleCellClass(status) {
     const tone = statusTone(status);
-    if (tone === 'booked') return 'bg-green-50 text-green-900 ring-green-200';
-    if (tone === 'pending') return 'bg-amber-50 text-amber-900 ring-amber-200';
-    if (tone === 'blocked' || tone === 'cancelled') return 'bg-rose-50 text-rose-800 ring-rose-200';
-    return 'bg-slate-50 text-slate-600 ring-slate-200';
+    if (tone === 'booked') return 'admin-slot-booked';
+    if (tone === 'pending') return 'admin-slot-held';
+    if (tone === 'blocked' || tone === 'cancelled') return 'admin-slot-blocked';
+    return 'admin-slot-available';
 }
 
 function renderAdminSchedule() {
@@ -613,23 +818,25 @@ function renderAdminSchedule() {
     const columns = adminScheduleColumns();
     const slots = Object.values(state.timeSlots || {}).flat();
     els.adminScheduleDateLabel.textContent = adminScheduleDateText(date);
-    els.adminScheduleGrid.style.gridTemplateColumns = `76px repeat(${columns.length}, minmax(78px, 1fr))`;
+    els.adminScheduleGrid.style.gridTemplateColumns = `minmax(92px, 120px) repeat(${columns.length}, minmax(90px, 1fr))`;
 
     const header = ['TIME', ...columns.map(column => column.label)].map((label, index) => `
-        <div class="border-b border-line bg-white p-2 text-[10px] font-black ${index === 0 ? 'text-left' : 'text-center'}">${label}</div>
+        <div class="admin-schedule-head ${index === 0 ? 'admin-schedule-head-time' : ''}">${label}</div>
     `).join('');
 
     const rows = slots.map(time => {
-        const timeCell = `<div class="border-b border-line bg-white p-2 text-[10px] font-black text-ink">${adminTimeStart(time)}</div>`;
+        const timeCell = `<div class="admin-schedule-time">${compactTimeHeader(time)}</div>`;
         const cells = columns.map(column => {
             const cell = adminScheduleCell(date, time, column);
             const selection = adminColumnSelection(column, cell);
             const slot = state.slotDetails?.[time] || {};
+            const actionable = cell.status === 'Available' ? adminCanManageOperations() : true;
             return `
-                <div class="border-b border-line bg-white p-1.5">
+                <div class="admin-schedule-cell">
                     <button type="button"
                         title="${escapeHtml(cell.title)}"
-                        class="admin-schedule-action min-h-[38px] rounded-md px-1.5 py-1.5 text-center text-[10px] font-black leading-3 ring-1 ${adminScheduleCellClass(cell.status)}"
+                        class="admin-schedule-action ${adminScheduleCellClass(cell.status)}"
+                        ${actionable ? '' : 'disabled'}
                         data-admin-calendar-booking
                         data-date="${escapeHtml(date)}"
                         data-time="${escapeHtml(time)}"
@@ -638,8 +845,10 @@ function renderAdminSchedule() {
                         data-sport="${escapeHtml(selection.sport)}"
                         data-cell-label="${escapeHtml(cell.label)}"
                         data-cell-status="${escapeHtml(cell.status)}"
-                        data-cell-title="${escapeHtml(cell.title)}">
-                        <span>${escapeHtml(cell.label)}</span>
+                        data-cell-title="${escapeHtml(cell.title)}"
+                        data-reservation-id="${escapeHtml(cell.reservationId || '')}"
+                        data-block-id="${escapeHtml(cell.blockId || '')}">
+                        <span>${cell.status === 'Available' ? '' : escapeHtml(cell.label)}</span>
                         ${cell.sub ? `<span class="mt-0.5 block text-[9px] font-bold opacity-75">${escapeHtml(cell.sub)}</span>` : ''}
                     </button>
                 </div>
@@ -674,12 +883,19 @@ function updateAdminOverrideSports(preferredSport = '') {
 
 function openAdminCalendarBooking(button) {
     if (!els.adminOverrideBookingForm || !state) return;
+    const status = button.dataset.cellStatus || 'Available';
+    if (status !== 'Available') {
+        openAdminCalendarDetails(button);
+        return;
+    }
+    if (!adminCanManageOperations()) {
+        return;
+    }
     const form = els.adminOverrideBookingForm;
     const date = button.dataset.date || isoDate(adminScheduleDate);
     const time = button.dataset.time || '';
     const courtId = button.dataset.courtId || '';
     const sport = button.dataset.sport || '';
-    const status = button.dataset.cellStatus || 'Available';
     const label = button.dataset.cellLabel || 'AVAILABLE';
     const title = button.dataset.cellTitle || '';
     const court = courtById(courtId);
@@ -694,7 +910,7 @@ function openAdminCalendarBooking(button) {
     if (els.adminOverrideTime) els.adminOverrideTime.value = button.dataset.timeSlotId || '';
     if (els.adminOverrideCourt) els.adminOverrideCourt.value = courtId;
     updateAdminOverrideSports(sport);
-    form.querySelector('[name="status"]').value = 'Booked';
+    form.querySelector('[name="status"]').value = 'Held';
     form.querySelector('[name="paymentMethod"]').value = 'Admin Override';
     form.querySelector('[name="overrideReason"]').value = status === 'Available'
         ? 'Admin calendar booking'
@@ -705,6 +921,75 @@ function openAdminCalendarBooking(button) {
 
     if (window.bootstrap && els.adminOverrideBookingModal) {
         bootstrap.Modal.getOrCreateInstance(els.adminOverrideBookingModal).show();
+    }
+}
+
+function openAdminCalendarDetails(button) {
+    if (!els.adminCalendarDetailBody) return;
+    const date = button.dataset.date || isoDate(adminScheduleDate);
+    const time = button.dataset.time || '';
+    const courtId = button.dataset.courtId || '';
+    const sport = button.dataset.sport || '';
+    const status = button.dataset.cellStatus || '';
+    const reservation = reservationById(button.dataset.reservationId || '') || bookingBySlot(date, time, courtId, sport);
+    const block = (state?.adminCourtBlocks || state?.courtBlocks || []).find(item => String(item.id) === String(button.dataset.blockId || ''));
+    const court = courtById(courtId);
+    const courtLabel = court ? adminCourtOptionLabel(court) : `Court ${courtId}`;
+
+    if (els.adminCalendarDetailTitle) {
+        els.adminCalendarDetailTitle.textContent = status === 'Blocked' ? 'Court Blocking' : 'Reservation Details';
+    }
+    if (els.adminCalendarDetailMeta) {
+        els.adminCalendarDetailMeta.textContent = `${niceDate(date)} | ${compactTime(time)} | ${courtLabel}`;
+    }
+
+    if (reservation) {
+        els.adminCalendarDetailBody.innerHTML = `
+            <div class="admin-detail-grid">
+                <section class="admin-detail-card">
+                    <span class="section-kicker">Player Information</span>
+                    <dl class="admin-detail-list">
+                        <div><dt>Name</dt><dd>${escapeHtml(reservation.customerName || 'N/A')}</dd></div>
+                        <div><dt>Nickname</dt><dd>${escapeHtml(reservation.playerNickname || 'N/A')}</dd></div>
+                        <div><dt>Phone</dt><dd>${escapeHtml(reservation.customerPhone || 'N/A')}</dd></div>
+                        <div><dt>Email</dt><dd>${escapeHtml(reservation.customerEmail || 'N/A')}</dd></div>
+                    </dl>
+                </section>
+                <section class="admin-detail-card">
+                    <span class="section-kicker">Booking Summary</span>
+                    <dl class="admin-detail-list">
+                        <div><dt>Sport</dt><dd>${escapeHtml(reservation.sport || sport)}</dd></div>
+                        <div><dt>Court</dt><dd>${escapeHtml(courtLabel)}</dd></div>
+                        <div><dt>Date</dt><dd>${escapeHtml(niceDate(reservation.date || date))}</dd></div>
+                        <div><dt>Time</dt><dd>${escapeHtml(compactTime(reservation.time || time))}</dd></div>
+                        <div><dt>Status</dt><dd><span class="status-badge ${adminStatusClass(reservation.status)}">${escapeHtml(reservation.status)}</span></dd></div>
+                        <div><dt>Reference Number</dt><dd><strong>${escapeHtml(reservation.bookingReference || 'N/A')}</strong></dd></div>
+                    </dl>
+                    ${reservation.receipt ? `<a class="btn btn-outline-primary btn-sm mt-3" target="_blank" rel="noopener" href="${escapeHtml(resourceUrl(reservation.receipt))}">View Receipt</a>` : ''}
+                </section>
+            </div>
+        `;
+    } else if (block) {
+        els.adminCalendarDetailBody.innerHTML = `
+            <section class="admin-detail-card">
+                <span class="section-kicker">Court Blocking</span>
+                <dl class="admin-detail-list">
+                    <div><dt>Scope</dt><dd>${escapeHtml(block.courtName || courtLabel)}</dd></div>
+                    <div><dt>Sport</dt><dd>${escapeHtml(block.sport || 'All supported sports')}</dd></div>
+                    <div><dt>Date</dt><dd>${escapeHtml(niceDate(block.date || date))}</dd></div>
+                    <div><dt>Time</dt><dd>${escapeHtml(compactTime(block.time || time))}</dd></div>
+                    <div><dt>Reason</dt><dd>${escapeHtml(block.reason || 'Court Blocking')}</dd></div>
+                    <div><dt>Notes</dt><dd>${escapeHtml(block.notes || 'N/A')}</dd></div>
+                    <div><dt>Status</dt><dd>${escapeHtml(block.status || 'Active')}</dd></div>
+                </dl>
+            </section>
+        `;
+    } else {
+        els.adminCalendarDetailBody.innerHTML = '<p class="small fw-semibold text-secondary">No reservation details were found for this slot.</p>';
+    }
+
+    if (window.bootstrap && els.adminCalendarDetailModal) {
+        bootstrap.Modal.getOrCreateInstance(els.adminCalendarDetailModal).show();
     }
 }
 
@@ -762,11 +1047,23 @@ function rateForSlot(time, courtId = null, sport = selectedSport, date = isoDate
     const rules = state?.rateRules || [];
     const selectedCourtId = Number(courtId || courtsForSelectedSport()[0]?.id || 0);
     const duration = slotDuration(slot);
-    const rule = rules.find(item =>
-        Number(item.courtId) === selectedCourtId &&
-        item.sport === sport &&
-        Number(item.timeSlotId) === Number(slot?.id)
-    );
+    const dayName = dayNameForDate(date);
+    const rule = rules
+        .filter(item =>
+            Number(item.courtId) === selectedCourtId &&
+            item.sport === sport &&
+            Number(item.timeSlotId) === Number(slot?.id) &&
+            dayPatternMatches(item.dayPattern || item.dayOfWeek || 'Any', date)
+        )
+        .sort((a, b) => {
+            const aDay = a.dayOfWeek || a.dayPattern || 'Any';
+            const bDay = b.dayOfWeek || b.dayPattern || 'Any';
+            if (aDay === dayName && bDay !== dayName) return -1;
+            if (bDay === dayName && aDay !== dayName) return 1;
+            if (aDay !== 'Any' && bDay === 'Any') return -1;
+            if (bDay !== 'Any' && aDay === 'Any') return 1;
+            return 0;
+        })[0];
     if (rule) {
         const hourly = Number(rule.pricePerHour);
         return {
@@ -822,6 +1119,7 @@ function toggleBookingSelection(data) {
 }
 
 function renderBookingSelectionBar() {
+    renderInlineReservationPanel();
     if (!els.bookingSelectionBar || !els.bookingSelectionSummary) return;
     if (selectedBookingSlots.length === 0) {
         els.bookingSelectionBar.classList.add('hidden');
@@ -835,6 +1133,56 @@ function renderBookingSelectionBar() {
     );
     const slotsText = sorted.map(slot => `${compactTime(slot.time)} ${slot.courtName}`).join(', ');
     els.bookingSelectionSummary.textContent = `${selectedBookingSlots.length} slot${selectedBookingSlots.length === 1 ? '' : 's'} selected - ${slotsText} - Total ${peso.format(selectedBookingTotal())}`;
+}
+
+function isInlineBookingForm() {
+    return els.form?.dataset.bookingInline === '1';
+}
+
+function renderInlineReservationPanel() {
+    if (!isInlineBookingForm()) return;
+    const slots = [...selectedBookingSlots].sort((a, b) =>
+        `${a.date} ${a.time} ${a.court}`.localeCompare(`${b.date} ${b.time} ${b.court}`)
+    );
+    activeBookingSlots = slots;
+    const hasSlots = slots.length > 0;
+    const first = slots[0];
+
+    if (els.inlineReservation) {
+        els.inlineReservation.classList.toggle('has-selection', hasSlots);
+    }
+    if (els.inlineEmpty) {
+        els.inlineEmpty.textContent = hasSlots
+            ? `${slots.length} slot${slots.length === 1 ? '' : 's'} selected. Review details and confirm below.`
+            : 'Select one or more available slots to complete your reservation.';
+    }
+    if (els.bookingSummaryDateLabel) {
+        els.bookingSummaryDateLabel.textContent = hasSlots ? niceDate(first.date) : '';
+    }
+    if (els.bookingReviewSummary) {
+        els.bookingReviewSummary.innerHTML = hasSlots
+            ? inlineReservationSummary(slots)
+            : '<div class="metro-inline-empty-summary">No selected slots yet.</div>';
+    }
+    if (els.modalSubmitButton) {
+        els.modalSubmitButton.disabled = !hasSlots;
+        els.modalSubmitButton.type = 'submit';
+        els.modalSubmitButton.textContent = 'Confirm Reservation';
+        delete els.modalSubmitButton.dataset.done;
+    }
+    if (hasSlots) {
+        document.getElementById('actionType').value = 'book';
+        document.getElementById('formDate').value = first.date;
+        document.getElementById('formTime').value = first.time;
+        document.getElementById('formCourt').value = first.court;
+        document.getElementById('formSport').value = first.sport;
+        document.getElementById('formSessionId').value = '';
+        if (els.bookingReferencePanel) {
+            els.bookingReferencePanel.classList.add('hidden');
+            els.bookingReferencePanel.innerHTML = '';
+        }
+        showFormMessage('', true, true);
+    }
 }
 
 function openSelectedBookingModal() {
@@ -855,10 +1203,10 @@ function bookingModalSteps() {
 
 function bookingModalStepTitle(key) {
     return {
-        info: 'Player Information',
+        info: 'Booking Details',
         review: 'Review Booking',
-        payment: 'Payment Instructions',
-        proof: state?.member ? 'Upload Payment Proof' : 'Booking Reference'
+        payment: 'Review / Payment',
+        proof: 'Reservation Confirmation'
     }[key] || key;
 }
 
@@ -903,6 +1251,56 @@ function bookingDetailsTable(slots = activeBookingSlots, compact = false) {
     `;
 }
 
+function inlineReservationSummary(slots = activeBookingSlots) {
+    const sorted = [...slots].sort((a, b) => {
+        if (a.date !== b.date) return a.date.localeCompare(b.date);
+        if (Number(a.court) !== Number(b.court)) return Number(a.court) - Number(b.court);
+        return slotStartMinutes(a) - slotStartMinutes(b);
+    });
+    const dateGroups = new Map();
+    sorted.forEach(slot => {
+        const dateKey = slot.date;
+        if (!dateGroups.has(dateKey)) dateGroups.set(dateKey, []);
+        dateGroups.get(dateKey).push(slot);
+    });
+    const subtotal = sorted.reduce((sum, slot) => sum + slotPrice(slot.time, slot.court, slot.sport, slot.date), 0);
+    const surcharge = 0;
+    const total = subtotal + surcharge;
+    const scheduleHtml = [...dateGroups.entries()].map(([date, dateSlots]) => {
+        const courtGroups = new Map();
+        dateSlots.forEach(slot => {
+            const courtLabel = slot.courtName || `Court ${slot.court}`;
+            if (!courtGroups.has(courtLabel)) courtGroups.set(courtLabel, []);
+            courtGroups.get(courtLabel).push(slot);
+        });
+        const courtsHtml = [...courtGroups.entries()].map(([courtLabel, courtSlots]) => `
+            <div class="metro-summary-timeslot-group">
+                <strong>${escapeHtml(courtLabel)}</strong>
+                ${courtSlots.map(slot => `<span>${escapeHtml(compactTimeHeader(slot.time))}</span>`).join('')}
+            </div>
+        `).join('');
+        return `
+            <section class="metro-summary-date-group">
+                <span class="metro-summary-kicker">Schedule Date</span>
+                <h4>${escapeHtml(new Date(`${date}T00:00:00`).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }))}</h4>
+                <span class="metro-summary-kicker">Allocated Timeslots</span>
+                <div class="metro-summary-timeslots">${courtsHtml}</div>
+            </section>
+        `;
+    }).join('');
+
+    return `
+        <div class="metro-reservation-summary">
+            ${scheduleHtml}
+            <dl class="metro-summary-totals">
+                <div><dt>Rate Subtotal</dt><dd>${peso.format(subtotal)}</dd></div>
+                <div><dt>Convenience Surcharge</dt><dd>${peso.format(surcharge)}</dd></div>
+                <div class="metro-summary-total"><dt>Total Due</dt><dd>${peso.format(total)}</dd></div>
+            </dl>
+        </div>
+    `;
+}
+
 function slotStartMinutes(slot) {
     return timeToMinutes(state?.slotDetails?.[slot.time]?.startsAt || '00:00');
 }
@@ -932,12 +1330,14 @@ function formatHours(hours) {
 }
 
 function bookingReferencePrefix(date = new Date()) {
-    const year = date.getFullYear();
+    const year = String(date.getFullYear()).slice(-2);
     const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
     const hours = String(date.getHours()).padStart(2, '0');
     const minutes = String(date.getMinutes()).padStart(2, '0');
     const seconds = String(date.getSeconds()).padStart(2, '0');
-    return `MA${year}${month}-${hours}${minutes}${seconds}`;
+    const random = Math.random().toString(36).slice(2, 6).toUpperCase().padEnd(4, '0');
+    return `MA${year}${month}${day}-${hours}${minutes}${seconds}-${random}`;
 }
 
 function bookingSummaryBreakdown(slots = activeBookingSlots) {
@@ -1071,81 +1471,87 @@ function renderBookingGrid() {
     const date = isoDate(selectedDate);
     const today = isoDate(new Date());
     const courts = courtsForSelectedSport();
-    els.dateLabel.textContent = `${niceDate(date)}${date === today ? ' - Today' : ''}`;
+    const allSlots = Object.values(state.timeSlots || {}).flat();
+    if (els.dateLabel) {
+        els.dateLabel.textContent = `${niceDate(date)}${date === today ? ' - Today' : ''}`;
+    }
     const prevButton = document.getElementById('prevDate');
     if (prevButton) {
         prevButton.disabled = date <= today;
         prevButton.classList.toggle('opacity-50', date <= today);
     }
-    els.grid.style.gridTemplateColumns = `minmax(118px, 128px) repeat(${courts.length}, minmax(54px, 1fr))`;
-    els.grid.style.minWidth = courts.length > 2 ? `${118 + courts.length * 56}px` : '';
+    renderBookingDateCards(date, today);
 
-    const header = ['Time', ...courts];
+    els.grid.style.gridTemplateColumns = `minmax(112px, 150px) repeat(${allSlots.length}, minmax(76px, 1fr))`;
+    els.grid.style.minWidth = `${150 + allSlots.length * 76}px`;
+
+    const header = ['Court', ...allSlots];
     const headerHtml = header.map((item, index) => `
-        <div class="border-b border-slate-200 bg-slate-50 p-2.5 text-xs font-black ${index === 0 ? '' : 'text-center'}">
-            ${index === 0 ? item : courtDisplayName(item)}
+        <div class="metro-schedule-head ${index === 0 ? 'metro-schedule-head-court' : ''}">
+            ${index === 0 ? item : compactTimeHeader(item)}
         </div>
     `).join('');
 
-    const rows = Object.values(state.timeSlots).map(slots => {
-        const slotRows = slots.map(time => {
-            const first = `
-                <div class="border-b border-slate-200 bg-white p-2 text-[11px] font-black leading-4">
-                    ${compactTime(time)}<p class="text-primary">${peso.format(slotPrice(time, courts[0]?.id, selectedSport, date))}</p>
-                </div>
+    const rows = courts.map((courtInfo, index) => {
+        const court = courtInfo.id;
+        const courtLabel = courtDisplayName(courtInfo);
+        const courtNumber = courtInfo.number || index + 1;
+        const first = `
+            <div class="metro-schedule-court-cell">
+                <small>Court</small>
+                <strong>${String(courtNumber).padStart(2, '0')}</strong>
+                <span>${escapeHtml(courtLabel)}</span>
+            </div>
+        `;
+        const cells = allSlots.map(time => {
+            const conflict = relatedConflictFor(date, time, courtInfo);
+            const status = conflict?.status || 'Available';
+            const isPast = slotIsPast(date, time);
+            const tone = statusTone(status);
+            const slotData = {
+                date,
+                time,
+                court,
+                courtName: courtLabel,
+                sport: selectedSport
+            };
+            const isSelected = selectedBookingSlots.some(item => bookingSlotKey(item) === bookingSlotKey(slotData));
+            const css = isSelected
+                ? 'booking-slot-selected'
+                : isPast
+                ? 'booking-slot-available booking-slot-past'
+                : tone === 'booked' || tone === 'pending'
+                ? 'booking-slot-booked'
+                : tone === 'blocked'
+                ? 'booking-slot-unavailable'
+                : 'booking-slot-available';
+            const disabled = status !== 'Available' || isPast ? 'disabled' : '';
+            const label = isSelected
+                ? 'Selected'
+                : status === 'Available' && !isPast
+                ? ''
+                : tone === 'blocked' || isPast
+                ? 'Unavailable'
+                : publicSlotLabel(status, conflict);
+            const help = isPast
+                ? 'Past dates and time slots cannot be booked.'
+                : status === 'Available'
+                ? `Select ${courtLabel} ${selectedSport} slot`
+                : `${courtLabel} is unavailable for this time.`;
+            return `
+                <button ${disabled}
+                    data-book-date="${date}"
+                    data-book-time="${time}"
+                    data-book-court="${court}"
+                    data-book-court-name="${escapeHtml(courtLabel)}"
+                    data-book-sport="${selectedSport}"
+                    title="${escapeHtml(help)}"
+                    class="slot booking-slot metro-schedule-slot ${css}">
+                    <span class="slot-label">${escapeHtml(label)}</span>
+                </button>
             `;
-            const courtCells = courts.map(courtInfo => {
-                const court = courtInfo.id;
-                const conflict = relatedConflictFor(date, time, courtInfo);
-                const status = conflict?.status || 'Available';
-                const isPast = slotIsPast(date, time);
-                const tone = statusTone(status);
-                const slotData = {
-                    date,
-                    time,
-                    court,
-                    courtName: courtDisplayName(courtInfo),
-                    sport: selectedSport
-                };
-                const isSelected = selectedBookingSlots.some(item => bookingSlotKey(item) === bookingSlotKey(slotData));
-                const css = isSelected
-                    ? 'booking-slot-selected'
-                    : isPast
-                    ? 'booking-slot-unavailable'
-                    : tone === 'booked' || tone === 'pending'
-                    ? 'booking-slot-booked'
-                    : tone === 'blocked'
-                    ? 'booking-slot-unavailable'
-                    : 'booking-slot-available';
-                const disabled = status !== 'Available' || isPast ? 'disabled' : '';
-                const label = isSelected
-                    ? 'Selected'
-                    : status === 'Available' && !isPast
-                    ? 'Select'
-                    : tone === 'blocked' || isPast
-                    ? ''
-                    : compactStatusLabel(status);
-                const help = isPast
-                    ? 'Past dates and time slots cannot be booked.'
-                    : status === 'Available'
-                    ? `Select ${courtDisplayName(courtInfo)} ${selectedSport} slot`
-                    : `${courtDisplayName(courtInfo)} is unavailable for this time.`;
-                return `
-                    <button ${disabled}
-                        data-book-date="${date}"
-                        data-book-time="${time}"
-                        data-book-court="${court}"
-                        data-book-court-name="${courtDisplayName(courtInfo)}"
-                        data-book-sport="${selectedSport}"
-                        title="${escapeHtml(help)}"
-                        class="slot booking-slot m-0.5 rounded-md border px-1.5 py-1.5 text-[11px] transition ${css}">
-                        <span class="slot-label">${escapeHtml(label)}</span>
-                    </button>
-                `;
-            }).join('');
-            return first + courtCells;
         }).join('');
-        return slotRows;
+        return first + cells;
     }).join('');
 
     els.grid.innerHTML = headerHtml + rows;
@@ -1155,15 +1561,71 @@ function renderBookingGrid() {
     renderBookingSelectionBar();
 }
 
+function renderBookingDateCards(date, today) {
+    if (!els.dateCards) return;
+    let start = new Date(`${isoDate(bookingDateWindowStart)}T00:00:00`);
+    const todayDate = new Date(`${today}T00:00:00`);
+    if (start < todayDate) {
+        start = todayDate;
+    }
+
+    const selected = new Date(`${date}T00:00:00`);
+    const end = new Date(start);
+    end.setDate(start.getDate() + 3);
+    if (selected < start) {
+        start = selected < todayDate ? todayDate : selected;
+    } else if (selected > end) {
+        start = new Date(selected);
+        start.setDate(selected.getDate() - 3);
+        if (start < todayDate) {
+            start = todayDate;
+        }
+    }
+    bookingDateWindowStart = new Date(start);
+
+    const cards = Array.from({ length: 4 }, (_, index) => {
+        const itemDate = new Date(start);
+        itemDate.setDate(start.getDate() + index);
+        const iso = isoDate(itemDate);
+        const isActive = iso === date;
+        const isPast = iso < today;
+        return `
+            <button
+                type="button"
+                class="metro-date-card ${isActive ? 'is-active' : ''}"
+                data-booking-date-card="${iso}"
+                ${isPast ? 'disabled' : ''}
+            >
+                <span>${shortWeekday(iso)}</span>
+                <strong>${shortMonthDay(iso)}</strong>
+            </button>
+        `;
+    }).join('');
+
+    els.dateCards.innerHTML = cards;
+    els.dateCards.querySelectorAll('[data-booking-date-card]').forEach(button => {
+        button.addEventListener('click', () => {
+            selectedDate = new Date(`${button.dataset.bookingDateCard}T00:00:00`);
+            clearBookingSelection();
+            renderBookingGrid();
+        });
+    });
+}
+
 function renderAdmin() {
     if (!state) return;
     const allRows = (state.adminReservations || []).filter(item => item.type === 'court');
     renderAdminStats(allRows);
     if (!els.admin) return;
-    const rows = allRows.filter(item => adminFilter === 'All' || item.status === adminFilter);
+    const referenceNeedle = adminReferenceSearch.trim().toLowerCase();
+    const rows = allRows.filter(item => {
+        const matchesStatus = adminFilter === 'All' || item.status === adminFilter;
+        const matchesReference = referenceNeedle === '' || String(item.bookingReference || '').toLowerCase().includes(referenceNeedle);
+        return matchesStatus && matchesReference;
+    });
 
     if (rows.length === 0) {
-        els.admin.innerHTML = '<tr><td colspan="6" class="text-secondary">No reservations in this status.</td></tr>';
+        els.admin.innerHTML = '<tr><td colspan="7" class="text-secondary">No reservations match the current filter.</td></tr>';
         return;
     }
 
@@ -1174,7 +1636,11 @@ function renderAdmin() {
                 <p class="mb-0 text-xs text-secondary">Court ${item.court} - ${item.sport}</p>
             </td>
             <td>
+                <p class="mb-0 fw-black text-ink">${escapeHtml(item.bookingReference || 'N/A')}</p>
+            </td>
+            <td>
                 <p class="mb-1 fw-black">${escapeHtml(item.customerName)}</p>
+                ${item.playerNickname ? `<p class="mb-0 text-xs text-secondary">Nickname: ${escapeHtml(item.playerNickname)}</p>` : ''}
                 <p class="mb-0 text-xs text-secondary">${escapeHtml(item.customerPhone || 'No phone')}</p>
                 <p class="mb-0 text-xs text-secondary">${escapeHtml(item.customerEmail || 'No email')}</p>
                 ${item.memberName ? `<p class="mb-0 text-xs fw-black text-primary">Member: ${escapeHtml(item.memberName)}</p>` : ''}
@@ -1189,27 +1655,58 @@ function renderAdmin() {
                 ${item.cancelReason ? `<p class="mb-0 mt-1 text-xs text-warning">Reason: ${escapeHtml(item.cancelReason)}</p>` : ''}
             </td>
             <td>
-                ${item.receipt ? `<a class="btn btn-outline-primary btn-sm" target="_blank" href="${escapeHtml(resourceUrl(item.receipt))}">View</a>` : '<span class="text-xs text-secondary">None</span>'}
+                ${item.receipt
+                    ? `<a class="btn btn-outline-primary btn-sm" target="_blank" rel="noopener" href="${escapeHtml(resourceUrl(item.receipt))}">View Receipt</a>
+                       ${adminCanManageOperations() ? `<button type="button" class="btn btn-outline-secondary btn-sm mt-1" data-admin-receipt-upload="${item.id}">Replace</button>` : ''}`
+                    : (adminCanManageOperations() ? `<button type="button" class="btn btn-outline-primary btn-sm" data-admin-receipt-upload="${item.id}">Upload</button>` : '<span class="text-xs text-secondary">None</span>')}
             </td>
             <td class="text-end">
-                <div class="d-inline-flex flex-wrap justify-content-end gap-1">
-                    <button data-admin-id="${item.id}" data-status="Booked" class="btn btn-success btn-sm">Booked</button>
-                    <button data-admin-id="${item.id}" data-status="Held" class="btn btn-secondary btn-sm">Held</button>
-                    <button data-admin-id="${item.id}" data-status="Pending Payment" class="btn btn-outline-secondary btn-sm">Pending Payment</button>
-                    <button data-admin-id="${item.id}" data-status="Available" class="btn btn-outline-danger btn-sm">Available</button>
-                </div>
+                ${adminReservationActions(item)}
             </td>
         </tr>
     `).join('');
 
     els.admin.querySelectorAll('[data-admin-id]').forEach(button => {
-        button.addEventListener('click', () => updateStatus(button.dataset.adminId, button.dataset.status));
+        button.addEventListener('click', () => {
+            if (button.dataset.status === 'Cancelled') {
+                openCancelReservationModal(button.dataset.adminId);
+            } else {
+                updateStatus(button.dataset.adminId, button.dataset.status);
+            }
+        });
+    });
+    els.admin.querySelectorAll('[data-admin-receipt-upload]').forEach(button => {
+        button.addEventListener('click', () => openReceiptUploadModal(button.dataset.adminReceiptUpload));
     });
 }
 
+function adminReservationActions(item) {
+    if (!adminCanManageOperations()) {
+        return '<span class="text-xs text-secondary">View only</span>';
+    }
+    if (item.status === 'Held') {
+        return `
+            <div class="d-inline-flex flex-wrap justify-content-end gap-1">
+                <button data-admin-id="${item.id}" data-status="Booked" class="btn btn-success btn-sm">Verify / Confirm</button>
+                <button data-admin-id="${item.id}" data-status="Cancelled" class="btn btn-outline-danger btn-sm">Cancel</button>
+            </div>
+        `;
+    }
+
+    if (item.status === 'Booked') {
+        return `
+            <div class="d-inline-flex flex-wrap justify-content-end gap-1">
+                <button data-admin-id="${item.id}" data-status="Cancelled" class="btn btn-outline-danger btn-sm">Cancel</button>
+            </div>
+        `;
+    }
+
+    return '<span class="text-xs text-secondary">No actions</span>';
+}
+
 function adminStatusClass(status) {
+    if (status === 'Cancelled') return 'status-badge-cancelled';
     if (statusTone(status) === 'pending') return 'status-badge-pending';
-    if (statusTone(status) === 'available') return 'status-badge-available';
     return 'status-badge-booked';
 }
 
@@ -1221,9 +1718,9 @@ function renderAdminStats(rows) {
     const pending = document.getElementById('adminPendingCount');
     const booked = document.getElementById('adminBookedCount');
     const cancelled = document.getElementById('adminCancelledCount');
-    if (pending) pending.textContent = (counts.Held || 0) + (counts['Pending Payment'] || 0);
+    if (pending) pending.textContent = counts.Held || 0;
     if (booked) booked.textContent = counts.Booked || 0;
-    if (cancelled) cancelled.textContent = counts.Available || 0;
+    if (cancelled) cancelled.textContent = counts.Cancelled || 0;
 }
 
 function renderAdminPaymentChannels() {
@@ -1310,11 +1807,13 @@ function renderAdminRateSummary() {
             if (courtCompare) return courtCompare;
             const sportCompare = String(a.sport || 'All sports').localeCompare(String(b.sport || 'All sports'));
             if (sportCompare) return sportCompare;
+            const dayCompare = rateDaySortValue(a.dayOfWeek || a.dayPattern || 'Any') - rateDaySortValue(b.dayOfWeek || b.dayPattern || 'Any');
+            if (dayCompare) return dayCompare;
             return timeToMinutes(a.startsAt) - timeToMinutes(b.startsAt);
         });
 
     if (rows.length === 0) {
-        els.adminRateSummary.innerHTML = '<tr><td colspan="5" class="text-secondary">No rates configured.</td></tr>';
+        els.adminRateSummary.innerHTML = '<tr><td colspan="6" class="text-secondary">No rates configured.</td></tr>';
         return;
     }
 
@@ -1322,6 +1821,7 @@ function renderAdminRateSummary() {
         <tr>
             <td>${escapeHtml(rule.courtName || 'All courts')}</td>
             <td>${escapeHtml(rule.sport || 'All sports')}</td>
+            <td>${escapeHtml(rule.dayOfWeek === 'Any' || !rule.dayOfWeek ? 'Any day' : rule.dayOfWeek)}</td>
             <td>${formatRuleTime(rule.startsAt)}-${formatRuleTime(rule.endsAt)}</td>
             <td class="text-end">${peso.format(Number(rule.pricePerHour || 0))}</td>
             <td class="text-end">
@@ -1329,7 +1829,7 @@ function renderAdminRateSummary() {
                     <button type="button" class="btn btn-outline-primary btn-sm" data-admin-rate-edit="${rule.id}">
                         Edit
                     </button>
-                    <button type="button" class="btn btn-outline-danger btn-sm" data-admin-rate-delete="${rule.id}" data-admin-rate-label="${escapeHtml(`${rule.courtName || 'All courts'} ${rule.sport || 'All sports'} ${formatRuleTime(rule.startsAt)}-${formatRuleTime(rule.endsAt)}`)}">
+                    <button type="button" class="btn btn-outline-danger btn-sm" data-admin-rate-delete="${rule.id}" data-admin-rate-label="${escapeHtml(`${rule.courtName || 'All courts'} ${rule.sport || 'All sports'} ${rule.dayOfWeek || 'Any'} ${formatRuleTime(rule.startsAt)}-${formatRuleTime(rule.endsAt)}`)}">
                         Delete
                     </button>
                 </div>
@@ -1545,7 +2045,20 @@ function showFormMessage(message, ok, hide = false) {
 
 async function submitPayment(event) {
     event.preventDefault();
-    if (!validateModalStep()) return;
+    const inlineForm = isInlineBookingForm();
+    if (inlineForm) {
+        if (selectedBookingSlots.length === 0) {
+            showFormMessage('Select at least one available slot before confirming.', false);
+            return;
+        }
+        activeBookingSlots = [...selectedBookingSlots];
+        if (!els.form.checkValidity()) {
+            els.form.reportValidity();
+            return;
+        }
+    } else if (!validateModalStep()) {
+        return;
+    }
     if (els.modalSubmitButton) els.modalSubmitButton.disabled = true;
     const endpoint = 'book';
     const slots = activeBookingSlots.length > 0 ? [...activeBookingSlots] : [{
@@ -1557,7 +2070,7 @@ async function submitPayment(event) {
     let saved = 0;
     let lastPayload = null;
     const references = [];
-    const referencePrefix = bookingReferencePrefix();
+    const reservationReference = bookingReferencePrefix();
 
     for (const [index, slot] of slots.entries()) {
         const formData = new FormData(els.form);
@@ -1566,7 +2079,7 @@ async function submitPayment(event) {
         formData.set('time', slot.time);
         formData.set('court', slot.court);
         formData.set('sport', slot.sport);
-        formData.set('bookingReference', `${referencePrefix}-${String(index + 1).padStart(4, '0')}`);
+        formData.set('bookingReference', reservationReference);
 
         const response = await fetch(`${api}?action=${endpoint}`, { method: 'POST', body: formData });
         const payload = await response.json();
@@ -1579,13 +2092,15 @@ async function submitPayment(event) {
             return;
         }
         saved += 1;
-        if (payload.bookingReference) references.push(payload.bookingReference);
+        if (payload.bookingReference && !references.includes(payload.bookingReference)) references.push(payload.bookingReference);
         state = payload.state;
     }
 
     if (els.bookingReferencePanel && references.length > 0) {
-        bookingModalCloseUnlocked = true;
-        setBookingModalStep(bookingModalStep);
+        if (!inlineForm) {
+            bookingModalCloseUnlocked = true;
+            setBookingModalStep(bookingModalStep);
+        }
         const messengerUrl = String(state?.siteConfig?.messenger_url || '').trim();
         const messengerText = messengerUrl
             ? `<a href="${escapeHtml(messengerUrl)}" target="_blank" rel="noopener" class="text-primary">Facebook Messenger</a>`
@@ -1604,6 +2119,24 @@ async function submitPayment(event) {
     if (saved === slots.length) {
         clearBookingSelection();
         renderAll();
+        if (inlineForm) {
+            if (els.bookingReferencePanel && references.length > 0) {
+                els.bookingReferencePanel.classList.remove('hidden');
+                els.bookingReferencePanel.innerHTML = `
+                    <p class="modal-info-title">Booking reference${references.length === 1 ? '' : 's'} generated</p>
+                    <ul class="booking-reference-list">
+                        ${references.map(reference => `<li><strong>${escapeHtml(reference)}</strong></li>`).join('')}
+                    </ul>
+                    <p>${state?.member ? 'Admin will verify your uploaded proof and confirm the booking.' : 'Send these references with your payment proof.'}</p>
+                `;
+            }
+            if (els.modalSubmitButton) {
+                els.modalSubmitButton.disabled = true;
+                els.modalSubmitButton.type = 'submit';
+                els.modalSubmitButton.textContent = 'Confirm Reservation';
+            }
+            return;
+        }
         if (els.modalSubmitButton) {
             els.modalSubmitButton.disabled = false;
             els.modalSubmitButton.type = 'button';
@@ -1616,10 +2149,12 @@ async function submitPayment(event) {
 
 function renderAdminMembers() {
     if (!els.adminMembers || !state) return;
-    const members = state.adminMembers || [];
+    const query = adminMemberSearch.trim().toLowerCase();
+    const members = (state.adminMembers || []).filter(member => !query || memberSearchText(member).includes(query));
+    const canManage = adminCanManageOperations();
 
     if (members.length === 0) {
-        els.adminMembers.innerHTML = '<div class="rounded-xl border border-dashed border-line bg-white p-5 text-sm font-bold text-muted">No registered members yet.</div>';
+        els.adminMembers.innerHTML = '<div class="rounded-xl border border-dashed border-line bg-white p-5 text-sm font-bold text-muted">No members match the current search.</div>';
         return;
     }
 
@@ -1630,8 +2165,10 @@ function renderAdminMembers() {
                     <tr>
                         <th scope="col">Member</th>
                         <th scope="col">Contact</th>
+                        <th scope="col">Skill / Consent</th>
                         <th scope="col" class="text-center">Courts</th>
                         <th scope="col" class="text-center">Booked</th>
+                        <th scope="col" class="text-center">Entrance Fees</th>
                         <th scope="col">Activity</th>
                         <th scope="col">Status</th>
                         <th scope="col" class="text-end">Action</th>
@@ -1642,14 +2179,22 @@ function renderAdminMembers() {
                         <tr>
                             <td>
                                 <div class="fw-black text-ink">${escapeHtml(member.name)}</div>
-                                <div class="text-xs font-semibold text-muted">Member #${member.id}</div>
+                                <div class="text-xs font-semibold text-muted">${escapeHtml(member.nickname || 'No nickname')} | Member #${member.id}</div>
                             </td>
                             <td>
                                 <div class="fw-bold">${escapeHtml(member.email)}</div>
                                 <div class="text-xs font-semibold text-muted">${escapeHtml(member.phone || 'No phone')}</div>
                             </td>
+                            <td>
+                                <div class="fw-bold">${escapeHtml(member.skillLabel || 'No level')}</div>
+                                <div class="text-xs font-semibold ${member.dataPrivacyActAgree ? 'text-success' : 'text-danger'}">${member.dataPrivacyActAgree ? 'Privacy consent recorded' : 'Privacy consent missing'}</div>
+                            </td>
                             <td class="text-center fw-black text-primary">${member.courtBookingsCount || 0}</td>
                             <td class="text-center fw-black text-primary">${member.confirmedCount || 0}</td>
+                            <td class="text-center">
+                                <div class="fw-black text-primary">${member.entranceFeeCount || 0}</div>
+                                <div class="text-xs font-semibold text-muted">${peso.format(Number(member.entranceFeeTotal || 0))}</div>
+                            </td>
                             <td class="text-sm fw-semibold text-secondary">
                                 ${member.lastLoginAt ? `Last login ${new Date(member.lastLoginAt).toLocaleDateString()}` : `Joined ${new Date(member.createdAt).toLocaleDateString()}`}
                             </td>
@@ -1657,9 +2202,30 @@ function renderAdminMembers() {
                                 <span class="status-badge ${member.isActive ? 'status-badge-booked' : 'status-badge-cancelled'}">${member.isActive ? 'Active' : 'Inactive'}</span>
                             </td>
                             <td class="text-end">
-                                <button type="button" data-admin-member-id="${member.id}" data-is-active="${member.isActive ? '0' : '1'}" class="btn ${member.isActive ? 'btn-outline-danger' : 'btn-success'} btn-sm">
-                                    ${member.isActive ? 'Deactivate' : 'Activate'}
-                                </button>
+                                <div class="d-inline-flex flex-wrap justify-content-end gap-1">
+                                    ${canManage ? `
+                                        <button type="button" data-admin-member-edit="${member.id}" class="btn btn-outline-primary btn-sm">Edit</button>
+                                        <button type="button" data-admin-member-qr="${member.id}" class="btn btn-outline-secondary btn-sm">QR</button>
+                                        <button type="button" data-admin-member-fee="${member.id}" class="btn btn-primary btn-sm">Pay Entrance Fee</button>
+                                        <button type="button" data-admin-member-id="${member.id}" data-is-active="${member.isActive ? '0' : '1'}" class="btn ${member.isActive ? 'btn-outline-danger' : 'btn-success'} btn-sm">
+                                            ${member.isActive ? 'Deactivate' : 'Activate'}
+                                        </button>
+                                    ` : '<span class="text-xs text-secondary">View only</span>'}
+                                </div>
+                                ${member.entranceFeeHistory?.length ? `
+                                    <details class="mt-2 text-start">
+                                        <summary class="text-xs fw-black text-primary">Entrance fee history</summary>
+                                        <div class="admin-fee-history">
+                                            ${member.entranceFeeHistory.slice(0, 8).map(item => `
+                                                <div>
+                                                    <strong>${escapeHtml(niceDate(item.paymentDate))}</strong>
+                                                    <span>${peso.format(Number(item.amount || 0))}</span>
+                                                    <small>${escapeHtml(item.referenceNumber || 'Walk-in / visit')} | Recorded by: ${escapeHtml(item.recordedByName || 'Admin')}</small>
+                                                </div>
+                                            `).join('')}
+                                        </div>
+                                    </details>
+                                ` : ''}
                             </td>
                         </tr>
                     `).join('')}
@@ -1671,6 +2237,208 @@ function renderAdminMembers() {
     els.adminMembers.querySelectorAll('[data-admin-member-id]').forEach(button => {
         button.addEventListener('click', () => submitAdminMemberStatus(button));
     });
+    els.adminMembers.querySelectorAll('[data-admin-member-edit]').forEach(button => {
+        button.addEventListener('click', () => openAdminMemberModal(button.dataset.adminMemberEdit));
+    });
+    els.adminMembers.querySelectorAll('[data-admin-member-qr]').forEach(button => {
+        button.addEventListener('click', () => openAdminMemberQr(button.dataset.adminMemberQr));
+    });
+    els.adminMembers.querySelectorAll('[data-admin-member-fee]').forEach(button => {
+        button.addEventListener('click', () => openEntranceFeeModal(button.dataset.adminMemberFee));
+    });
+}
+
+function findAdminMember(id) {
+    return (state?.adminMembers || []).find(member => Number(member.id) === Number(id)) || null;
+}
+
+function openAdminMemberModal(id = '') {
+    if (!els.adminMemberForm) return;
+    const member = id ? findAdminMember(id) : null;
+    els.adminMemberForm.reset();
+    if (els.adminMemberModalTitle) {
+        els.adminMemberModalTitle.textContent = member ? 'Edit Member' : 'Add Member';
+    }
+    const set = (name, value) => {
+        const field = els.adminMemberForm.querySelector(`[name="${name}"]`);
+        if (field) field.value = value ?? '';
+    };
+    set('id', member?.id || '');
+    set('name', member?.name || '');
+    set('nickname', member?.nickname || '');
+    set('phone', member?.phone || '');
+    set('email', member?.email || '');
+    set('birthMonth', member?.birthMonth || '');
+    set('birthYear', member?.birthYear || '');
+    set('skillLevel', member?.skillLevel || '');
+    set('password', '');
+    const password = els.adminMemberForm.querySelector('[name="password"]');
+    if (password) password.required = !member;
+    const active = els.adminMemberForm.querySelector('[name="isActive"]');
+    if (active) active.checked = member ? Boolean(member.isActive) : true;
+    const consent = els.adminMemberForm.querySelector('[name="dataPrivacyActAgree"]');
+    if (consent) consent.checked = member ? Boolean(member.dataPrivacyActAgree) : false;
+    const message = document.getElementById('adminMemberFormMessage');
+    if (message) {
+        message.textContent = '';
+        message.className = 'hidden rounded-md p-2 text-xs font-bold mt-3';
+    }
+    if (window.bootstrap && els.adminMemberModal) {
+        bootstrap.Modal.getOrCreateInstance(els.adminMemberModal).show();
+    }
+}
+
+async function submitAdminMemberForm(event) {
+    event.preventDefault();
+    const form = event.currentTarget;
+    if (!form.reportValidity()) return;
+    const message = document.getElementById('adminMemberFormMessage');
+    const formData = new FormData(form);
+    formData.set('isActive', form.querySelector('[name="isActive"]').checked ? '1' : '0');
+    formData.set('dataPrivacyActAgree', form.querySelector('[name="dataPrivacyActAgree"]').checked ? '1' : '0');
+
+    const response = await fetch(`${api}?action=admin-member-save`, { method: 'POST', body: formData });
+    const payload = await response.json();
+    if (message) {
+        message.textContent = payload.message || 'Saved.';
+        message.className = `rounded-md p-2 text-xs font-bold mt-3 ${payload.ok ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-700'}`;
+    }
+    if (payload.ok) {
+        state = payload.state;
+        renderAll();
+        if (window.bootstrap && els.adminMemberModal) {
+            bootstrap.Modal.getInstance(els.adminMemberModal)?.hide();
+        }
+    } else if (response.status === 401) {
+        window.location.href = adminLoginUrl;
+    }
+}
+
+function openAdminMemberQr(id) {
+    const member = findAdminMember(id);
+    if (!member || !els.adminMemberQrBody) return;
+    const payload = member.qrPayload || `member=${member.lookupToken}`;
+    if (els.adminMemberQrTitle) {
+        els.adminMemberQrTitle.textContent = `${member.name} QR Code`;
+    }
+    els.adminMemberQrBody.innerHTML = `
+        <div class="admin-member-qr-panel">
+            <img src="${escapeHtml(qrImageUrl(payload))}" alt="${escapeHtml(member.name)} member QR code">
+            <dl class="admin-detail-list">
+                <div><dt>Name</dt><dd>${escapeHtml(member.name)}</dd></div>
+                <div><dt>Nickname</dt><dd>${escapeHtml(member.nickname || 'N/A')}</dd></div>
+                <div><dt>Phone</dt><dd>${escapeHtml(member.phone || 'N/A')}</dd></div>
+                <div><dt>Email</dt><dd>${escapeHtml(member.email || 'N/A')}</dd></div>
+            </dl>
+            <p class="text-xs fw-bold text-secondary mb-0">Payload: ${escapeHtml(payload)}</p>
+        </div>
+    `;
+    if (window.bootstrap && els.adminMemberQrModal) {
+        bootstrap.Modal.getOrCreateInstance(els.adminMemberQrModal).show();
+    }
+}
+
+function openEntranceFeeModal(id) {
+    const member = findAdminMember(id);
+    if (!member || !els.adminEntranceFeeForm) return;
+    els.adminEntranceFeeForm.reset();
+    if (els.adminEntranceMemberId) els.adminEntranceMemberId.value = member.id;
+    if (els.adminEntranceMemberSummary) {
+        els.adminEntranceMemberSummary.textContent = `${member.name} | ${member.phone || member.email}`;
+    }
+    const now = new Date();
+    const date = isoDate(now);
+    const time = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+    els.adminEntranceFeeForm.querySelector('[name="amount"]').value = '50.00';
+    els.adminEntranceFeeForm.querySelector('[name="paymentDate"]').value = date;
+    els.adminEntranceFeeForm.querySelector('[name="paymentTime"]').value = time;
+    const message = els.adminEntranceFeeMessage;
+    if (message) {
+        message.textContent = '';
+        message.className = 'hidden rounded-md p-2 text-xs font-bold mt-3';
+    }
+    if (window.bootstrap && els.adminEntranceFeeModal) {
+        bootstrap.Modal.getOrCreateInstance(els.adminEntranceFeeModal).show();
+    }
+}
+
+async function submitEntranceFee(event) {
+    event.preventDefault();
+    const form = event.currentTarget;
+    if (!form.reportValidity()) return;
+    const response = await fetch(`${api}?action=admin-entrance-fee`, { method: 'POST', body: new FormData(form) });
+    const payload = await response.json();
+    if (els.adminEntranceFeeMessage) {
+        els.adminEntranceFeeMessage.textContent = payload.message || 'Saved.';
+        els.adminEntranceFeeMessage.className = `rounded-md p-2 text-xs font-bold mt-3 ${payload.ok ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-700'}`;
+    }
+    if (payload.ok) {
+        state = payload.state;
+        renderAll();
+        if (window.bootstrap && els.adminEntranceFeeModal) {
+            bootstrap.Modal.getInstance(els.adminEntranceFeeModal)?.hide();
+        }
+    } else if (response.status === 401) {
+        window.location.href = adminLoginUrl;
+    }
+}
+
+async function submitQrLookup(event) {
+    event.preventDefault();
+    const payloadValue = String(els.adminQrPayload?.value || '').trim();
+    if (!payloadValue) {
+        els.adminQrPayload?.focus();
+        return;
+    }
+    const formData = new FormData();
+    formData.set('qrPayload', payloadValue);
+    const response = await fetch(`${api}?action=admin-member-lookup`, { method: 'POST', body: formData });
+    const payload = await response.json();
+    if (els.adminQrScanMessage) {
+        els.adminQrScanMessage.textContent = payload.message || 'Lookup complete.';
+        els.adminQrScanMessage.className = `rounded-md p-2 text-xs font-bold mt-3 ${payload.ok ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-700'}`;
+    }
+    if (payload.ok) {
+        state = payload.state;
+        adminMemberSearch = String(findAdminMember(payload.memberId)?.lookupToken || payloadValue);
+        if (els.adminMemberSearch) els.adminMemberSearch.value = adminMemberSearch;
+        renderAll();
+        if (window.bootstrap && els.adminQrScanModal) {
+            bootstrap.Modal.getInstance(els.adminQrScanModal)?.hide();
+        }
+    }
+}
+
+async function startQrCamera() {
+    if (!('BarcodeDetector' in window) || !navigator.mediaDevices?.getUserMedia || !els.adminQrVideo) {
+        alert('Camera QR scanning is not available in this browser. Paste the QR payload instead.');
+        return;
+    }
+    adminQrStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+    els.adminQrVideo.srcObject = adminQrStream;
+    els.adminQrVideo.hidden = false;
+    await els.adminQrVideo.play();
+    const detector = new BarcodeDetector({ formats: ['qr_code'] });
+    const scan = async () => {
+        if (!adminQrStream) return;
+        const codes = await detector.detect(els.adminQrVideo).catch(() => []);
+        if (codes.length > 0) {
+            els.adminQrPayload.value = codes[0].rawValue || '';
+            stopQrCamera();
+            return;
+        }
+        requestAnimationFrame(scan);
+    };
+    scan();
+}
+
+function stopQrCamera() {
+    adminQrStream?.getTracks().forEach(track => track.stop());
+    adminQrStream = null;
+    if (els.adminQrVideo) {
+        els.adminQrVideo.hidden = true;
+        els.adminQrVideo.srcObject = null;
+    }
 }
 
 function adminUserTableRow(user = null) {
@@ -1696,6 +2464,7 @@ function adminUserTableRow(user = null) {
             <td><input required type="email" name="email" value="${escapeHtml(row.email)}" class="form-input" placeholder="staff@example.com"></td>
             <td>
                 <select name="role" class="form-select">
+                    <option value="super_admin" ${row.role === 'super_admin' ? 'selected' : ''}>Super Admin</option>
                     <option value="staff" ${row.role === 'staff' ? 'selected' : ''}>Staff</option>
                     <option value="admin" ${row.role === 'admin' ? 'selected' : ''}>Admin</option>
                 </select>
@@ -1801,11 +2570,6 @@ async function updateStatus(id, status) {
     const formData = new FormData();
     formData.append('id', id);
     formData.append('status', status);
-    if (status === 'Available') {
-        const reason = window.prompt('Reason for marking this reservation available?', 'Marked available by admin');
-        if (reason === null) return;
-        formData.append('reason', reason.trim() || 'Marked available by admin');
-    }
 
     const response = await fetch(`${api}?action=admin-status`, { method: 'POST', body: formData });
     const payload = await response.json();
@@ -1816,6 +2580,90 @@ async function updateStatus(id, status) {
         window.location.href = adminLoginUrl;
     } else {
         alert(payload.message || 'Could not update status.');
+    }
+}
+
+function openCancelReservationModal(id) {
+    const item = reservationById(id);
+    if (!item || !els.adminCancelReservationForm) return;
+    els.adminCancelReservationForm.reset();
+    els.adminCancelReservationId.value = id;
+    if (els.adminCancelReservationSummary) {
+        els.adminCancelReservationSummary.textContent = `${item.bookingReference || 'No reference'} | ${niceDate(item.date)} | ${compactTime(item.time)} | Court ${item.court} | ${item.status}`;
+    }
+    if (els.adminCancelReservationMessage) {
+        els.adminCancelReservationMessage.textContent = '';
+        els.adminCancelReservationMessage.className = 'hidden rounded-md p-2 text-xs font-bold mt-3';
+    }
+    if (window.bootstrap && els.adminCancelReservationModal) {
+        bootstrap.Modal.getOrCreateInstance(els.adminCancelReservationModal).show();
+    }
+}
+
+async function submitCancelReservation(event) {
+    event.preventDefault();
+    const form = event.currentTarget;
+    const reason = String(form.querySelector('[name="reason"]')?.value || '').trim();
+    if (!reason) {
+        form.reportValidity();
+        return;
+    }
+    const formData = new FormData(form);
+    formData.set('status', 'Cancelled');
+
+    const response = await fetch(`${api}?action=admin-status`, { method: 'POST', body: formData });
+    const payload = await response.json();
+    if (els.adminCancelReservationMessage) {
+        els.adminCancelReservationMessage.textContent = payload.message || 'Saved.';
+        els.adminCancelReservationMessage.className = `rounded-md p-2 text-xs font-bold mt-3 ${payload.ok ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-700'}`;
+    }
+    if (payload.ok) {
+        state = payload.state;
+        renderAll();
+        if (window.bootstrap && els.adminCancelReservationModal) {
+            bootstrap.Modal.getInstance(els.adminCancelReservationModal)?.hide();
+        }
+    } else if (response.status === 401) {
+        window.location.href = adminLoginUrl;
+    }
+}
+
+function openReceiptUploadModal(id) {
+    const item = reservationById(id);
+    if (!item || !els.adminReceiptUploadForm) return;
+    els.adminReceiptUploadForm.reset();
+    els.adminReceiptReservationId.value = id;
+    if (els.adminReceiptUploadSummary) {
+        els.adminReceiptUploadSummary.textContent = `${item.bookingReference || 'No reference'} | ${item.customerName || ''} | ${niceDate(item.date)} ${compactTime(item.time)}`;
+    }
+    if (els.adminReceiptUploadMessage) {
+        els.adminReceiptUploadMessage.textContent = '';
+        els.adminReceiptUploadMessage.className = 'hidden rounded-md p-2 text-xs font-bold mt-3';
+    }
+    if (window.bootstrap && els.adminReceiptUploadModal) {
+        bootstrap.Modal.getOrCreateInstance(els.adminReceiptUploadModal).show();
+    }
+}
+
+async function submitReceiptUpload(event) {
+    event.preventDefault();
+    const form = event.currentTarget;
+    if (!form.reportValidity()) return;
+    const formData = new FormData(form);
+    const response = await fetch(`${api}?action=admin-receipt-upload`, { method: 'POST', body: formData });
+    const payload = await response.json();
+    if (els.adminReceiptUploadMessage) {
+        els.adminReceiptUploadMessage.textContent = payload.message || 'Saved.';
+        els.adminReceiptUploadMessage.className = `rounded-md p-2 text-xs font-bold mt-3 ${payload.ok ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-700'}`;
+    }
+    if (payload.ok) {
+        state = payload.state;
+        renderAll();
+        if (window.bootstrap && els.adminReceiptUploadModal) {
+            bootstrap.Modal.getInstance(els.adminReceiptUploadModal)?.hide();
+        }
+    } else if (response.status === 401) {
+        window.location.href = adminLoginUrl;
     }
 }
 
@@ -2006,11 +2854,44 @@ els.modalSubmitButton?.addEventListener('click', () => {
 });
 els.form?.addEventListener('submit', submitPayment);
 els.adminOverrideBookingForm?.addEventListener('submit', submitAdminOverrideBooking);
+els.adminCancelReservationForm?.addEventListener('submit', submitCancelReservation);
+els.adminReceiptUploadForm?.addEventListener('submit', submitReceiptUpload);
+els.adminMemberForm?.addEventListener('submit', submitAdminMemberForm);
+els.adminEntranceFeeForm?.addEventListener('submit', submitEntranceFee);
+els.adminQrScanForm?.addEventListener('submit', submitQrLookup);
 els.adminOverrideCourt?.addEventListener('change', () => updateAdminOverrideSports());
 els.adminScheduleGrid?.addEventListener('click', event => {
     const button = event.target.closest('[data-admin-calendar-booking]');
     if (button) openAdminCalendarBooking(button);
 });
+els.adminReferenceSearch?.addEventListener('input', event => {
+    adminReferenceSearch = event.target.value;
+    renderAdmin();
+});
+els.adminMemberSearch?.addEventListener('input', event => {
+    adminMemberSearch = event.target.value;
+    renderAdminMembers();
+});
+els.adminAddMember?.addEventListener('click', () => openAdminMemberModal());
+document.querySelectorAll('[data-open-privacy-policy]').forEach(button => {
+    button.addEventListener('click', () => {
+        if (window.bootstrap && els.adminPrivacyPolicyModal) {
+            bootstrap.Modal.getOrCreateInstance(els.adminPrivacyPolicyModal).show();
+        }
+    });
+});
+document.getElementById('adminScanMemberQr')?.addEventListener('click', () => {
+    if (els.adminQrScanForm) els.adminQrScanForm.reset();
+    if (els.adminQrScanMessage) {
+        els.adminQrScanMessage.textContent = '';
+        els.adminQrScanMessage.className = 'hidden rounded-md p-2 text-xs font-bold mt-3';
+    }
+    if (window.bootstrap && els.adminQrScanModal) {
+        bootstrap.Modal.getOrCreateInstance(els.adminQrScanModal).show();
+    }
+});
+els.adminStartQrCamera?.addEventListener('click', startQrCamera);
+els.adminQrScanModal?.addEventListener('hidden.bs.modal', stopQrCamera);
 els.paymentMethod?.addEventListener('change', event => renderPaymentInstructions(event.target.value));
 els.bookingSelectionBookNow?.addEventListener('click', openSelectedBookingModal);
 

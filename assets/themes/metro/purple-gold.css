@@ -1,0 +1,254 @@
+/* Site-wide purple and gold palette override. */
+:root {
+    --metro-primary: #27133f;
+    --metro-secondary: #faf6ea;
+    --metro-text: #5b5265;
+    --metro-accent: #d8a928;
+    --metro-accent-hover: #f0c75e;
+    --metro-border: rgba(39, 19, 63, 0.16);
+
+    --ma-primary: #4b247a;
+    --ma-primary-dark: #27133f;
+    --ma-accent: #d8a928;
+    --ma-green: #d8a928;
+    --ma-ink: #27133f;
+    --ma-muted: #6f6578;
+    --ma-line: #eadfca;
+    --ma-soft: #fbf7ef;
+    --ma-card-shadow: 0 16px 34px rgba(39, 19, 63, 0.1);
+
+    --admin-bg: #fbf7ef;
+    --admin-surface: #ffffff;
+    --admin-ink: #27133f;
+    --admin-muted: #746b7d;
+    --admin-line: rgba(39, 19, 63, 0.14);
+    --admin-accent: #d8a928;
+    --admin-accent-hover: #f0c75e;
+    --admin-shadow: 0 18px 44px rgba(39, 19, 63, 0.12);
+}
+
+body {
+    background: linear-gradient(180deg, #ffffff 0%, #fbf7ef 100%);
+}
+
+.public-topbar {
+    border-bottom-color: rgba(234, 223, 202, 0.9);
+    box-shadow: 0 1px 12px rgba(39, 19, 63, 0.08);
+}
+
+.public-navbar .nav-link:hover,
+.public-navbar .nav-link.active {
+    background: #f7eed9;
+    color: var(--ma-primary);
+}
+
+.brand-mark,
+.btn-primary,
+.main-button,
+.sport-option-active,
+.booking-slot-selected .slot-label {
+    background: var(--ma-primary);
+    border-color: var(--ma-primary);
+}
+
+.btn-primary:hover,
+.main-button:hover {
+    background: var(--ma-primary-dark);
+    border-color: var(--ma-primary-dark);
+}
+
+.btn-lime,
+.bg-limevolt,
+.bg-lime-300,
+.bg-amber-400,
+.bg-warning {
+    background-color: var(--ma-accent) !important;
+    border-color: var(--ma-accent) !important;
+    color: var(--ma-ink) !important;
+}
+
+.btn-lime:hover,
+.bg-limevolt:hover {
+    background-color: var(--metro-accent-hover) !important;
+    border-color: var(--metro-accent-hover) !important;
+    color: var(--ma-ink) !important;
+}
+
+.text-primary,
+.text-court,
+.text-sport {
+    color: var(--ma-primary) !important;
+}
+
+.text-warning,
+.text-amber-800,
+.text-amber-900 {
+    color: #9a6a00 !important;
+}
+
+.text-slate-900,
+.text-ink {
+    color: var(--ma-ink) !important;
+}
+
+.bg-ink,
+.bg-slate-900 {
+    background-color: var(--ma-ink) !important;
+}
+
+.bg-ink\/70 {
+    background-color: rgba(39, 19, 63, 0.7) !important;
+}
+
+.bg-ink\/85 {
+    background-color: rgba(39, 19, 63, 0.85) !important;
+}
+
+.bg-blue-50,
+.bg-blue-50\/60,
+.bg-slate-50,
+.bg-slate-50\/70 {
+    background-color: var(--ma-soft) !important;
+}
+
+.bg-blue-100 {
+    background-color: #f3e8c4 !important;
+}
+
+.border-blue-200 {
+    border-color: var(--ma-line) !important;
+}
+
+.ring-amber-200,
+.ring-slate-200 {
+    box-shadow: 0 0 0 1px var(--ma-line) !important;
+}
+
+.hover\:bg-blue-50:hover,
+.main-button-outline:hover {
+    background-color: #f7eed9 !important;
+}
+
+.hover\:border-primary:hover,
+.hover\:border-court:hover,
+.focus\:border-court:focus {
+    border-color: var(--ma-primary) !important;
+}
+
+.hover\:bg-sport:hover {
+    background-color: var(--ma-primary) !important;
+}
+
+.page-hero {
+    background:
+        linear-gradient(135deg, rgba(39, 19, 63, 0.96), rgba(75, 36, 122, 0.82)),
+        url("../../courts-preview.png");
+    background-size: cover;
+    background-position: center;
+}
+
+.hero-bg {
+    background-image:
+        linear-gradient(90deg, rgba(39, 19, 63, 0.94) 0%, rgba(39, 19, 63, 0.72) 42%, rgba(216, 169, 40, 0.22) 100%),
+        url("../../hero-pickleball.png");
+}
+
+.arena-home-screen {
+    background-image:
+        linear-gradient(180deg, rgba(39, 19, 63, 0.16) 0%, rgba(75, 36, 122, 0.34) 42%, rgba(39, 19, 63, 0.86) 100%),
+        var(--arena-hero-image, url("../../homepage-court.jpg"));
+}
+
+.landing-section-soft,
+.modal-header-clean,
+.modal-header {
+    background: linear-gradient(180deg, #fbf7ef 0%, #ffffff 100%);
+}
+
+.landing-feature-card,
+.landing-gallery-grid figure,
+.landing-map,
+.contact-list p,
+.modal-card,
+.modal-content,
+.booking-stepper li {
+    border-color: var(--ma-line) !important;
+}
+
+.feature-number {
+    color: #eadfca;
+}
+
+.booking-slot-available:hover .slot-label,
+.booking-slot-available:focus .slot-label,
+.booking-stepper li.is-active {
+    background: #f7eed9;
+    color: var(--ma-primary);
+}
+
+.booking-selection-bar {
+    border-color: #e4c878;
+    box-shadow: 0 14px 32px rgba(39, 19, 63, 0.12);
+}
+
+.modal-shell {
+    background: rgba(39, 19, 63, 0.64);
+}
+
+.metro-header.overlay {
+    background: linear-gradient(to bottom, rgba(39, 19, 63, 0.84), rgba(39, 19, 63, 0));
+}
+
+.metro-header.overlay.scrolled {
+    background: rgba(39, 19, 63, 0.95);
+    box-shadow: 0 8px 30px rgba(39, 19, 63, 0.16);
+}
+
+.metro-header:not(.overlay).scrolled {
+    box-shadow: 0 8px 30px rgba(39, 19, 63, 0.12);
+}
+
+.metro-hero-video-overlay {
+    background: linear-gradient(90deg, rgba(39, 19, 63, 0.68) 0%, rgba(39, 19, 63, 0.42) 50%, rgba(216, 169, 40, 0.12) 100%);
+}
+
+.metro-experience-strip {
+    background: var(--metro-accent);
+    color: var(--metro-primary);
+}
+
+.metro-cta-overlay {
+    background: linear-gradient(90deg, rgba(39, 19, 63, 0.08) 30%, rgba(39, 19, 63, 0.86) 78%);
+}
+
+.admin-sidebar {
+    background: var(--admin-ink);
+}
+
+.admin-topbar {
+    background: rgba(251, 247, 239, 0.94);
+}
+
+.admin-nav-link.active {
+    border-color: rgba(216, 169, 40, 0.42);
+}
+
+.admin-nav-link.active small {
+    color: rgba(39, 19, 63, 0.64);
+}
+
+.admin-hero {
+    background:
+        radial-gradient(circle at 92% 18%, rgba(216, 169, 40, 0.24), transparent 24%),
+        linear-gradient(135deg, #ffffff 0%, #fbf7ef 100%) !important;
+}
+
+#schedule-dashboard .table-responsive {
+    background: #fbf7ef !important;
+}
+
+.admin-body .form-input:focus,
+.admin-body .form-control:focus,
+.admin-body .form-select:focus {
+    box-shadow: 0 0 0 3px rgba(216, 169, 40, 0.28);
+}

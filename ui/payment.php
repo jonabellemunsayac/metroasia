@@ -54,7 +54,7 @@ $messengerUrl = trim((string) ($siteConfig['messenger_url'] ?? ''));
                             href="<?php echo htmlspecialchars(app_url('ui/booking.php')); ?>"
                             class="metro-btn metro-btn-accent"
                         >
-                            Book a Court
+                            Let's Play
                         </a>
                     </div>
                 </article>

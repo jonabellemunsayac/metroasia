@@ -45,7 +45,7 @@ if ($useAdminShell):
 
                 <section class="metro-footer-links">
                     <h3>Quick Links</h3>
-                    <a href="<?php echo htmlspecialchars(app_url('ui/booking.php')); ?>">Book a Court</a>
+                    <a href="<?php echo htmlspecialchars(app_url('ui/booking.php')); ?>">Let's Play</a>
                     <a href="<?php echo htmlspecialchars(app_url('ui/index.php#gallery')); ?>">Gallery</a>
                     <a href="<?php echo htmlspecialchars(app_url('ui/rules.php')); ?>">Court Rules</a>
                     <a href="<?php echo htmlspecialchars(app_url('ui/payment.php')); ?>">Payment</a>
@@ -82,6 +82,31 @@ if ($useAdminShell):
             </div>
         </div>
     </footer>
+
+    <div class="gallery-modal" data-gallery-modal hidden aria-hidden="true">
+        <div class="gallery-modal-backdrop" data-gallery-modal-close></div>
+        <div class="gallery-modal-dialog" role="dialog" aria-modal="true" aria-label="Gallery image viewer">
+            <button class="gallery-modal-close" type="button" data-gallery-modal-close aria-label="Close gallery">
+                <i data-lucide="x" class="icon-sm"></i>
+            </button>
+
+            <button class="gallery-modal-arrow gallery-modal-arrow-left" type="button" data-gallery-modal-prev aria-label="Previous image">
+                <i data-lucide="chevron-left" class="icon-sm"></i>
+            </button>
+
+            <figure class="gallery-modal-frame">
+                <img src="" alt="" data-gallery-modal-image>
+                <figcaption class="gallery-modal-caption">
+                    <strong data-gallery-modal-title></strong>
+                    <span data-gallery-modal-count></span>
+                </figcaption>
+            </figure>
+
+            <button class="gallery-modal-arrow gallery-modal-arrow-right" type="button" data-gallery-modal-next aria-label="Next image">
+                <i data-lucide="chevron-right" class="icon-sm"></i>
+            </button>
+        </div>
+    </div>
 
 <?php endif; ?>
 

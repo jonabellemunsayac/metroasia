@@ -1,14 +1,104 @@
-/* Booking page
-   Visual conversion based on themeforest/templates/booking-form.json.
-   The existing booking IDs/data attributes are preserved so app.js can continue
-   to control sport selection, dates, rates, bookingGrid and selected slots.
-*/
+/* Booking page */
 
 .metro-booking-page {
     background:
         radial-gradient(circle at top right, rgba(213, 242, 45, .10), transparent 30%),
         #f7f8f7;
     min-height: 100vh;
+}
+
+.metro-sport-select-section {
+    padding: 42px 0 86px;
+}
+
+.metro-sport-select-heading {
+    max-width: 760px;
+    margin-bottom: 28px;
+}
+
+.metro-sport-select-heading h1 {
+    margin-bottom: 12px;
+    font-size: clamp(2.4rem, 5vw, 4rem);
+}
+
+.metro-sport-select-heading p {
+    max-width: 620px;
+    margin: 0;
+    font-size: 1rem;
+    line-height: 1.7;
+}
+
+.metro-sport-select-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 22px;
+}
+
+.metro-sport-select-card {
+    min-height: 245px;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    border: 1px solid var(--metro-border);
+    border-radius: 22px;
+    background: #fff;
+    box-shadow: 18px 22px 54px rgba(39, 19, 63, 0.08);
+    transition: border-color .18s ease, box-shadow .18s ease, transform .18s ease;
+}
+
+.metro-sport-select-card:hover,
+.metro-sport-select-card:focus-visible {
+    border-color: var(--metro-accent);
+    box-shadow: 22px 28px 64px rgba(39, 19, 63, 0.13);
+    color: var(--metro-primary);
+    transform: translateY(-3px);
+}
+
+.metro-sport-select-card:focus-visible {
+    outline: 3px solid rgba(216, 169, 40, 0.38);
+    outline-offset: 4px;
+}
+
+.metro-sport-select-body {
+    flex: 1 1 auto;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    gap: 22px;
+    padding: 22px;
+}
+
+.metro-sport-select-body strong {
+    display: block;
+    margin-bottom: 8px;
+    color: var(--metro-primary);
+    font-size: 1.45rem;
+    font-weight: 800;
+    line-height: 1.1;
+}
+
+.metro-sport-select-body small {
+    display: block;
+    color: var(--metro-text);
+    font-size: .9rem;
+    font-weight: 600;
+    line-height: 1.55;
+}
+
+.metro-sport-select-action {
+    min-height: 44px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    align-self: flex-start;
+    padding: 0 18px;
+    border-radius: 999px;
+    background: var(--metro-accent);
+    color: var(--metro-primary);
+    font-size: .78rem;
+    font-weight: 900;
+    letter-spacing: .05em;
+    text-transform: uppercase;
 }
 
 .metro-booking-hero {
@@ -54,7 +144,7 @@
 }
 
 .metro-booking-section {
-    padding: 72px 0 100px;
+    padding: 28px 0 86px;
 }
 
 .metro-booking-layout {
@@ -62,6 +152,103 @@
     grid-template-columns: minmax(280px, 350px) minmax(0, 1fr);
     gap: 30px;
     align-items: start;
+}
+
+.metro-booking-layout-full {
+    grid-template-columns: minmax(0, 1fr);
+}
+
+.metro-reservation-shell {
+    display: grid;
+    gap: 34px;
+}
+
+.metro-reservation-progress {
+    width: min(860px, 100%);
+    display: flex;
+    align-items: center;
+    justify-self: center;
+    justify-content: center;
+    gap: 16px;
+    padding: 0;
+    margin: 0;
+    list-style: none;
+}
+
+.metro-reservation-progress li {
+    position: relative;
+    flex: 0 1 150px;
+    display: grid;
+    justify-items: center;
+    gap: 10px;
+    color: #a8b2be;
+}
+
+.metro-reservation-progress li:not(:last-child)::after {
+    content: "";
+    position: absolute;
+    top: 22px;
+    left: calc(50% + 34px);
+    width: 72px;
+    height: 1px;
+    background: #c6d2df;
+}
+
+.metro-reservation-progress span {
+    width: 44px;
+    height: 44px;
+    display: grid;
+    place-items: center;
+    border: 1px solid #c8d5e2;
+    border-radius: 50%;
+    background: #f7f9fb;
+    color: inherit;
+    font-size: .85rem;
+    font-weight: 900;
+}
+
+.metro-reservation-progress strong {
+    color: inherit;
+    font-size: .74rem;
+    font-weight: 900;
+    letter-spacing: .16em;
+    text-transform: uppercase;
+}
+
+.metro-reservation-progress li.is-active {
+    color: var(--metro-primary);
+}
+
+.metro-reservation-progress li.is-active span {
+    border-color: var(--metro-primary);
+    background: var(--metro-primary);
+    color: #fff;
+}
+
+.metro-booking-topline {
+    display: grid;
+    grid-template-columns: minmax(0, 520px) minmax(330px, 460px);
+    align-items: end;
+    justify-content: space-between;
+    gap: 36px;
+}
+
+.metro-booking-topline h1 {
+    margin: 6px 0 8px;
+    color: var(--metro-primary);
+    max-width: none;
+    font-size: clamp(2rem, 3.2vw, 3rem);
+    font-weight: 900;
+    line-height: 1;
+    text-transform: uppercase;
+    white-space: nowrap;
+}
+
+.metro-booking-topline p {
+    margin: 0;
+    color: var(--metro-text);
+    font-size: .95rem;
+    font-weight: 700;
 }
 
 /* LEFT SIDEBAR */
@@ -74,8 +261,8 @@
 .metro-booking-about-card,
 .metro-booking-panel {
     background: #fff;
-    border-radius: 22px;
-    box-shadow: 30px 30px 80px rgba(0,0,0,.08);
+    border-radius: 6px;
+    box-shadow: 0 20px 60px rgba(39, 19, 63, 0.07);
 }
 
 .metro-booking-venue-card {
@@ -191,6 +378,7 @@
 /* MAIN PANEL */
 .metro-booking-panel {
     overflow: hidden;
+    border: 1px solid #ccd7e3;
 }
 
 .metro-booking-tabs {
@@ -226,7 +414,46 @@
 }
 
 .metro-booking-panel-body {
-    padding: 30px;
+    padding: 42px;
+}
+
+.metro-booking-flow {
+    display: grid;
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+    gap: 8px;
+    padding: 0;
+    margin: 0 0 22px;
+    list-style: none;
+}
+
+.metro-booking-flow li {
+    min-height: 42px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 8px 10px;
+    border: 1px solid var(--metro-border);
+    border-radius: 12px;
+    background: #fff;
+    color: var(--metro-text);
+    font-size: .68rem;
+    font-weight: 900;
+    letter-spacing: .04em;
+    line-height: 1.2;
+    text-align: center;
+    text-transform: uppercase;
+}
+
+.metro-booking-flow li.is-complete {
+    border-color: rgba(216, 169, 40, .5);
+    background: rgba(216, 169, 40, .14);
+    color: var(--metro-primary);
+}
+
+.metro-booking-flow li.is-active {
+    border-color: var(--metro-accent);
+    background: var(--metro-accent);
+    color: var(--metro-primary);
 }
 
 .metro-booking-info {
@@ -258,14 +485,42 @@
     font-size: .86rem;
 }
 
-/* Form styling mirrors the ThemeForest section:
-   white background, 30px two-column grid feel, 1px underline-like controls. */
 .metro-booking-form-block {
     margin-top: 26px;
     padding: 26px;
     border: 1px solid var(--metro-border);
     border-radius: 18px;
     background: #fff;
+}
+
+.metro-selected-sport-block p {
+    max-width: 640px;
+    margin: -4px 0 0;
+    font-size: .92rem;
+    line-height: 1.6;
+}
+
+.metro-change-sport-link {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 38px;
+    padding: 0 14px;
+    border: 1px solid var(--metro-border);
+    border-radius: 999px;
+    background: #fff;
+    color: var(--metro-primary);
+    font-size: .72rem;
+    font-weight: 900;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+    white-space: nowrap;
+}
+
+.metro-change-sport-link:hover {
+    border-color: var(--metro-accent);
+    background: var(--metro-accent);
+    color: var(--metro-primary);
 }
 
 .metro-booking-block-head {
@@ -394,16 +649,96 @@
     border-color: var(--metro-accent);
 }
 
+/* Reservation date board */
+.metro-booking-date-board {
+    display: grid;
+    gap: 16px;
+}
+
+.metro-booking-date-strip {
+    display: grid;
+    grid-template-columns: 42px minmax(0, 1fr) 42px;
+    gap: 10px;
+    align-items: stretch;
+}
+
+.metro-date-cards {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 10px;
+}
+
+.metro-date-card,
+.metro-date-arrow {
+    border: 1px solid #ccd7e3;
+    border-radius: 4px;
+    background: #fff;
+    color: var(--metro-primary);
+}
+
+.metro-date-arrow {
+    min-height: 56px;
+    display: grid;
+    place-items: center;
+}
+
+.metro-date-card {
+    min-height: 58px;
+    display: grid;
+    place-items: center;
+    gap: 3px;
+    padding: 8px 12px;
+    text-align: center;
+    transition: background .16s ease, border-color .16s ease, color .16s ease;
+}
+
+.metro-date-card span {
+    color: var(--metro-text);
+    font-size: .67rem;
+    font-weight: 900;
+    letter-spacing: .12em;
+    line-height: 1;
+    text-transform: uppercase;
+}
+
+.metro-date-card strong {
+    color: inherit;
+    font-size: .92rem;
+    font-weight: 900;
+    line-height: 1.1;
+}
+
+.metro-date-card:hover:not(:disabled),
+.metro-date-arrow:hover:not(:disabled),
+.metro-date-card.is-active {
+    border-color: var(--metro-primary);
+    background: var(--metro-primary);
+    color: #fff;
+}
+
+.metro-date-card:hover:not(:disabled) span,
+.metro-date-card.is-active span {
+    color: rgba(255, 255, 255, .75);
+}
+
+.metro-date-card:disabled,
+.metro-date-arrow:disabled {
+    cursor: not-allowed;
+    opacity: .45;
+}
+
+.metro-date-current {
+    margin: -4px 0 0;
+    color: var(--metro-text);
+    font-size: .84rem;
+    font-weight: 800;
+}
+
 /* RATES */
 .metro-booking-rates {
     display: grid;
-    grid-template-columns: 180px 1fr;
-    gap: 24px;
-    align-items: center;
-    margin-top: 24px;
-    padding: 20px;
-    border-radius: 16px;
-    background: var(--metro-secondary);
+    justify-items: end;
+    gap: 8px;
 }
 
 .metro-booking-rates-label p {
@@ -413,37 +748,644 @@
 
 .metro-rate-cards,
 #rateCards {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 9px;
+    display: grid;
+    grid-template-columns: repeat(3, minmax(112px, 1fr));
+    gap: 10px;
 }
 
-/* Any rate chips injected by app.js */
-#rateCards > * {
-    border-radius: 999px !important;
+.metro-rate-card {
+    min-height: 72px;
+    display: grid;
+    align-content: center;
+    gap: 6px;
+    padding: 12px 14px;
+    border: 1px solid #ccd7e3;
+    border-radius: 4px;
+    background: #fff;
+}
+
+.metro-rate-card strong {
+    color: var(--metro-primary);
+    font-size: 1.08rem;
+    font-weight: 900;
+    line-height: 1;
+}
+
+.metro-rate-card strong span {
+    margin-left: 2px;
+    font-size: .66rem;
+    text-transform: uppercase;
+}
+
+.metro-rate-card small {
+    color: var(--metro-text);
+    font-size: .72rem;
+    font-weight: 800;
+    line-height: 1.25;
 }
 
 /* BOOKING GRID */
 .metro-booking-grid-shell {
-    margin-top: 24px;
+    margin-top: 28px;
     overflow-x: auto;
-    border: 1px solid var(--metro-border);
-    border-radius: 18px;
+    overscroll-behavior-x: contain;
+    border: 1px solid #ccd7e3;
+    border-radius: 4px;
     background: #fff;
+    scrollbar-color: var(--metro-primary) #e8eef5;
+    scrollbar-width: thin;
+}
+
+.metro-booking-grid-shell::-webkit-scrollbar {
+    height: 10px;
+}
+
+.metro-booking-grid-shell::-webkit-scrollbar-track {
+    background: #e8eef5;
+}
+
+.metro-booking-grid-shell::-webkit-scrollbar-thumb {
+    border-radius: 999px;
+    background: var(--metro-primary);
 }
 
 #bookingGrid {
-    min-width: 700px;
+    display: grid;
+    min-width: 920px;
 }
 
-/* Try to harmonize dynamically injected grid buttons/cells without
-   changing app.js output or selectors. */
-#bookingGrid button {
-    transition: background-color .15s ease, border-color .15s ease, transform .15s ease;
+.metro-schedule-head,
+.metro-schedule-court-cell,
+.metro-schedule-slot {
+    min-height: 64px;
+    border-right: 1px solid #dbe3ec;
+    border-bottom: 1px solid #dbe3ec;
 }
 
-#bookingGrid button:hover:not(:disabled) {
-    transform: translateY(-1px);
+.metro-schedule-head {
+    display: grid;
+    place-items: center;
+    padding: 10px 8px;
+    background: #eef3f8;
+    color: #435166;
+    font-size: .72rem;
+    font-weight: 900;
+    line-height: 1.2;
+    text-align: center;
+}
+
+.metro-schedule-head-court {
+    background: #dfe7f0;
+    color: var(--metro-primary);
+    text-transform: uppercase;
+}
+
+.metro-schedule-court-cell {
+    display: grid;
+    align-content: center;
+    gap: 2px;
+    padding: 12px 16px;
+    background: #fff;
+}
+
+.metro-schedule-court-cell small {
+    color: var(--metro-text);
+    font-size: .62rem;
+    font-weight: 900;
+    letter-spacing: .12em;
+    line-height: 1;
+    text-transform: uppercase;
+}
+
+.metro-schedule-court-cell strong {
+    color: var(--metro-primary);
+    font-size: 1.05rem;
+    font-weight: 900;
+    line-height: 1;
+}
+
+.metro-schedule-court-cell span {
+    color: #5e6877;
+    font-size: .68rem;
+    font-weight: 800;
+    line-height: 1.15;
+}
+
+.metro-schedule-slot {
+    display: grid;
+    place-items: center;
+    width: 100%;
+    padding: 8px 6px;
+    border-top: 0;
+    border-left: 0;
+    border-radius: 0;
+    background: #f3f6f9;
+    color: #405068;
+    font-size: .68rem;
+    font-weight: 900;
+    text-align: center;
+    cursor: default !important;
+    transition: background-color .15s ease, color .15s ease, box-shadow .15s ease;
+}
+
+.metro-schedule-slot.booking-slot-available {
+    cursor: default !important;
+    background: #fff;
+}
+
+button.metro-schedule-slot.booking-slot-available,
+button.metro-schedule-slot.booking-slot-selected:not(:disabled) {
+    cursor: default !important;
+}
+
+.metro-schedule-slot:disabled,
+button.metro-schedule-slot.booking-slot-booked,
+button.metro-schedule-slot.booking-slot-unavailable {
+    cursor: default !important;
+}
+
+button.metro-schedule-slot.booking-slot-past {
+    cursor: default !important;
+}
+
+.metro-schedule-slot.booking-slot-available .slot-label {
+    color: var(--metro-primary);
+}
+
+.metro-schedule-slot.booking-slot-available:hover,
+.metro-schedule-slot.booking-slot-available:focus-visible,
+.metro-schedule-slot.booking-slot-selected {
+    background: var(--metro-primary);
+    color: #fff;
+    box-shadow: inset 0 0 0 2px var(--metro-primary);
+}
+
+.metro-schedule-slot.booking-slot-available:hover .slot-label,
+.metro-schedule-slot.booking-slot-available:focus-visible .slot-label,
+.metro-schedule-slot.booking-slot-selected .slot-label {
+    color: #fff;
+}
+
+.metro-schedule-slot.booking-slot-booked,
+.metro-schedule-slot.booking-slot-unavailable {
+    cursor: default !important;
+    background: #edf2f7;
+    color: #a9b4c2;
+}
+
+.metro-schedule-slot.booking-slot-booked .slot-label,
+.metro-schedule-slot.booking-slot-unavailable .slot-label {
+    color: #9aa7b7;
+}
+
+.metro-booking-note {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    margin-top: 18px;
+    padding: 14px 16px;
+    border: 1px solid rgba(216, 169, 40, .42);
+    border-radius: 6px;
+    background: rgba(216, 169, 40, .10);
+    color: #7a4a00;
+}
+
+.metro-booking-note svg {
+    flex: 0 0 auto;
+    margin-top: 1px;
+    color: #c46b00;
+}
+
+.metro-booking-note p {
+    margin: 0;
+    font-size: .78rem;
+    font-weight: 800;
+    line-height: 1.65;
+}
+
+.metro-booking-note strong {
+    color: #bd5700;
+}
+
+.metro-inline-reservation {
+    margin-top: 26px;
+    padding-top: 26px;
+    border-top: 1px solid #dbe3ec;
+}
+
+.metro-inline-reservation-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 24px;
+    margin-bottom: 18px;
+}
+
+.metro-inline-reservation-head h2 {
+    margin: 4px 0 0;
+    color: var(--metro-primary);
+    font-size: 1.4rem;
+    font-weight: 900;
+}
+
+.metro-inline-reservation-head p {
+    max-width: 360px;
+    margin: 0;
+    color: var(--metro-text);
+    font-size: .82rem;
+    font-weight: 800;
+    line-height: 1.55;
+    text-align: right;
+}
+
+.metro-inline-form {
+    display: grid;
+    gap: 18px;
+}
+
+.metro-inline-player-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(300px, 360px);
+    gap: 24px;
+    align-items: start;
+}
+
+.metro-inline-player-card {
+    padding: 22px;
+    border: 1px solid #cbd6e2;
+    border-radius: 4px;
+    background: #fff;
+}
+
+.metro-inline-field-grid,
+.metro-inline-payment-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 16px;
+}
+
+.metro-inline-player-card .metro-inline-field-grid {
+    grid-template-columns: 1fr;
+}
+
+.metro-inline-field-grid .metro-inline-field:nth-child(3),
+.metro-inline-player-card .metro-inline-field-grid .metro-inline-field {
+    grid-column: 1 / -1;
+}
+
+.metro-inline-field {
+    display: grid;
+    gap: 8px;
+    color: #657186;
+    font-size: .68rem;
+    font-weight: 900;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+}
+
+.metro-inline-field span {
+    color: #768296;
+    font-size: .75rem;
+    font-weight: 700;
+    letter-spacing: 0;
+    line-height: 1.45;
+    text-transform: none;
+}
+
+.metro-inline-field .modal-input {
+    min-height: 46px;
+    border-radius: 4px;
+    border-color: #cbd6e2;
+    background: #fff;
+}
+
+.metro-inline-notes {
+    min-height: 112px;
+    resize: vertical;
+}
+
+.metro-inline-payment-instructions {
+    margin-top: 0;
+    border-radius: 6px;
+}
+
+.metro-payment-display {
+    display: grid;
+    gap: 18px;
+    justify-items: center;
+    padding: 4px;
+}
+
+.metro-payment-qr-block {
+    display: grid;
+    gap: 10px;
+    justify-items: center;
+}
+
+.metro-payment-qr-image,
+.metro-payment-qr-placeholder {
+    width: min(100%, 220px);
+    aspect-ratio: 1;
+    border: 1px solid #cbd6e2;
+    border-radius: 4px;
+    background: #fff;
+}
+
+.metro-payment-qr-image {
+    object-fit: contain;
+    padding: 12px;
+}
+
+.metro-payment-qr-placeholder {
+    display: grid;
+    place-items: center;
+    padding: 18px;
+    color: #7a8596;
+    font-size: .78rem;
+    font-weight: 900;
+    text-align: center;
+}
+
+.metro-payment-qr-image.hidden,
+.metro-payment-qr-placeholder.hidden {
+    display: none;
+}
+
+.metro-payment-download {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 38px;
+    width: min(100%, 220px);
+    border: 1px solid #cbd6e2;
+    border-radius: 4px;
+    background: #fff;
+    color: var(--metro-primary);
+    font-size: .72rem;
+    font-weight: 900;
+    letter-spacing: .08em;
+    text-decoration: none;
+    text-transform: uppercase;
+}
+
+.metro-payment-download:hover {
+    border-color: var(--metro-gold);
+    color: var(--metro-primary);
+}
+
+.metro-payment-detail-block {
+    display: grid;
+    gap: 12px;
+    width: min(100%, 520px);
+}
+
+.metro-payment-channel-label {
+    margin: 0;
+    color: var(--metro-primary);
+    font-size: .7rem;
+    font-weight: 900;
+    letter-spacing: .14em;
+    text-align: center;
+    text-transform: uppercase;
+}
+
+.metro-payment-detail-block h4 {
+    margin: 0;
+    color: var(--metro-primary);
+    font-size: 1.1rem;
+    font-weight: 900;
+    text-align: center;
+}
+
+.metro-payment-detail-block dl {
+    display: grid;
+    gap: 8px;
+    margin: 0;
+}
+
+.metro-payment-detail-block dl div {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 10px 12px;
+    border: 1px solid #dbe3ec;
+    border-radius: 4px;
+    background: #fff;
+}
+
+.metro-payment-detail-block dt,
+.metro-payment-detail-block dd {
+    margin: 0;
+    color: var(--metro-primary);
+    font-size: .8rem;
+}
+
+.metro-payment-detail-block dt {
+    font-weight: 900;
+}
+
+.metro-payment-detail-block dd {
+    color: #657186;
+    font-weight: 800;
+    text-align: right;
+}
+
+.metro-payment-instruction-text,
+.metro-payment-proof-note {
+    margin: 0;
+    color: #657186;
+    font-size: .82rem;
+    font-weight: 700;
+    line-height: 1.55;
+    text-align: center;
+}
+
+.metro-payment-proof-note {
+    padding: 10px 12px;
+    border-radius: 4px;
+    background: #fff;
+}
+
+.metro-inline-payment-section {
+    display: grid;
+    gap: 16px;
+    padding: 22px;
+    border: 1px solid #cbd6e2;
+    border-radius: 4px;
+    background: #fff;
+}
+
+.metro-inline-payment-section h2 {
+    margin: 4px 0 0;
+    color: var(--metro-primary);
+    font-size: 1.35rem;
+    font-weight: 900;
+}
+
+.metro-inline-summary-card {
+    display: grid;
+    gap: 16px;
+    max-width: 360px;
+    padding: 28px 32px;
+    border: 1px solid #cbd6e2;
+    border-radius: 4px;
+    background: #fff;
+}
+
+.metro-inline-summary-head {
+    display: grid;
+    gap: 12px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid #dbe3ec;
+}
+
+.metro-summary-date {
+    padding: 6px 10px;
+    border-radius: 4px;
+    background: #eef3f8;
+    color: #69768a;
+    font-size: .68rem;
+    font-weight: 900;
+    text-transform: uppercase;
+}
+
+.metro-inline-empty-summary {
+    padding: 18px;
+    border: 1px dashed #cbd6e2;
+    border-radius: 4px;
+    color: #7a8596;
+    font-size: .84rem;
+    font-weight: 800;
+    text-align: center;
+}
+
+.metro-inline-summary-card .booking-review-card {
+    border: 0;
+    box-shadow: none;
+}
+
+.metro-inline-summary-card .booking-review-table {
+    width: 100%;
+}
+
+.metro-inline-summary-card .booking-review-table th,
+.metro-inline-summary-card .booking-review-table td {
+    padding: 10px 8px;
+    border-bottom: 1px solid #e3e9f0;
+    font-size: .78rem;
+}
+
+.metro-inline-summary-card .booking-review-table tfoot td {
+    border-bottom: 0;
+    color: var(--metro-primary);
+    font-size: 1.15rem;
+    font-weight: 900;
+}
+
+.metro-reservation-summary {
+    display: grid;
+    gap: 22px;
+}
+
+.metro-summary-date-group {
+    display: grid;
+    gap: 8px;
+}
+
+.metro-summary-kicker {
+    color: #768296;
+    font-size: .66rem;
+    font-weight: 900;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+}
+
+.metro-summary-date-group h4 {
+    margin: 0 0 8px;
+    color: var(--metro-primary);
+    font-size: 1rem;
+    font-weight: 900;
+}
+
+.metro-summary-timeslots {
+    display: grid;
+    gap: 10px;
+    margin-top: 2px;
+    padding-left: 12px;
+    border-left: 2px solid var(--metro-primary);
+}
+
+.metro-summary-timeslot-group {
+    display: grid;
+    gap: 3px;
+}
+
+.metro-summary-timeslot-group strong,
+.metro-summary-timeslot-group span {
+    color: var(--metro-primary);
+    font-size: .78rem;
+    font-weight: 900;
+    line-height: 1.25;
+}
+
+.metro-summary-totals {
+    display: grid;
+    gap: 10px;
+    margin: 4px 0 0;
+    padding-top: 18px;
+    border-top: 1px dashed #d8e0e9;
+}
+
+.metro-summary-totals div {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 18px;
+}
+
+.metro-summary-totals dt,
+.metro-summary-totals dd {
+    margin: 0;
+    color: #4f5b6d;
+    font-size: .84rem;
+    font-weight: 800;
+}
+
+.metro-summary-totals dd {
+    color: var(--metro-primary);
+    font-weight: 900;
+}
+
+.metro-summary-totals .metro-summary-total {
+    margin-top: 6px;
+    padding-top: 14px;
+    border-top: 1px solid #dbe3ec;
+}
+
+.metro-summary-totals .metro-summary-total dt {
+    color: var(--metro-primary);
+    font-size: .82rem;
+    font-weight: 900;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+}
+
+.metro-summary-totals .metro-summary-total dd {
+    color: var(--metro-primary);
+    font-size: 1.35rem;
+    font-weight: 900;
+}
+
+.metro-inline-submit {
+    width: 100%;
+    min-height: 48px;
+    border-radius: 4px;
+}
+
+.metro-inline-submit:disabled {
+    cursor: not-allowed;
+    opacity: .55;
 }
 
 /* Selection bar */
@@ -478,6 +1420,19 @@
 
 /* Responsive */
 @media (max-width: 980px) {
+    .metro-sport-select-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .metro-booking-topline {
+        grid-template-columns: 1fr;
+        align-items: start;
+    }
+
+    .metro-booking-rates {
+        justify-items: start;
+    }
+
     .metro-booking-layout {
         grid-template-columns: 1fr;
     }
@@ -493,6 +1448,52 @@
 }
 
 @media (max-width: 760px) {
+    .metro-reservation-shell {
+        gap: 24px;
+    }
+
+    .metro-reservation-progress {
+        flex-wrap: wrap;
+        gap: 12px;
+    }
+
+    .metro-reservation-progress li {
+        flex: 1 1 calc(50% - 12px);
+    }
+
+    .metro-reservation-progress li:not(:last-child)::after {
+        display: none;
+    }
+
+    .metro-reservation-progress span {
+        width: 38px;
+        height: 38px;
+    }
+
+    .metro-reservation-progress strong {
+        font-size: .62rem;
+        letter-spacing: .1em;
+    }
+
+    .metro-booking-topline h1 {
+        max-width: 320px;
+        font-size: clamp(1.55rem, 8vw, 2.35rem);
+        white-space: normal;
+    }
+
+    .metro-sport-select-section {
+        padding: 30px 0 62px;
+    }
+
+    .metro-sport-select-grid {
+        grid-template-columns: 1fr;
+        gap: 16px;
+    }
+
+    .metro-sport-select-card {
+        min-height: 0;
+    }
+
     .metro-booking-hero {
         padding: 52px 0 36px;
     }
@@ -504,7 +1505,7 @@
     }
 
     .metro-booking-section {
-        padding: 38px 0 70px;
+        padding: 30px 0 62px;
     }
 
     .metro-booking-sidebar {
@@ -513,6 +1514,16 @@
 
     .metro-booking-panel-body {
         padding: 18px;
+    }
+
+    .metro-rate-cards,
+    #rateCards {
+        grid-template-columns: 1fr;
+        width: 100%;
+    }
+
+    .metro-booking-flow {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
     }
 
     .metro-booking-block-head {
@@ -528,6 +1539,14 @@
         flex-direction: column;
     }
 
+    .metro-booking-date-strip {
+        grid-template-columns: 40px minmax(0, 1fr) 40px;
+    }
+
+    .metro-date-cards {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
     .metro-booking-rates {
         grid-template-columns: 1fr;
     }
@@ -535,6 +1554,41 @@
     .metro-booking-selection-bar:not(.hidden) {
         align-items: stretch;
         flex-direction: column;
+    }
+
+    .metro-inline-reservation-head {
+        flex-direction: column;
+    }
+
+    .metro-inline-reservation-head p {
+        max-width: none;
+        text-align: left;
+    }
+
+    .metro-inline-field-grid,
+    .metro-inline-payment-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .metro-inline-player-layout {
+        grid-template-columns: 1fr;
+    }
+
+    .metro-inline-field-grid .metro-inline-field:nth-child(3) {
+        grid-column: auto;
+    }
+
+    .metro-inline-summary-card {
+        max-width: none;
+        padding: 16px;
+    }
+
+    .metro-inline-summary-card .booking-review-table {
+        min-width: 560px;
+    }
+
+    .booking-review-summary {
+        overflow-x: auto;
     }
 }
 

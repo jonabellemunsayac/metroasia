@@ -22,10 +22,10 @@ $modalMessengerUrl = trim((string) ($modalSiteConfig['messenger_url'] ?? ''));
             <input type="hidden" name="sessionId" id="formSessionId">
 
             <ol class="booking-stepper" aria-label="Booking steps">
-                <li data-booking-step="info">Player Information</li>
+                <li data-booking-step="info">Booking Details</li>
                 <li data-booking-step="review">Review Booking</li>
-                <li data-booking-step="payment">Payment Instructions</li>
-                <li data-booking-step="proof"><?php echo $modalMember ? 'Upload Payment Proof' : 'Booking Reference'; ?></li>
+                <li data-booking-step="payment">Review / Payment</li>
+                <li data-booking-step="proof">Reservation Confirmation</li>
             </ol>
 
             <section data-booking-step-panel="info" class="modal-step-panel">

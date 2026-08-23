@@ -13,12 +13,14 @@
     const tone = statusTone(status);
 
     if (selected) return { label: 'Selected', css: 'mobile-time-selected', disabled: false };
+    if (isPast && status === 'Available') return { label: 'Past', css: 'mobile-time-available mobile-time-past', disabled: true };
     if (isPast) return { label: 'Past', css: 'mobile-time-unavailable', disabled: true };
-    if (status === 'Available') return { label: 'Available', css: 'mobile-time-available', disabled: false };
+    if (status === 'Available') return { label: '', css: 'mobile-time-available', disabled: false };
     if (tone === 'blocked') return { label: 'Unavailable', css: 'mobile-time-unavailable', disabled: true };
+    if (status === 'Held') return { label: 'Unavailable', css: 'mobile-time-booked', disabled: true };
 
     return {
-      label: compactStatusLabel(status),
+      label: publicSlotLabel(status),
       css: 'mobile-time-booked',
       disabled: true
     };

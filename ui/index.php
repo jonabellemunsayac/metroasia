@@ -11,6 +11,10 @@ $contactHref = $messengerUrl !== '' ? $messengerUrl : app_url('ui/contact.php');
 
 $venueName = trim((string) ($siteConfig['venue_name'] ?? 'MetroAsia Arena'));
 $venueName = $venueName !== '' ? $venueName : 'MetroAsia Arena';
+$venueAddress = trim((string) ($siteConfig['address'] ?? ''));
+$mapQuery = $venueAddress !== '' ? $venueAddress : $venueName;
+$googleMapsUrl = 'https://www.google.com/maps/search/?api=1&query=' . rawurlencode($mapQuery);
+$wazeUrl = 'https://waze.com/ul?q=' . rawurlencode($mapQuery) . '&navigate=yes';
 
 /*
  * ThemeForest visual-reference assets.
@@ -20,7 +24,7 @@ $venueName = $venueName !== '' ? $venueName : 'MetroAsia Arena';
  */
 $tf = [
     'hero' => 'https://demo.zaktheme.web.id/Pickyard/wp-content/uploads/2025/11/female-paddle-tennis-player-hitting-the-ball-durin-2024-12-13-18-20-43-utc.webp',
-    'about_main' => 'https://demo.zaktheme.web.id/Pickyard/wp-content/uploads/2025/11/male-athlete-playing-mixed-doubles-on-paddle-tenni-2024-12-13-18-45-30-utc.jpg',
+    'about_main' => 'assets/images/basketball_court.jpg',
     'about_small' => 'https://demo.zaktheme.web.id/Pickyard/wp-content/uploads/2025/11/paddle-tennis-equipment-on-the-ground-at-outdoor-c-2024-12-13-18-15-20-utc-1.webp',
     'service_1' => 'https://demo.zaktheme.web.id/Pickyard/wp-content/uploads/2025/11/black-woman-serving-the-ball-while-playing-paddle-2024-12-13-18-33-41-utc.jpg',
     'service_2' => 'https://demo.zaktheme.web.id/Pickyard/wp-content/uploads/2025/11/multiracial-group-of-athletes-playing-paddle-tenni-2024-12-13-16-42-59-utc.webp',
@@ -44,6 +48,16 @@ $heroImage = site_asset_url((string) ($siteConfig['hero_image_path'] ?? ''));
 if (trim((string) ($siteConfig['hero_image_path'] ?? '')) === '') {
     $heroImage = $tf['hero'];
 }
+
+$aboutMainImage = site_asset_url((string) ($siteConfig['about_main_image_path'] ?? ''));
+if ($aboutMainImage === '') {
+    $aboutMainImage = site_asset_url((string) $tf['about_main']);
+}
+
+$aboutSmallImage = site_asset_url((string) ($siteConfig['about_small_image_path'] ?? ''));
+if ($aboutSmallImage === '') {
+    $aboutSmallImage = site_asset_url((string) $tf['about_small']);
+}
 ?>
 
 <main class="metro-home-page">
@@ -61,8 +75,8 @@ if (trim((string) ($siteConfig['hero_image_path'] ?? '')) === '') {
                 <p>MetroAsia Arena is open daily and ready for your next game.</p>
 
                 <div class="metro-actions">
-                    <a href="<?php echo htmlspecialchars(app_url('ui/booking.php')); ?>" class="metro-btn metro-btn-accent">
-                        Book a Court
+                    <a href="<?php //echo htmlspecialchars(app_url('ui/booking.php')); ?>" class="metro-btn metro-btn-accent">
+                        Let's Play
                     </a>
                 </div>
             </div>
@@ -124,7 +138,7 @@ if (trim((string) ($siteConfig['hero_image_path'] ?? '')) === '') {
                         ); ?>"
                         class="metro-btn metro-btn-accent"
                     >
-                        Book a Court
+                        Let's Play
                     </a>
                 </div>
             </div>
@@ -147,28 +161,80 @@ if (trim((string) ($siteConfig['hero_image_path'] ?? '')) === '') {
 
     <!-- TEXT STRIP -->
     <section class="metro-experience-strip" aria-hidden="true">
-        <div class="metro-experience-track">
-            <span>Experience MetroAsia</span><i>✦</i>
-            <span>Experience MetroAsia</span><i>✦</i>
-            <span>Experience MetroAsia</span><i>✦</i>
+        <div class="metro-experience-track" aria-hidden="true">
+            <div class="metro-experience-group">
+                <span>Experience MetroAsia</span><i>&#10022;</i>
+                <span>Experience MetroAsia</span><i>&#10022;</i>
+                <span>Experience MetroAsia</span><i>&#10022;</i>
+            </div>
+            <div class="metro-experience-group">
+                <span>Experience MetroAsia</span><i>&#10022;</i>
+                <span>Experience MetroAsia</span><i>&#10022;</i>
+                <span>Experience MetroAsia</span><i>&#10022;</i>
+            </div>
         </div>
     </section>
+
+    <!-- DYNAMIC GALLERY retained from the current application -->
+    <?php if (!empty($galleryItems)): ?>
+        <section id="gallery" class="metro-section metro-gallery-section">
+            <div class="metro-container">
+                <div class="metro-heading">
+                    <span class="metro-eyebrow">Gallery</span>
+                    <h2>Inside the Arena</h2>
+                </div>
+
+                <div class="landing-gallery-grid">
+                    <?php foreach ($galleryItems as $item): ?>
+                        <?php
+                        $itemImages = array_values(array_filter(array_map(
+                            static fn ($image): string => site_asset_url((string) $image),
+                            (array) ($item['images'] ?? [$item['image'] ?? ''])
+                        )));
+                        if (empty($itemImages)) {
+                            continue;
+                        }
+                        ?>
+                        <figure
+                            class="landing-gallery-card"
+                            data-gallery-card
+                            data-gallery-images="<?php echo htmlspecialchars(json_encode($itemImages, JSON_UNESCAPED_SLASHES), ENT_QUOTES); ?>"
+                            data-gallery-title="<?php echo htmlspecialchars((string) $item['title']); ?>"
+                            role="button"
+                            tabindex="0"
+                            aria-label="Open <?php echo htmlspecialchars((string) $item['title']); ?> gallery"
+                        >
+                            <img
+                                src="<?php echo htmlspecialchars($itemImages[0]); ?>"
+                                alt="<?php echo htmlspecialchars((string) $item['title']); ?>"
+                                data-gallery-image
+                                onerror="this.closest('figure').classList.add('image-missing')"
+                            >
+                            <figcaption><?php echo htmlspecialchars((string) $item['title']); ?></figcaption>
+                        </figure>
+                    <?php endforeach; ?>
+                </div>
+            </div>
+        </section>
+    <?php endif; ?>
 
     <!-- ABOUT -->
     <section id="about" class="metro-section metro-about-section">
         <div class="metro-container metro-about">
             <div class="metro-about-visual">
-                <div class="metro-about-main" style="background-image:url('<?php echo htmlspecialchars($tf['about_main'], ENT_QUOTES); ?>')"></div>
+                <div class="metro-about-main" style="background-image:url('<?php echo htmlspecialchars($aboutMainImage, ENT_QUOTES); ?>')"></div>
             </div>
 
             <div class="metro-about-copy">
-                <div class="metro-about-small" style="background-image:url('<?php echo htmlspecialchars($tf['about_small'], ENT_QUOTES); ?>')"></div>
+                <!-- <div class="metro-about-small" style="background-image:url('<?php echo htmlspecialchars($aboutSmallImage, ENT_QUOTES); ?>')"></div> -->
 
-                <h2>Where Energy Meets Elegance</h2>
+                <h2>More Than Just a Court</h2>
                 <p>
-                    <?php echo htmlspecialchars($venueName); ?> is more than a place to reserve a court.
-                    It is a multi-sport destination designed for players who want a smooth,
-                    social, and convenient playing experience.
+                    <?php echo htmlspecialchars($venueName); ?> is a community-driven sports destination where players, families, friends, and teams come together to play, compete, and connect. <br><br>
+                    Designed for both casual games and competitive play, our facility provides a welcoming and energetic environment for athletes of all skill levels. Whether you're booking a court for a friendly match, training with your team, or simply enjoying the game with friends, <?php echo htmlspecialchars($venueName); ?> gives you the space to make every game count.<br><br>
+                    With convenient court reservations and facilities built around the needs of today's players, we're committed to making sports more accessible, organized, and enjoyable.<br><br>
+                    <strong>Play your game. Build your community. Make every match count.</strong><br><br>
+                    <strong><?php echo htmlspecialchars($venueName); ?> — Your Court. Your Game.</strong>
                 </p>
 
                 <div class="metro-about-divider"></div>
@@ -183,10 +249,10 @@ if (trim((string) ($siteConfig['hero_image_path'] ?? '')) === '') {
                     Reserve your preferred sport, court, date, and time through one simple online booking flow.
                 </p>
 
-                <div class="metro-actions">
+                <!-- <div class="metro-actions">
                     <a href="#difference" class="metro-btn metro-btn-accent">About Us</a>
                     <a href="#facilities" class="metro-btn metro-btn-outline-dark">View Amenities</a>
-                </div>
+                </div> -->
             </div>
         </div>
     </section>
@@ -228,9 +294,9 @@ if (trim((string) ($siteConfig['hero_image_path'] ?? '')) === '') {
     </section>
 
     <!-- FACILITIES -->
-    <section id="facilities" class="metro-home-block">
+    <!-- <section id="facilities" class="metro-home-block">
         <div class="metro-container metro-facilities">
-            <div class="metro-facility-photo" style="background-image:url('<?php echo htmlspecialchars($tf['facility'], ENT_QUOTES); ?>')">
+            <div class="metro-facility-photo" style="background-image:url('<?php //echo htmlspecialchars($tf['facility'], ENT_QUOTES); ?>')">
                 <span class="metro-play-button" aria-hidden="true">▶</span>
             </div>
 
@@ -249,15 +315,11 @@ if (trim((string) ($siteConfig['hero_image_path'] ?? '')) === '') {
                 <p class="metro-facility-note">
                     Everything is designed to make your reservation experience clear, convenient, and organized.
                 </p>
-
-                <a href="<?php echo htmlspecialchars(app_url('ui/booking.php')); ?>" class="metro-btn metro-btn-accent">
-                    Get Started Now
-                </a>
             </div>
         </div>
-    </section>
+    </section> -->
 
-    <?php include __DIR__ . '/../includes/amenities-gallery.php'; ?>
+    <?php //include __DIR__ . '/../includes/amenities-gallery.php'; ?>
     <!-- MEMBERSHIP -->
     <section class="metro-section metro-membership-section">
         <div class="metro-container">
@@ -317,7 +379,7 @@ if (trim((string) ($siteConfig['hero_image_path'] ?? '')) === '') {
     </section>
 
     <!-- TESTIMONIALS -->
-    <section class="metro-section metro-testimonials-section">
+    <!-- <section class="metro-section metro-testimonials-section">
         <div class="metro-container">
             <div class="metro-heading">
                 <h2>What Players Can Expect</h2>
@@ -325,12 +387,12 @@ if (trim((string) ($siteConfig['hero_image_path'] ?? '')) === '') {
 
             <div class="metro-testimonial-layout">
                 <div class="metro-rating-card">
-                    <img class="metro-rating-photo" src="<?php echo htmlspecialchars($tf['testimonial']); ?>" alt="Player at the court">
+                    <img class="metro-rating-photo" src="<?php //echo htmlspecialchars($tf['testimonial']); ?>" alt="Player at the court">
                     <div class="metro-rating-bottom">
                         <div class="metro-avatar-stack">
-                            <img src="<?php echo htmlspecialchars($tf['avatar_1']); ?>" alt="">
-                            <img src="<?php echo htmlspecialchars($tf['avatar_2']); ?>" alt="">
-                            <img src="<?php echo htmlspecialchars($tf['avatar_3']); ?>" alt="">
+                            <img src="<?php //echo htmlspecialchars($tf['avatar_1']); ?>" alt="">
+                            <img src="<?php //echo htmlspecialchars($tf['avatar_2']); ?>" alt="">
+                            <img src="<?php //echo htmlspecialchars($tf['avatar_3']); ?>" alt="">
                         </div>
                         <strong>4.9</strong>
                         <span>★★★★★<small> Player experience</small></span>
@@ -353,7 +415,7 @@ if (trim((string) ($siteConfig['hero_image_path'] ?? '')) === '') {
                 </div>
             </div>
         </div>
-    </section>
+    </section> -->
 
     <!-- USP -->
     <section id="difference" class="metro-home-block">
@@ -396,7 +458,7 @@ if (trim((string) ($siteConfig['hero_image_path'] ?? '')) === '') {
                 <h2>Ready to Play? Let's Hit the Court</h2>
                 <p>Book your next game in minutes.</p>
                 <a href="<?php echo htmlspecialchars(app_url('ui/booking.php')); ?>" class="metro-btn metro-btn-accent">
-                    Book Your Court
+                    Let's Play
                 </a>
             </div>
         </div>
@@ -412,63 +474,75 @@ if (trim((string) ($siteConfig['hero_image_path'] ?? '')) === '') {
         </div>
     </section>
 
-    <!-- DYNAMIC GALLERY retained from the current application -->
-    <?php if (!empty($galleryItems)): ?>
-        <section id="gallery" class="metro-section metro-gallery-section">
-            <div class="metro-container">
-                <div class="metro-heading">
-                    <span class="metro-eyebrow">Gallery</span>
-                    <h2>Inside the Arena</h2>
-                </div>
-
-                <div class="landing-gallery-grid">
-                    <?php foreach ($galleryItems as $item): ?>
-                        <figure>
-                            <img
-                                src="<?php echo htmlspecialchars(site_asset_url((string) $item['image'])); ?>"
-                                alt="<?php echo htmlspecialchars((string) $item['title']); ?>"
-                                onerror="this.closest('figure').classList.add('image-missing')"
-                            >
-                            <figcaption><?php echo htmlspecialchars((string) $item['title']); ?></figcaption>
-                        </figure>
-                    <?php endforeach; ?>
-                </div>
-            </div>
-        </section>
-    <?php endif; ?>
-
     <!-- CONTACT retained because it is dynamic in the existing app -->
     <section id="contact-us" class="metro-section metro-contact-section">
-        <div class="metro-container landing-contact-grid">
-            <div>
+        <div class="metro-container">
+            <div class="metro-contact-heading">
                 <span class="metro-eyebrow">Contact Us</span>
-                <h2>Visit Metro Asia Arena</h2>
-                <p>Reserve online before you arrive, or use the location below to find the arena.</p>
-
-                <div class="contact-list">
-                    <p><i data-lucide="map-pin" class="icon-sm"></i><?php echo htmlspecialchars((string) $siteConfig['address']); ?></p>
-                    <p><i data-lucide="clock" class="icon-sm"></i>Open daily for scheduled court reservations</p>
-                    <p><i data-lucide="calendar-days" class="icon-sm"></i>Online booking and member account access available</p>
-                </div>
-
-                <div class="metro-actions">
-                    <a href="<?php echo htmlspecialchars(app_url('ui/booking.php')); ?>" class="metro-btn metro-btn-accent">Book a Court</a>
-                    <a
-                        href="<?php echo htmlspecialchars($contactHref); ?>"
-                        <?php echo $messengerUrl !== '' ? 'target="_blank" rel="noopener"' : ''; ?>
-                        class="metro-btn metro-btn-outline-dark"
-                    >Contact Admin</a>
-                </div>
+                <h2>Visit <?php echo htmlspecialchars($venueName); ?></h2>
             </div>
 
-            <div id="map" class="landing-map">
-                <iframe
-                    title="Metro Asia Arena map"
-                    src="<?php echo htmlspecialchars((string) $siteConfig['map_embed_url']); ?>"
-                    loading="lazy"
-                    referrerpolicy="no-referrer-when-downgrade"
-                    allowfullscreen
-                ></iframe>
+            <div class="metro-contact-layout">
+                <div id="map" class="metro-contact-map">
+                    <iframe
+                        title="<?php echo htmlspecialchars($venueName); ?> map"
+                        src="<?php echo htmlspecialchars((string) $siteConfig['map_embed_url']); ?>"
+                        loading="lazy"
+                        referrerpolicy="no-referrer-when-downgrade"
+                        allowfullscreen
+                    ></iframe>
+                </div>
+
+                <article class="metro-contact-card">
+                    <section class="metro-contact-card-section">
+                        <h3>Address</h3>
+                        <strong><?php echo htmlspecialchars($venueName); ?></strong>
+                        <p><?php echo htmlspecialchars($venueAddress); ?></p>
+
+                        <div class="metro-contact-divider"></div>
+
+                        <span class="metro-contact-label">Grab / Angkas Pin Name</span>
+                        <div class="metro-contact-copy-row">
+                            <code><?php echo htmlspecialchars($venueName . ', ' . $venueAddress); ?></code>
+                            <button type="button" data-copy-text="<?php echo htmlspecialchars($venueName . ', ' . $venueAddress, ENT_QUOTES); ?>">
+                                <i data-lucide="copy" class="icon-sm"></i>
+                                <span data-copy-label>Copy</span>
+                            </button>
+                        </div>
+
+                        <p class="metro-contact-note">Free on-site parking in front of the facility</p>
+
+                        <div class="metro-contact-actions">
+                            <a href="<?php echo htmlspecialchars($googleMapsUrl); ?>" target="_blank" rel="noopener">
+                                Google Maps
+                            </a>
+                            <a href="<?php echo htmlspecialchars($wazeUrl); ?>" target="_blank" rel="noopener">
+                                Waze App
+                            </a>
+                        </div>
+                    </section>
+
+                    <section class="metro-contact-card-section">
+                        <h3>Opening Hours</h3>
+                        <strong>7:00 AM - 4:00 AM</strong>
+                        <p>Open 7 days a week</p>
+                    </section>
+
+                    <section class="metro-contact-card-section">
+                        <h3>Get In Touch</h3>
+                        <p>Questions about bookings, payments, or events? Send us a message and our team will help.</p>
+                        <div class="metro-contact-socials">
+                            <?php if ($messengerUrl !== ''): ?>
+                                <a href="<?php echo htmlspecialchars($messengerUrl); ?>" target="_blank" rel="noopener">
+                                    Facebook
+                                </a>
+                            <?php endif; ?>
+                            <a href="mailto:<?php echo htmlspecialchars((string) $siteConfig['contact_email']); ?>">
+                                Email
+                            </a>
+                        </div>
+                    </section>
+                </article>
             </div>
         </div>
     </section>

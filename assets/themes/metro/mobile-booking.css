@@ -260,6 +260,22 @@
     background: #fff;
     color: var(--metro-primary);
     text-align: left;
+    cursor: default !important;
+  }
+
+  .mobile-court-time-slot.mobile-time-available:not(:disabled),
+  .mobile-court-time-slot.mobile-time-selected:not(:disabled) {
+    cursor: default !important;
+  }
+
+  .mobile-court-time-slot.mobile-time-booked,
+  .mobile-court-time-slot.mobile-time-unavailable,
+  .mobile-court-time-slot:disabled {
+    cursor: default !important;
+  }
+
+  .mobile-court-time-slot.mobile-time-past {
+    cursor: default !important;
   }
 
   .mobile-court-time-main {

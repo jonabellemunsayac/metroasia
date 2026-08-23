@@ -1,0 +1,214 @@
+.metro-contact-section {
+    --metro-contact-radius: 0.9rem;
+    --metro-contact-control-radius: 0.7rem;
+    background: #f7f2e8;
+}
+
+.metro-contact-heading {
+    max-width: 760px;
+    margin-bottom: 28px;
+}
+
+.metro-contact-heading h2 {
+    margin-bottom: 0;
+}
+
+.metro-contact-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1.02fr) minmax(360px, 0.98fr);
+    gap: 32px;
+    align-items: stretch;
+}
+
+.metro-contact-map {
+    min-height: 655px;
+    overflow: hidden;
+    border: 1px solid var(--metro-border);
+    border-radius: var(--metro-contact-radius);
+    background: #fff;
+    box-shadow: 0 10px 24px rgba(39, 19, 63, 0.08);
+}
+
+.metro-contact-map iframe {
+    width: 100%;
+    height: 100%;
+    min-height: inherit;
+    border: 0;
+}
+
+.metro-contact-card {
+    padding: 28px;
+    border: 1px solid var(--metro-border);
+    border-radius: var(--metro-contact-radius);
+    background: #fff;
+    box-shadow: 0 10px 24px rgba(39, 19, 63, 0.08);
+}
+
+.metro-contact-card-section + .metro-contact-card-section {
+    margin-top: 28px;
+    padding-top: 28px;
+    border-top: 1px solid var(--metro-border);
+}
+
+.metro-contact-card h1,
+.metro-contact-card h2,
+.metro-contact-card h3 {
+    margin: 0 0 10px;
+    color: var(--metro-primary);
+    font-size: 1rem;
+    font-weight: 800;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+}
+
+.metro-contact-card strong {
+    display: block;
+    color: var(--metro-primary);
+    font-size: 0.95rem;
+    font-weight: 800;
+}
+
+.metro-contact-card p {
+    margin: 4px 0 0;
+    color: var(--metro-text);
+    font-size: 0.86rem;
+    line-height: 1.65;
+}
+
+.metro-contact-divider {
+    height: 1px;
+    margin: 22px 0;
+    background: var(--metro-border);
+}
+
+.metro-contact-label {
+    display: block;
+    margin-bottom: 8px;
+    color: var(--metro-text);
+    font-size: 0.72rem;
+    font-weight: 800;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+}
+
+.metro-contact-copy-row {
+    display: flex;
+    gap: 8px;
+    align-items: stretch;
+}
+
+.metro-contact-copy-row code {
+    min-width: 0;
+    flex: 1 1 auto;
+    display: flex;
+    align-items: center;
+    min-height: 36px;
+    padding: 8px 10px;
+    overflow: hidden;
+    border: 1px solid var(--metro-border);
+    border-radius: var(--metro-contact-control-radius);
+    background: #fbf7ef;
+    color: var(--metro-primary);
+    font-size: 0.74rem;
+    font-weight: 800;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.metro-contact-copy-row button,
+.metro-contact-actions a,
+.metro-contact-socials a {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 36px;
+    border: 1px solid var(--metro-border);
+    border-radius: var(--metro-contact-control-radius);
+    background: #fff;
+    color: var(--metro-primary);
+    font-size: 0.74rem;
+    font-weight: 800;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+
+.metro-contact-copy-row button {
+    flex: 0 0 auto;
+    padding: 0 12px;
+    cursor: pointer;
+}
+
+.metro-contact-note {
+    margin-top: 16px !important;
+    color: var(--metro-primary) !important;
+    font-weight: 700;
+}
+
+.metro-contact-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin-top: 20px;
+}
+
+.metro-contact-actions a {
+    min-height: 50px;
+}
+
+.metro-contact-actions a:hover,
+.metro-contact-socials a:hover,
+.metro-contact-copy-row button:hover {
+    border-color: var(--metro-accent);
+    background: var(--metro-accent);
+    color: var(--metro-primary);
+}
+
+.metro-contact-socials {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin-top: 18px;
+}
+
+.metro-contact-socials a {
+    padding: 0 16px;
+}
+
+.metro-contact-page {
+    max-width: 1320px;
+}
+
+@media (max-width: 1000px) {
+    .metro-contact-layout {
+        grid-template-columns: 1fr;
+    }
+
+    .metro-contact-map {
+        min-height: 430px;
+    }
+}
+
+@media (max-width: 640px) {
+    .metro-contact-card {
+        padding: 20px;
+    }
+
+    .metro-contact-card-section + .metro-contact-card-section {
+        margin-top: 22px;
+        padding-top: 22px;
+    }
+
+    .metro-contact-map {
+        min-height: 360px;
+    }
+
+    .metro-contact-copy-row,
+    .metro-contact-actions {
+        grid-template-columns: 1fr;
+        display: grid;
+    }
+
+    .metro-contact-copy-row button {
+        width: 100%;
+    }
+}

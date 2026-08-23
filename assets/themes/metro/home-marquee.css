@@ -1,0 +1,92 @@
+/* Home yellow experience strip marquee. */
+.metro-home-page {
+    --metro-marquee-height: 64px;
+}
+
+.metro-home-page .metro-home-hero {
+    height: calc(100svh - var(--metro-marquee-height));
+    min-height: min(650px, calc(100svh - var(--metro-marquee-height)));
+    max-height: none;
+}
+
+.metro-experience-strip {
+    height: var(--metro-marquee-height);
+    min-height: 0;
+}
+
+.metro-experience-track {
+    gap: 0;
+    font-size: clamp(1.3rem, 2.1vw, 2.1rem);
+    animation: metro-experience-marquee 24s linear infinite;
+    will-change: transform;
+}
+
+.metro-experience-group {
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    gap: 32px;
+    padding-right: 32px;
+}
+
+@keyframes metro-experience-marquee {
+    from {
+        transform: translateX(0);
+    }
+
+    to {
+        transform: translateX(-50%);
+    }
+}
+
+@media (max-width: 640px) {
+    .metro-home-page {
+        --metro-marquee-height: 54px;
+    }
+
+    .metro-home-page .metro-home-hero {
+        height: calc(100svh - var(--metro-marquee-height));
+        min-height: min(650px, calc(100svh - var(--metro-marquee-height)));
+        max-height: none;
+    }
+
+    .metro-experience-strip {
+        height: var(--metro-marquee-height);
+    }
+
+    .metro-experience-track {
+        font-size: 1.25rem;
+    }
+
+    .metro-experience-group {
+        gap: 20px;
+        padding-right: 20px;
+    }
+}
+
+@media (min-width: 641px) and (max-width: 1000px) {
+    .metro-home-page {
+        --metro-marquee-height: 58px;
+    }
+
+    .metro-home-page .metro-home-hero {
+        height: calc(100svh - var(--metro-marquee-height));
+        min-height: min(650px, calc(100svh - var(--metro-marquee-height)));
+        max-height: none;
+    }
+
+    .metro-experience-strip {
+        height: var(--metro-marquee-height);
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .metro-experience-track {
+        animation: none;
+        transform: none;
+    }
+
+    .metro-experience-group + .metro-experience-group {
+        display: none;
+    }
+}

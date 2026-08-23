@@ -2,81 +2,81 @@
 $pageTitle = 'Contact Admin';
 $active = 'contact';
 include __DIR__ . '/../includes/header.php';
+
 $siteConfig = site_config();
 $messengerUrl = trim((string) ($siteConfig['messenger_url'] ?? ''));
+$venueName = trim((string) ($siteConfig['venue_name'] ?? 'MetroAsia Arena'));
+$venueName = $venueName !== '' ? $venueName : 'MetroAsia Arena';
+$venueAddress = trim((string) ($siteConfig['address'] ?? ''));
+$mapQuery = $venueAddress !== '' ? $venueAddress : $venueName;
+$googleMapsUrl = 'https://www.google.com/maps/search/?api=1&query=' . rawurlencode($mapQuery);
+$wazeUrl = 'https://waze.com/ul?q=' . rawurlencode($mapQuery) . '&navigate=yes';
 ?>
-<main class="public-page">
-    <section class="grid gap-6 lg:grid-cols-[420px_minmax(0,1fr)]">
-        <article class="venue-card">
-            <img src="<?php echo htmlspecialchars(site_asset_url((string) $siteConfig['contact_image_path'])); ?>" alt="Metro Asia covered courts" class="h-[270px] w-full object-cover">
-            <div class="p-5">
-                <p class="section-kicker">Contact Admin</p>
-                <h1 class="mt-2 font-display text-3xl font-black leading-tight">Need help with a booking or payment?</h1>
-                <p class="mt-4 text-sm font-semibold leading-7 text-muted">
-                    Send your reservation name, sport, date, time, and payment reference so staff can review it quickly.
-                </p>
-                <div class="mt-5 grid gap-3 text-sm font-semibold">
-                    <p class="flex items-center gap-2"><i data-lucide="map-pin" class="h-4 w-4 text-primary"></i><?php echo htmlspecialchars((string) $siteConfig['address']); ?></p>
-                    <p class="flex items-center gap-2"><i data-lucide="phone" class="h-4 w-4 text-primary"></i>Admin desk: <?php echo htmlspecialchars((string) $siteConfig['contact_phone']); ?></p>
-                    <p class="flex items-center gap-2"><i data-lucide="mail" class="h-4 w-4 text-primary"></i><?php echo htmlspecialchars((string) $siteConfig['contact_email']); ?></p>
+
+<main class="public-page metro-contact-page">
+    <section class="metro-contact-layout">
+        <div class="metro-contact-map">
+            <iframe
+                title="<?php echo htmlspecialchars($venueName); ?> map"
+                src="<?php echo htmlspecialchars((string) $siteConfig['map_embed_url']); ?>"
+                loading="lazy"
+                referrerpolicy="no-referrer-when-downgrade"
+                allowfullscreen
+            ></iframe>
+        </div>
+
+        <article class="metro-contact-card">
+            <section class="metro-contact-card-section">
+                <h1>Address</h1>
+                <strong><?php echo htmlspecialchars($venueName); ?></strong>
+                <p><?php echo htmlspecialchars($venueAddress); ?></p>
+
+                <div class="metro-contact-divider"></div>
+
+                <span class="metro-contact-label">Grab / Angkas Pin Name</span>
+                <div class="metro-contact-copy-row">
+                    <code><?php echo htmlspecialchars($venueName . ', ' . $venueAddress); ?></code>
+                    <button type="button" data-copy-text="<?php echo htmlspecialchars($venueName . ', ' . $venueAddress, ENT_QUOTES); ?>">
+                        <i data-lucide="copy" class="icon-sm"></i>
+                        <span data-copy-label>Copy</span>
+                    </button>
+                </div>
+
+                <p class="metro-contact-note">Free on-site parking in front of the facility</p>
+
+                <div class="metro-contact-actions">
+                    <a href="<?php echo htmlspecialchars($googleMapsUrl); ?>" target="_blank" rel="noopener">
+                        Google Maps
+                    </a>
+                    <a href="<?php echo htmlspecialchars($wazeUrl); ?>" target="_blank" rel="noopener">
+                        Waze App
+                    </a>
+                </div>
+            </section>
+
+            <section class="metro-contact-card-section">
+                <h2>Opening Hours</h2>
+                <strong>7:00 AM - 4:00 AM</strong>
+                <p>Open 7 days a week</p>
+            </section>
+
+            <section class="metro-contact-card-section">
+                <h2>Get In Touch</h2>
+                <p>Questions about bookings, payments, or events? Send us a message and our team will help.</p>
+
+                <div class="metro-contact-socials">
                     <?php if ($messengerUrl !== ''): ?>
-                        <p class="flex items-center gap-2"><i data-lucide="message-circle" class="h-4 w-4 text-primary"></i><a href="<?php echo htmlspecialchars($messengerUrl); ?>" target="_blank" rel="noopener">Facebook Messenger</a></p>
+                        <a href="<?php echo htmlspecialchars($messengerUrl); ?>" target="_blank" rel="noopener">
+                            Facebook
+                        </a>
                     <?php endif; ?>
+                    <a href="mailto:<?php echo htmlspecialchars((string) $siteConfig['contact_email']); ?>">
+                        Email
+                    </a>
                 </div>
-            </div>
+            </section>
         </article>
-
-        <section class="grid content-start gap-5">
-            <form class="public-card p-6" action="mailto:<?php echo htmlspecialchars((string) $siteConfig['contact_email']); ?>" method="post" enctype="text/plain">
-                <p class="section-kicker">Message</p>
-                <h2 class="mt-2 font-display text-3xl font-black">Send booking details</h2>
-                <div class="mt-5 grid gap-4 md:grid-cols-2">
-                    <label class="grid gap-2 text-sm font-bold">Name
-                        <input name="name" required class="form-input" placeholder="Your full name">
-                    </label>
-                    <label class="grid gap-2 text-sm font-bold">Phone
-                        <input name="phone" required class="form-input" placeholder="09XX XXX XXXX">
-                    </label>
-                </div>
-                <label class="mt-4 grid gap-2 text-sm font-bold">Reservation concern
-                    <select name="concern" class="form-select">
-                        <option>Payment verification</option>
-                        <option>Booking change</option>
-                        <option>Cancellation request</option>
-                        <option>Membership help</option>
-                    </select>
-                </label>
-                <label class="mt-4 grid gap-2 text-sm font-bold">Details
-                    <textarea name="details" rows="6" required class="form-textarea" placeholder="Include date, time, sport, court, payment channel, and reference number."></textarea>
-                </label>
-                <button class="btn btn-primary mt-5">Send Message</button>
-            </form>
-
-            <div class="grid gap-4 md:grid-cols-3">
-                <div class="public-card p-4">
-                    <p class="text-sm font-black text-primary">Payments</p>
-                    <p class="mt-2 text-sm font-semibold leading-6 text-muted">Use the active GCash or BDO details shown on the payment guide.</p>
-                </div>
-                <div class="public-card p-4">
-                    <p class="text-sm font-black text-primary">Members</p>
-                    <p class="mt-2 text-sm font-semibold leading-6 text-muted">Upload payment proof from My Bookings after signing in.</p>
-                </div>
-                <div class="public-card p-4">
-                    <p class="text-sm font-black text-primary">Admin Review</p>
-                    <p class="mt-2 text-sm font-semibold leading-6 text-muted">Staff reviews receipts and reservation details from the admin area.</p>
-                </div>
-            </div>
-
-            <div class="landing-map">
-                <iframe
-                    title="Metro Asia Arena map"
-                    src="<?php echo htmlspecialchars((string) $siteConfig['map_embed_url']); ?>"
-                    loading="lazy"
-                    referrerpolicy="no-referrer-when-downgrade"
-                    allowfullscreen>
-                </iframe>
-            </div>
-        </section>
     </section>
 </main>
+
 <?php include __DIR__ . '/../includes/footer.php'; ?>

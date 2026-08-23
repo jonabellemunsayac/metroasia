@@ -11,7 +11,7 @@ include __DIR__ . '/../includes/header.php';
             <p class="mt-4 text-sm font-semibold leading-7 text-muted">
                 These policies help keep reservations fair while admin staff reviews payment receipts and booking changes.
             </p>
-            <a href="<?php echo htmlspecialchars(app_url('ui/booking.php')); ?>" class="btn btn-primary mt-5 w-full">Book a Court</a>
+            <a href="<?php echo htmlspecialchars(app_url('ui/booking.php')); ?>" class="btn btn-primary mt-5 w-full">Let's Play</a>
         </aside>
 
         <section class="grid gap-4">

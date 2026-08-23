@@ -102,6 +102,24 @@ function current_admin(): ?array
     }
 }
 
+function admin_can_manage_operations(?array $admin = null): bool
+{
+    $admin = $admin ?? current_admin();
+    return $admin !== null && in_array((string) ($admin['role'] ?? ''), ['admin', 'super_admin'], true);
+}
+
+function require_operations_admin_json(): array
+{
+    $admin = current_admin();
+    if ($admin === null) {
+        json_response(['ok' => false, 'message' => 'Admin login required.'], 401);
+    }
+    if (!admin_can_manage_operations($admin)) {
+        json_response(['ok' => false, 'message' => 'Admin or Super Admin permission required.'], 403);
+    }
+    return $admin;
+}
+
 function current_member(): ?array
 {
     if (empty($_SESSION['member_id'])) {
@@ -109,7 +127,7 @@ function current_member(): ?array
     }
 
     try {
-        $stmt = db()->prepare('SELECT id, name, email, phone, is_active FROM members WHERE id = ? AND is_active = 1');
+        $stmt = db()->prepare('SELECT id, name, nickname, email, phone, is_active FROM members WHERE id = ? AND is_active = 1');
         $stmt->execute([(int) $_SESSION['member_id']]);
         $member = $stmt->fetch();
         return $member ?: null;

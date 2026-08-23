@@ -65,7 +65,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             throw new RuntimeException('Choose a reservation and upload a valid receipt.');
         }
 
-        $stmt = db()->prepare("UPDATE court_bookings SET receipt_path = ?, status = 'Held' WHERE id = ? AND member_id = ? AND status IN ('Pending Payment','Held')");
+        $stmt = db()->prepare("UPDATE court_bookings SET receipt_path = ?, status = 'Held' WHERE id = ? AND member_id = ? AND status = 'Held'");
         $stmt->execute([$receipt, $id, (int) $member['id']]);
         if ($stmt->rowCount() === 0) {
             throw new RuntimeException('Reservation was not found or no longer accepts receipt upload.');
@@ -102,7 +102,7 @@ include __DIR__ . '/../includes/header.php';
                 <p class="mt-2 text-sm font-semibold text-muted"><?php echo htmlspecialchars($member['email']); ?></p>
                 <p class="mt-1 text-sm font-semibold text-muted"><?php echo htmlspecialchars($member['phone']); ?></p>
                 <div class="mt-5 flex flex-wrap gap-2">
-                    <a href="<?php echo htmlspecialchars(app_url('ui/booking.php')); ?>" class="rounded-full bg-limevolt px-5 py-2.5 text-sm font-black text-ink">Book Court</a>
+                    <a href="<?php echo htmlspecialchars(app_url('ui/booking.php')); ?>" class="rounded-full bg-limevolt px-5 py-2.5 text-sm font-black text-ink">Let's Play</a>
                     <a href="<?php echo htmlspecialchars(app_url('admin/logout.php?as=member')); ?>" class="rounded-full border border-line px-5 py-2.5 text-sm font-black text-ink">Logout</a>
                 </div>
             </article>
@@ -131,7 +131,7 @@ include __DIR__ . '/../includes/header.php';
                 <?php foreach ($reservations as $reservation): ?>
                     <?php
                     $title = member_court_name((int) $reservation['court'], (string) $reservation['sport']) . ' - ' . $reservation['sport'];
-                    $canUpload = in_array($reservation['status'], ['Pending Payment', 'Held'], true);
+                    $canUpload = $reservation['status'] === 'Held';
                     ?>
                     <article class="rounded-lg border border-line bg-white p-4">
                         <div class="flex flex-wrap items-start justify-between gap-3">
@@ -139,6 +139,9 @@ include __DIR__ . '/../includes/header.php';
                                 <h3 class="text-lg font-black"><?php echo htmlspecialchars($title); ?></h3>
                                 <p class="mt-1 text-sm font-semibold text-muted"><?php echo htmlspecialchars($reservation['date'] . ' - ' . $reservation['time']); ?></p>
                                 <p class="mt-1 text-sm font-semibold text-muted"><?php echo htmlspecialchars($reservation['payment_method']); ?> · PHP <?php echo number_format((float) $reservation['final_amount'], 0); ?></p>
+                                <span class="status-badge <?php echo $reservation['status'] === 'Cancelled' ? 'status-badge-cancelled' : ($reservation['status'] === 'Booked' ? 'status-badge-booked' : 'status-badge-pending'); ?>">
+                                    <?php echo htmlspecialchars((string) $reservation['status']); ?>
+                                </span>
                                 <?php if ($reservation['receipt_path']): ?>
                                     <a href="<?php echo htmlspecialchars(app_url((string) $reservation['receipt_path'])); ?>" target="_blank" class="mt-3 inline-flex text-sm font-black text-primary">View receipt</a>
                                 <?php endif; ?>

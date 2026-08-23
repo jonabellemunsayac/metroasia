@@ -6,7 +6,7 @@ $appBrand = 'Metro Asia';
 $appTitle = '';
 $pageTitle = $pageTitle ?? $appTitle;
 $active = $active ?? 'home';
-$assetVersion = $assetVersion ?? '3.0.24';
+$assetVersion = $assetVersion ?? '3.1.2';
 $themeName = $themeName ?? 'metro';
 $currentAdmin = current_admin();
 $currentMember = current_member();
@@ -14,10 +14,9 @@ $useAdminShell = $currentAdmin !== null && str_starts_with($active, 'admin');
 
 $publicNavItems = [
     ['key' => 'home', 'label' => 'Home', 'href' => app_url('ui/index.php#welcome')],
-    ['key' => 'booking', 'label' => 'Book a Court', 'href' => app_url('ui/booking.php')],
     ['key' => 'gallery', 'label' => 'Gallery', 'href' => app_url('ui/index.php#gallery')],
     ['key' => 'rules', 'label' => 'Rules', 'href' => app_url('ui/rules.php')],
-    ['key' => 'about', 'label' => 'About Us', 'href' => app_url('ui/index.php#about')],
+    ['key' => 'about', 'label' => 'About', 'href' => app_url('ui/index.php#about')],
     ['key' => 'contact', 'label' => 'Contact', 'href' => app_url('ui/index.php#contact-us')],
 ];
 
@@ -32,8 +31,21 @@ $adminNavItems = [
 ];
 
 $isPublicHome = !$useAdminShell && $active === 'home';
-$memberCtaLabel = $currentMember ? 'My Bookings' : 'Member Login';
+$memberCtaLabel = $currentMember ? 'My Bookings' : 'Login';
 $memberCtaHref = app_url($currentMember ? 'ui/member.php' : 'ui/member-login.php');
+$publicBreadcrumbLabels = [
+    'home' => 'Home',
+    'booking' => "Let's Play",
+    'gallery' => 'Gallery',
+    'rules' => 'Rules',
+    'about' => 'About',
+    'contact' => 'Contact',
+    'payment' => 'Payment',
+];
+$breadcrumbCurrent = $publicBreadcrumbLabels[$active] ?? ($pageTitle !== '' ? $pageTitle : 'Page');
+if ($active === 'member' && $pageTitle !== '') {
+    $breadcrumbCurrent = $pageTitle === 'Sign In' ? 'Login' : $pageTitle;
+}
 ?>
 <!doctype html>
 <html lang="en">
@@ -85,10 +97,16 @@ $memberCtaHref = app_url($currentMember ? 'ui/member.php' : 'ui/member-login.php
         <link rel="stylesheet" href="<?php echo htmlspecialchars(app_url('assets/themes/metro/theme.css')); ?>?v=<?php echo htmlspecialchars($assetVersion); ?>">
         <link rel="stylesheet" href="<?php echo htmlspecialchars(app_url('assets/themes/metro/header.css')); ?>?v=<?php echo htmlspecialchars($assetVersion); ?>">
         <link rel="stylesheet" href="<?php echo htmlspecialchars(app_url('assets/themes/metro/home.css')); ?>?v=<?php echo htmlspecialchars($assetVersion); ?>">
+        <link rel="stylesheet" href="<?php echo htmlspecialchars(app_url('assets/themes/metro/gallery-carousel.css')); ?>?v=<?php echo htmlspecialchars($assetVersion); ?>">
+        <link rel="stylesheet" href="<?php echo htmlspecialchars(app_url('assets/themes/metro/contact-layout.css')); ?>?v=<?php echo htmlspecialchars($assetVersion); ?>">
 
         <?php if (($active ?? '') === 'home'): ?>
         <link rel="stylesheet"
             href="<?php echo htmlspecialchars(app_url('assets/themes/metro/amenities-gallery.css')); ?>?v=<?php echo htmlspecialchars($assetVersion); ?>">
+        <link rel="stylesheet"
+            href="<?php echo htmlspecialchars(app_url('assets/themes/metro/home-marquee.css')); ?>?v=<?php echo htmlspecialchars($assetVersion); ?>">
+        <link rel="stylesheet"
+            href="<?php echo htmlspecialchars(app_url('assets/themes/metro/home-scroll-alignment.css')); ?>?v=<?php echo htmlspecialchars($assetVersion); ?>">
         <?php endif; ?>
 
         <?php if (in_array($active, ['booking', 'payment'], true)): ?>
@@ -111,6 +129,11 @@ $memberCtaHref = app_url($currentMember ? 'ui/member.php' : 'ui/member-login.php
         <?php endif; ?>
         <link rel="stylesheet" href="<?php echo htmlspecialchars(app_url('assets/themes/metro/footer.css')); ?>?v=<?php echo htmlspecialchars($assetVersion); ?>">
     <?php endif; ?>
+
+    <link
+        rel="stylesheet"
+        href="<?php echo htmlspecialchars(app_url('assets/themes/metro/purple-gold.css')); ?>?v=<?php echo htmlspecialchars($assetVersion); ?>"
+    >
 </head>
 
 <body class="<?php echo $useAdminShell ? 'admin-body' : 'public-body'; ?>">
@@ -138,10 +161,23 @@ $memberCtaHref = app_url($currentMember ? 'ui/member.php' : 'ui/member-login.php
                         <?php echo htmlspecialchars($item['label']); ?>
                     </a>
                 <?php endforeach; ?>
+
+                <div class="metro-nav-mobile-actions">
+                    <a class="metro-header-action metro-header-action-primary" href="<?php echo htmlspecialchars(app_url('ui/booking.php')); ?>">
+                        Let's Play
+                    </a>
+                    <a class="metro-header-action metro-header-action-secondary" href="<?php echo htmlspecialchars($memberCtaHref); ?>">
+                        <?php echo htmlspecialchars($memberCtaLabel); ?>
+                    </a>
+                </div>
             </nav>
 
-            <div class="d-flex align-items-center gap-2">
-                <a class="metro-btn metro-btn-light metro-header-cta" href="<?php echo htmlspecialchars($memberCtaHref); ?>">
+            <div class="metro-header-actions">
+                <a class="metro-header-action metro-header-action-primary" href="<?php echo htmlspecialchars(app_url('ui/booking.php')); ?>">
+                    Let's Play
+                </a>
+
+                <a class="metro-header-action metro-header-action-secondary" href="<?php echo htmlspecialchars($memberCtaHref); ?>">
                     <?php echo htmlspecialchars($memberCtaLabel); ?>
                 </a>
 
@@ -158,6 +194,16 @@ $memberCtaHref = app_url($currentMember ? 'ui/member.php' : 'ui/member-login.php
             </div>
         </div>
     </header>
+
+    <?php if (!$isPublicHome): ?>
+        <nav class="metro-breadcrumbs" aria-label="Breadcrumb">
+            <div class="metro-container metro-breadcrumbs-inner">
+                <a href="<?php echo htmlspecialchars(app_url('ui/index.php')); ?>">Home</a>
+                <span aria-hidden="true">/</span>
+                <span aria-current="page"><?php echo htmlspecialchars($breadcrumbCurrent); ?></span>
+            </div>
+        </nav>
+    <?php endif; ?>
 
 <?php else: ?>
 

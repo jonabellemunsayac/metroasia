@@ -11,9 +11,9 @@ include __DIR__ . '/../includes/header.php';
             <div class="row g-3 align-items-center">
                 <div class="col-12">
                     <span class="section-kicker">Operations Dashboard</span>
-                    <h2 class="mt-2 mb-2 fw-black">Multi-sport schedule board</h2>
+                    <h2 class="mt-2 mb-2 fw-black">MetroAsia schedule board</h2>
                     <p class="mb-0 text-secondary fw-semibold">
-                        Click any time slot in the court matrix to create a booking or override a conflict. Use dedicated admin pages for payments, cancellations, rates, users, and court blocking.
+                        Review daily court availability, reservations, and court blocks in the same rhythm as the player booking calendar.
                     </p>
                 </div>
             </div>
@@ -30,7 +30,7 @@ include __DIR__ . '/../includes/header.php';
                     </div>
                     <span class="metric-icon bg-warning-subtle text-warning"><i data-lucide="timer" class="icon-sm"></i></span>
                 </div>
-                        <p class="mb-0 mt-2 small text-secondary fw-semibold">Pending payment or held</p>
+                        <p class="mb-0 mt-2 small text-secondary fw-semibold">Submitted reservations</p>
             </div>
         </div>
         <div class="col-6 col-lg-3">
@@ -49,7 +49,7 @@ include __DIR__ . '/../includes/header.php';
             <div class="stat-card h-100">
                 <div class="d-flex align-items-start justify-content-between gap-3">
                     <div>
-                        <p class="mb-1 small text-secondary fw-bold text-uppercase">Available</p>
+                        <p class="mb-1 small text-secondary fw-bold text-uppercase">Cancelled</p>
                         <p id="adminCancelledCount" class="mb-0 stat-number">0</p>
                     </div>
                     <span class="metric-icon bg-danger-subtle text-danger"><i data-lucide="ban" class="icon-sm"></i></span>
@@ -78,7 +78,7 @@ include __DIR__ . '/../includes/header.php';
             <div>
                 <span class="section-kicker">Multi-Sport Schedule Dashboard</span>
                 <h2 class="mt-1 mb-1 fw-black">Daily court matrix</h2>
-                <p class="mb-0 small text-secondary fw-semibold">Click a cell to book or override that court and time slot.</p>
+                <p class="mb-0 small text-secondary fw-semibold">Available cells can be booked by Admin or Super Admin. Occupied cells open details.</p>
             </div>
             <div class="btn-group btn-group-sm">
                 <button id="adminSchedulePrev" class="btn btn-outline-secondary" type="button" aria-label="Previous schedule date">
@@ -94,7 +94,7 @@ include __DIR__ . '/../includes/header.php';
             <div id="adminScheduleGrid" class="admin-schedule-grid grid rounded border bg-white"></div>
         </div>
         <div class="d-flex flex-wrap align-items-center gap-3 border-top px-3 py-2 small fw-bold text-secondary">
-            <span class="text-primary">Click any cell to book or override.</span>
+            <span class="text-primary">Click occupied cells for details.</span>
             <span><span class="legend-dot bg-light border"></span>Available/Open</span>
             <span><span class="legend-dot bg-warning-subtle border border-warning-subtle"></span>Temporary block</span>
             <span><span class="legend-dot bg-success-subtle border border-success-subtle"></span>Booked</span>
@@ -137,7 +137,6 @@ include __DIR__ . '/../includes/header.php';
                                 <select name="status" class="form-select">
                                     <option value="Booked">Booked</option>
                                     <option value="Held">Held</option>
-                                    <option value="Pending Payment">Pending Payment</option>
                                 </select>
                             </label>
                             <label class="col-md-6 small fw-bold">Payment
@@ -154,6 +153,22 @@ include __DIR__ . '/../includes/header.php';
                         <button class="btn btn-warning btn-sm" type="submit">Save Booking</button>
                     </div>
                 </form>
+            </div>
+        </div>
+    </div>
+
+    <div id="adminCalendarDetailModal" class="modal fade" tabindex="-1" aria-labelledby="adminCalendarDetailTitle" aria-hidden="true">
+        <div class="modal-dialog modal-lg modal-dialog-scrollable">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <div>
+                        <span class="section-kicker">Calendar Details</span>
+                        <h2 id="adminCalendarDetailTitle" class="modal-title fw-black">Schedule details</h2>
+                        <p id="adminCalendarDetailMeta" class="mb-0 small text-secondary fw-semibold"></p>
+                    </div>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div id="adminCalendarDetailBody" class="modal-body"></div>
             </div>
         </div>
     </div>
