@@ -43,25 +43,40 @@
   function renderMobile() {
     if (!els.grid || !state) return;
 
-    const date = isoDate(selectedDate);
+    let date = isoDate(selectedDate);
     const today = isoDate(new Date());
+    const maxDate = typeof bookingMaxDateIso === 'function' ? bookingMaxDateIso() : null;
+    const noEnabledBookingDates = Boolean(maxDate && today > maxDate);
+
+    if (maxDate && date > maxDate) {
+      selectedDate = new Date(`${noEnabledBookingDates ? today : maxDate}T00:00:00`);
+      date = noEnabledBookingDates ? today : maxDate;
+      clearBookingSelection();
+    }
+
     const courts = courtsForSelectedSport();
     const times = Object.values(state.timeSlots || {}).flat();
 
     if (els.dateLabel) {
-      els.dateLabel.textContent = `${niceDate(date)}${date === today ? ' - Today' : ''}`;
+      els.dateLabel.textContent = noEnabledBookingDates
+        ? 'No booking dates are currently enabled.'
+        : `${niceDate(date)}${date === today ? ' - Today' : ''}`;
     }
 
-    const prevButton = document.getElementById('prevDate');
-    if (prevButton) {
-      prevButton.disabled = date <= today;
-      prevButton.classList.toggle('opacity-50', date <= today);
+    if (typeof syncBookingDatePicker === 'function') {
+      syncBookingDatePicker(date, today, maxDate, noEnabledBookingDates);
     }
 
     els.grid.style.gridTemplateColumns = '';
     els.grid.style.minWidth = '';
     els.grid.classList.add('booking-grid-mobile', 'booking-grid-court-dropdown');
     els.grid.classList.remove('grid');
+
+    if (noEnabledBookingDates) {
+      els.grid.innerHTML = '<div class="mobile-slot-empty">No booking dates are currently enabled. Please contact MetroAsia Arena.</div>';
+      renderBookingSelectionBar();
+      return;
+    }
 
     if (!courts.length || !times.length) {
       els.grid.innerHTML = '<div class="mobile-slot-empty">No court schedule is configured for this sport.</div>';

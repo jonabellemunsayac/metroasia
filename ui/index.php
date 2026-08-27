@@ -134,7 +134,7 @@ if ($aboutSmallImage === '') {
                 <div class="metro-actions">
                     <a
                         href="<?php echo htmlspecialchars(
-                            app_url('ui/booking.php')
+                            $bookingCtaHref
                         ); ?>"
                         class="metro-btn metro-btn-accent"
                     >
@@ -308,7 +308,7 @@ if ($aboutSmallImage === '') {
                     <li>Dedicated pickleball court reservations</li>
                     <li>Basketball and volleyball court options</li>
                     <li>Easy online schedule selection</li>
-                    <li>Member and guest reservation flows</li>
+                    <li>Member-only reservation flow</li>
                     <li>Payment confirmation and booking status tracking</li>
                 </ul>
 
@@ -436,7 +436,7 @@ if ($aboutSmallImage === '') {
                     [$tf['usp_3'], 'Vibrant Community', 'A place for casual players, groups, teams, and members.'],
                     [$tf['usp_4'], 'Multi-Sport Energy', 'Support for pickleball, basketball, and volleyball reservations.'],
                     [$tf['usp_5'], 'Seamless Booking', 'Reserve courts and manage bookings through one online platform.'],
-                    [$tf['usp_6'], 'Easy Access', 'Use guest or member flows depending on how you prefer to book.'],
+                    [$tf['usp_6'], 'Easy Access', 'Create a player profile once, then manage bookings from your member account.'],
                 ];
                 foreach ($uspItems as [$icon, $title, $description]):
                 ?>
@@ -457,7 +457,7 @@ if ($aboutSmallImage === '') {
             <div class="metro-cta-copy">
                 <h2>Ready to Play? Let's Hit the Court</h2>
                 <p>Book your next game in minutes.</p>
-                <a href="<?php echo htmlspecialchars(app_url('ui/booking.php')); ?>" class="metro-btn metro-btn-accent">
+                <a href="<?php echo htmlspecialchars($bookingCtaHref); ?>" class="metro-btn metro-btn-accent">
                     Let's Play
                 </a>
             </div>

@@ -45,10 +45,9 @@ if ($useAdminShell):
 
                 <section class="metro-footer-links">
                     <h3>Quick Links</h3>
-                    <a href="<?php echo htmlspecialchars(app_url('ui/booking.php')); ?>">Let's Play</a>
+                    <a href="<?php echo htmlspecialchars($bookingCtaHref ?? app_url(member_login_path('ui/booking.php'))); ?>">Let's Play</a>
                     <a href="<?php echo htmlspecialchars(app_url('ui/index.php#gallery')); ?>">Gallery</a>
-                    <a href="<?php echo htmlspecialchars(app_url('ui/rules.php')); ?>">Court Rules</a>
-                    <a href="<?php echo htmlspecialchars(app_url('ui/payment.php')); ?>">Payment</a>
+                    <a href="<?php echo htmlspecialchars(app_url('ui/rules.php')); ?>">Rules</a>
                     <a href="<?php echo htmlspecialchars(app_url('ui/index.php#contact-us')); ?>">Contact Us</a>
                 </section>
 

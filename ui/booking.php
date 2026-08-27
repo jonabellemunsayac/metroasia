@@ -1,10 +1,17 @@
 <?php
+require_once __DIR__ . '/../includes/auth.php';
+
 $pageTitle = "Let's Play";
 $active = 'booking';
 
+$bookingMember = current_member();
+if ($bookingMember === null) {
+    $bookingRedirect = 'ui/booking.php' . ((string) ($_SERVER['QUERY_STRING'] ?? '') !== '' ? '?' . (string) $_SERVER['QUERY_STRING'] : '');
+    redirect_to(member_login_path($bookingRedirect));
+}
+
 include __DIR__ . '/../includes/header.php';
 $siteConfig = site_config();
-$bookingMember = current_member();
 
 $sportOptions = [
     'pickleball' => [
@@ -104,26 +111,12 @@ $selectedSport = $sportOptions[$requestedSport] ?? null;
                 <div class="metro-booking-panel-body">
                     <div class="metro-booking-date-board">
                         <span class="metro-booking-label">Select Booking Date</span>
-                        <div class="metro-booking-date-strip">
-                            <button
-                                id="prevDate"
-                                type="button"
-                                class="metro-date-arrow"
-                                aria-label="Previous date"
-                            >
-                                <i data-lucide="chevron-left" class="icon-sm"></i>
-                            </button>
-
-                            <div id="bookingDateCards" class="metro-date-cards"></div>
-
-                            <button
-                                id="nextDate"
-                                type="button"
-                                class="metro-date-arrow"
-                                aria-label="Next date"
-                            >
-                                <i data-lucide="chevron-right" class="icon-sm"></i>
-                            </button>
+                        <div class="metro-booking-date-picker">
+                            <label class="metro-date-picker-field" for="bookingDatePicker">
+                                <span>Date</span>
+                                <input id="bookingDatePicker" type="date" aria-label="Select booking date">
+                                <i data-lucide="calendar-days" class="icon-sm" aria-hidden="true"></i>
+                            </label>
                         </div>
                         <p id="bookingDateLabel" class="metro-date-current"></p>
                     </div>
@@ -170,7 +163,7 @@ $selectedSport = $sportOptions[$requestedSport] ?? null;
                                         </label>
 
                                         <label class="metro-inline-field">Phone Number
-                                            <input required name="phone" class="modal-input" placeholder="09xx xxx xxxx" value="<?php echo htmlspecialchars((string) ($bookingMember['phone'] ?? '')); ?>" <?php echo $bookingMember ? 'readonly' : ''; ?>>
+                                            <input <?php echo $bookingMember ? '' : 'required'; ?> name="phone" class="modal-input" placeholder="09xx xxx xxxx" value="<?php echo htmlspecialchars((string) ($bookingMember['phone'] ?? '')); ?>" <?php echo $bookingMember ? 'readonly' : ''; ?>>
                                         </label>
 
                                         <label class="metro-inline-field">Email Address
@@ -207,7 +200,7 @@ $selectedSport = $sportOptions[$requestedSport] ?? null;
 
                                     <?php if ($bookingMember): ?>
                                         <label class="metro-inline-field">Upload Receipt
-                                            <input type="file" name="receipt" accept=".jpg,.jpeg,.png,.webp,.pdf" class="modal-input modal-file-input">
+                                            <input required type="file" name="receipt" accept=".jpg,.jpeg,.png,.webp,.pdf" class="modal-input modal-file-input">
                                             <span>JPG, PNG, WEBP, or PDF. Max 5MB.</span>
                                         </label>
                                     <?php endif; ?>

@@ -180,6 +180,60 @@ body.admin-body{
   font-weight:800;
 }
 
+.admin-toast-stack{
+  position:fixed;
+  top:18px;
+  right:18px;
+  z-index:2000;
+  display:grid;
+  gap:10px;
+  width:min(360px,calc(100vw - 32px));
+  pointer-events:none;
+}
+
+.admin-toast{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  padding:13px 14px;
+  border:1px solid rgba(2,20,33,.1);
+  border-radius:12px;
+  background:#fff;
+  box-shadow:0 16px 38px rgba(2,20,33,.14);
+  color:var(--admin-ink);
+  font-size:.86rem;
+  font-weight:800;
+  line-height:1.35;
+  animation:admin-toast-in .18s ease-out;
+}
+
+.admin-toast-success{
+  border-color:rgba(34,197,94,.32);
+}
+
+.admin-toast-success .icon-sm{
+  color:#15803d;
+}
+
+.admin-toast-error{
+  border-color:rgba(225,29,72,.28);
+}
+
+.admin-toast-error .icon-sm{
+  color:#be123c;
+}
+
+.admin-toast.is-hiding{
+  opacity:0;
+  transform:translateY(-6px);
+  transition:.2s ease;
+}
+
+@keyframes admin-toast-in{
+  from{opacity:0;transform:translateY(-6px)}
+  to{opacity:1;transform:translateY(0)}
+}
+
 .app-main.admin-compact{
   width:min(calc(100% - 48px),1540px);
   margin-inline:auto;
@@ -334,6 +388,18 @@ body.admin-body{
 
 #schedule-dashboard .table-responsive{
   overflow:auto;
+}
+
+.super-admin-range-override{
+  background:linear-gradient(90deg, rgba(224,177,32,.12), rgba(39,19,63,.04));
+}
+
+.super-admin-range-override .form-select-sm{
+  min-width:132px;
+}
+
+.super-admin-range-override .btn{
+  min-width:104px;
 }
 
 .admin-schedule-head,
@@ -795,8 +861,9 @@ body.admin-body{
 
 .admin-privacy-check,
 .admin-active-check{
-  display:flex;
-  align-items:flex-start;
+  display:grid;
+  grid-template-columns:18px minmax(0,1fr);
+  /* align-items:start; */
   gap:10px;
   padding:13px;
   border:1px solid var(--admin-line);
@@ -807,6 +874,25 @@ body.admin-body{
   line-height:1.35;
   text-transform:none;
   letter-spacing:0;
+}
+
+/* .admin-privacy-check input,
+.admin-active-check input{
+  width:16px;
+  height:16px;
+  margin:1px 0 0;
+} */
+
+.admin-privacy-check span,
+.admin-active-check span{
+  min-width:0;
+}
+
+.admin-privacy-check .btn-link{
+  color:#0e5a4e;
+  font-weight:900;
+  line-height:1.35;
+  text-decoration:underline;
 }
 
 .admin-register-submit{
@@ -973,6 +1059,72 @@ body.admin-body{
   max-height:calc(100dvh - 190px);
 }
 
+.admin-date-calendar{
+  display:grid;
+  gap:.8rem;
+}
+
+.admin-date-calendar-nav{
+  display:grid;
+  grid-template-columns:36px 1fr 36px;
+  align-items:center;
+  gap:.6rem;
+}
+
+.admin-date-calendar-nav strong{
+  color:var(--admin-ink);
+  font-size:1rem;
+  text-align:center;
+}
+
+.admin-date-calendar-weekdays,
+.admin-date-calendar-grid{
+  display:grid;
+  grid-template-columns:repeat(7, minmax(0, 1fr));
+  gap:.35rem;
+}
+
+.admin-date-calendar-weekdays span{
+  color:var(--admin-muted);
+  font-size:.68rem;
+  font-weight:900;
+  letter-spacing:.08em;
+  text-align:center;
+  text-transform:uppercase;
+}
+
+.admin-date-calendar-day{
+  display:grid;
+  min-height:42px;
+  place-items:center;
+  border:1px solid var(--admin-line);
+  border-radius:.55rem;
+  background:#fff;
+  color:var(--admin-ink);
+  font-weight:900;
+  transition:background .16s ease, border-color .16s ease, color .16s ease;
+}
+
+.admin-date-calendar-day:hover{
+  border-color:var(--admin-accent);
+  background:rgba(224,177,32,.12);
+}
+
+.admin-date-calendar-day.is-muted{
+  color:#a8a0b5;
+  background:#faf9fb;
+}
+
+.admin-date-calendar-day.is-today{
+  border-color:var(--admin-accent);
+}
+
+.admin-date-calendar-day.is-selected{
+  background:var(--admin-ink);
+  border-color:var(--admin-ink);
+  color:#fff;
+}
+
 .admin-override-single-column{
   max-width:640px;
   margin-inline:auto;
@@ -986,6 +1138,13 @@ body.public-body .public-member-account-form{
 
 body.public-body .public-member-account-form .admin-password-toggle{
   top:calc(50% + 9px);
+  transform:translateY(-50%);
+  height:28px;
+  width:28px;
+}
+
+body.public-body .public-password-field .admin-password-toggle{
+  top:calc(50% + 11px);
   transform:translateY(-50%);
   height:28px;
   width:28px;

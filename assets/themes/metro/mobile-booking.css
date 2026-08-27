@@ -1,4 +1,19 @@
 @media (max-width: 700px) {
+  .metro-booking-date-board {
+    width: 100%;
+    min-width: 0;
+    gap: 12px;
+  }
+
+  .metro-booking-date-picker {
+    max-width: none;
+  }
+
+  .metro-date-picker-field input {
+    min-height: 52px;
+    font-size: 1rem;
+  }
+
   .booking-grid-court-dropdown {
     display: grid !important;
     grid-template-columns: 1fr !important;

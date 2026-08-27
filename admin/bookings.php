@@ -52,6 +52,23 @@ include __DIR__ . '/../includes/header.php';
                     <h2 class="mt-1 mb-0 fw-black">Payments and booking actions</h2>
                 </div>
                 <div class="d-flex flex-wrap align-items-center gap-2">
+                    <label class="mb-0 small fw-bold d-flex align-items-center gap-1">
+                        <span class="text-secondary text-xs text-uppercase">From</span>
+                        <input id="adminBookingStartDate" type="date" class="form-input form-input-sm" aria-label="From date">
+                    </label>
+                    <label class="mb-0 small fw-bold d-flex align-items-center gap-1">
+                        <span class="text-secondary text-xs text-uppercase">To</span>
+                        <input id="adminBookingEndDate" type="date" class="form-input form-input-sm" aria-label="To date">
+                    </label>
+                    <button id="adminBookingDateClear" type="button" class="btn btn-outline-secondary btn-sm">Clear Dates</button>
+                    <label class="mb-0 small fw-bold d-flex align-items-center gap-1">
+                        <span class="text-secondary text-xs text-uppercase">Sort</span>
+                        <select id="adminBookingSort" class="form-select form-select-sm" aria-label="Sort bookings">
+                            <option value="created-desc">Newest created</option>
+                            <option value="reservation-asc">Reservation date oldest first</option>
+                            <option value="reservation-desc">Reservation date newest first</option>
+                        </select>
+                    </label>
                     <label class="mb-0 small fw-bold">
                         <span class="visually-hidden">Search by Reference Number</span>
                         <input id="adminReferenceSearch" class="form-input form-input-sm" placeholder="Search by Reference Number">
@@ -71,7 +88,8 @@ include __DIR__ . '/../includes/header.php';
                     <tr class="small text-secondary">
                         <th>Reservation</th>
                         <th>Reference Number</th>
-                        <th>Customer</th>
+                        <th>Customer/Member</th>
+                        <th>Created</th>
                         <th>Payment</th>
                         <th>Status</th>
                         <th>Receipt</th>
@@ -80,7 +98,7 @@ include __DIR__ . '/../includes/header.php';
                 </thead>
                 <tbody id="adminRows" class="small fw-semibold">
                     <tr>
-                        <td colspan="7" class="text-secondary">Loading reservations...</td>
+                        <td colspan="8" class="text-secondary">Loading reservations...</td>
                     </tr>
                 </tbody>
             </table>

@@ -5,6 +5,7 @@ require_once dirname(__DIR__) . '/config/database.php';
 require_once dirname(__DIR__) . '/includes/auth.php';
 require_once dirname(__DIR__) . '/includes/site-config.php';
 require_once dirname(__DIR__) . '/includes/data-privacy.php';
+require_once dirname(__DIR__) . '/includes/terms-conditions.php';
 
 $messages = [];
 $error = null;
@@ -54,9 +55,12 @@ function migrate_columns(PDO $pdo): void
                 birth_month TINYINT UNSIGNED NULL,
                 birth_year SMALLINT UNSIGNED NULL,
                 skill_level ENUM('2.0','2.5','3.0','3.5','4.0','4.5','5.0') NULL,
+                terms_conditions_agree TINYINT(1) NOT NULL DEFAULT 0,
+                terms_agreed_at DATETIME NULL,
                 data_privacy_act_agree TINYINT(1) NOT NULL DEFAULT 0,
                 data_privacy_policy_version VARCHAR(40) NULL,
                 data_privacy_agreed_at DATETIME NULL,
+                marketing_consent TINYINT(1) NOT NULL DEFAULT 0,
                 member_lookup_token VARCHAR(64) NULL UNIQUE,
                 password_hash VARCHAR(255) NOT NULL,
                 is_active TINYINT(1) NOT NULL DEFAULT 1,
@@ -171,6 +175,7 @@ function migrate_columns(PDO $pdo): void
     }
     site_config_ensure_gallery_table($pdo);
     data_privacy_ensure_table($pdo);
+    terms_conditions_ensure_table($pdo);
     if (!table_exists($pdo, 'court_blocks')) {
         $pdo->exec(
             "CREATE TABLE court_blocks (
@@ -305,9 +310,12 @@ function ensure_member_profile_columns(PDO $pdo): void
         'birth_month' => 'ALTER TABLE members ADD birth_month TINYINT UNSIGNED NULL AFTER phone',
         'birth_year' => 'ALTER TABLE members ADD birth_year SMALLINT UNSIGNED NULL AFTER birth_month',
         'skill_level' => "ALTER TABLE members ADD skill_level ENUM('2.0','2.5','3.0','3.5','4.0','4.5','5.0') NULL AFTER birth_year",
+        'terms_conditions_agree' => 'ALTER TABLE members ADD terms_conditions_agree TINYINT(1) NOT NULL DEFAULT 0 AFTER skill_level',
+        'terms_agreed_at' => 'ALTER TABLE members ADD terms_agreed_at DATETIME NULL AFTER terms_conditions_agree',
         'data_privacy_act_agree' => 'ALTER TABLE members ADD data_privacy_act_agree TINYINT(1) NOT NULL DEFAULT 0 AFTER skill_level',
         'data_privacy_policy_version' => 'ALTER TABLE members ADD data_privacy_policy_version VARCHAR(40) NULL AFTER data_privacy_act_agree',
         'data_privacy_agreed_at' => 'ALTER TABLE members ADD data_privacy_agreed_at DATETIME NULL AFTER data_privacy_policy_version',
+        'marketing_consent' => 'ALTER TABLE members ADD marketing_consent TINYINT(1) NOT NULL DEFAULT 0 AFTER data_privacy_agreed_at',
         'member_lookup_token' => 'ALTER TABLE members ADD member_lookup_token VARCHAR(64) NULL UNIQUE AFTER data_privacy_agreed_at',
     ];
 

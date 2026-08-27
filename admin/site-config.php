@@ -10,6 +10,30 @@ $error = null;
 $pdo = db();
 site_config_ensure_gallery_table($pdo);
 
+function admin_normalize_contact_phone(?string $phone): string
+{
+    return preg_replace('/[^\d+]/', '', trim((string) $phone)) ?? '';
+}
+
+function admin_is_valid_contact_phone(?string $phone): bool
+{
+    $normalized = normalize_phone_number($phone);
+    $raw = admin_normalize_contact_phone($phone);
+
+    return $normalized !== ''
+        && (
+            preg_match('/^09\d{9}$/', $normalized) === 1
+            || preg_match('/^0\d{7,10}$/', $normalized) === 1
+            || preg_match('/^\+63\d{8,11}$/', $raw) === 1
+            || preg_match('/^\d{7,8}$/', $normalized) === 1
+        );
+}
+
+function admin_contact_phone_validation_message(): string
+{
+    return 'Use a valid mobile or landline number, e.g. 0917 123 4567, (02) 8123 4567, or +63 2 8123 4567.';
+}
+
 $fieldMeta = [
     'venue_name' => ['Venue Name', 'text'],
     'address' => ['Address', 'text'],
@@ -21,6 +45,7 @@ $fieldMeta = [
     'about_main_image_path' => ['About Main Image Path', 'text'],
     'about_small_image_path' => ['About Small Image Path', 'text'],
     'contact_image_path' => ['Contact Image Path', 'text'],
+    'booking_max_date' => ['Booking Max Date', 'date'],
 ];
 
 function admin_gallery_images(PDO $pdo): array
@@ -120,6 +145,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             admin_update_gallery_images($pdo);
             $message = 'Gallery ordering and visibility saved.';
         } else {
+            if (trim((string) ($_POST['contact_phone'] ?? '')) !== '' && !admin_is_valid_contact_phone((string) $_POST['contact_phone'])) {
+                throw new RuntimeException(admin_contact_phone_validation_message());
+            }
+            $bookingMaxDate = trim((string) ($_POST['booking_max_date'] ?? ''));
+            if ($bookingMaxDate !== '' && !preg_match('/^\d{4}-\d{2}-\d{2}$/', $bookingMaxDate)) {
+                throw new RuntimeException('Use a valid Booking Max Date.');
+            }
             $stmt = $pdo->prepare(
                 'INSERT INTO site_config (config_key, config_value, label, field_type, sort_order, updated_by)
                  VALUES (?, ?, ?, ?, ?, ?)
@@ -130,9 +162,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             foreach ($fieldMeta as $key => [$label, $type]) {
                 $stmt->execute([
                     $key,
-                    trim((string) ($_POST[$key] ?? '')),
+                    $key === 'contact_phone'
+                        ? normalize_phone_number((string) ($_POST[$key] ?? ''))
+                        : ($key === 'booking_max_date' ? $bookingMaxDate : trim((string) ($_POST[$key] ?? ''))),
                     $label,
-                    $type === 'textarea' ? 'textarea' : ($type === 'url' ? 'url' : 'text'),
+                    $type === 'textarea' ? 'textarea' : ($type === 'url' ? 'url' : ($type === 'date' ? 'date' : 'text')),
                     $sort,
                     (int) $admin['id'],
                 ]);
@@ -174,10 +208,19 @@ include __DIR__ . '/../includes/header.php';
         <input type="hidden" name="action" value="site_config">
         <section class="app-card">
             <div class="row g-3">
-                <?php foreach (['venue_name', 'address', 'contact_phone', 'contact_email', 'messenger_url', 'map_embed_url', 'hero_image_path', 'about_main_image_path', 'about_small_image_path', 'contact_image_path'] as $key): ?>
+                <?php foreach (['venue_name', 'address', 'contact_phone', 'contact_email', 'messenger_url', 'map_embed_url', 'booking_max_date', 'hero_image_path', 'about_main_image_path', 'about_small_image_path', 'contact_image_path'] as $key): ?>
                     <?php [$label, $type] = $fieldMeta[$key]; ?>
                     <label class="col-md-6 small fw-bold"><?php echo htmlspecialchars($label); ?>
-                        <input name="<?php echo htmlspecialchars($key); ?>" type="<?php echo $type === 'url' ? 'url' : 'text'; ?>" value="<?php echo htmlspecialchars((string) ($config[$key] ?? '')); ?>" class="form-input mt-1">
+                        <input
+                            name="<?php echo htmlspecialchars($key); ?>"
+                            type="<?php echo $type === 'url' ? 'url' : ($type === 'date' ? 'date' : 'text'); ?>"
+                            value="<?php echo htmlspecialchars((string) ($config[$key] ?? '')); ?>"
+                            class="form-input mt-1"
+                            <?php echo $key === 'contact_phone' ? 'data-phone-mode="contact" placeholder="0917 123 4567 or (02) 8123 4567"' : ''; ?>
+                        >
+                        <?php if ($key === 'booking_max_date'): ?>
+                            <span class="d-block mt-1 text-xs fw-semibold text-secondary">Last date players can select in the booking calendar. Leave blank for no custom limit.</span>
+                        <?php endif; ?>
                     </label>
                 <?php endforeach; ?>
             </div>

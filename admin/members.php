@@ -1,21 +1,27 @@
 <?php
 require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/data-privacy.php';
+require_once __DIR__ . '/../includes/terms-conditions.php';
 $admin = require_admin_menu('admin-members');
 $canManageMembers = admin_can_manage_members($admin);
 $canManageStaff = admin_can_manage_staff($admin);
-$pageTitle = 'Users / Members';
+$pageTitle = $canManageStaff ? 'Users / Members' : 'Members';
 $active = 'admin-members';
 $activePrivacyPolicy = data_privacy_active_policy();
+$activeTermsPolicy = terms_conditions_active_policy();
 include __DIR__ . '/../includes/header.php';
 ?>
 <main data-needs-state class="app-main admin-compact">
     <section class="app-card mb-3">
         <div class="d-flex flex-wrap align-items-center justify-content-between gap-3">
             <div>
-                <span class="section-kicker">Users / Members</span>
+                <span class="section-kicker"><?php echo $canManageStaff ? 'Users / Members' : 'Members'; ?></span>
                 <h2 class="mt-1 mb-1 fw-black">Access and account management</h2>
-                <p class="mb-0 small text-secondary fw-semibold">Manage member profiles, QR lookup, entrance-fee payments, and staff/admin accounts.</p>
+                <p class="mb-0 small text-secondary fw-semibold">
+                    <?php echo $canManageStaff
+                        ? 'Manage member profiles, QR lookup, entrance-fee payments, and staff/admin accounts.'
+                        : 'Manage member profiles, QR lookup, and entrance-fee payments.'; ?>
+                </p>
             </div>
             <?php if ($canManageMembers): ?>
                 <button id="adminAddMember" class="btn btn-primary btn-sm" type="button">
@@ -172,6 +178,14 @@ include __DIR__ . '/../includes/header.php';
                             </label>
 
                             <label class="admin-privacy-check admin-player-field-full">
+                                <input required type="checkbox" name="termsConditionsAgree" id="adminMemberTermsAgree" value="1">
+                                <span>
+                                    I have read and agree to the
+                                    <button type="button" class="btn btn-link btn-sm p-0 align-baseline" data-open-terms-conditions>Terms and Conditions</button>.
+                                </span>
+                            </label>
+
+                            <label class="admin-privacy-check admin-player-field-full">
                                 <input required type="checkbox" name="dataPrivacyActAgree" id="adminMemberPrivacyAgree" value="1">
                                 <span>
                                     I have read and agree to the
@@ -191,6 +205,21 @@ include __DIR__ . '/../includes/header.php';
                         <button type="button" class="btn btn-link btn-sm admin-register-cancel" data-bs-dismiss="modal">Cancel</button>
                     </div>
                 </form>
+            </div>
+        </div>
+    </div>
+
+    <div id="termsConditionsModal" class="modal fade" tabindex="-1" aria-labelledby="termsConditionsTitle" aria-hidden="true">
+        <div class="modal-dialog modal-lg modal-dialog-scrollable">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h2 id="termsConditionsTitle" class="modal-title fw-black"><?php echo htmlspecialchars((string) $activeTermsPolicy['title']); ?></h2>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body small fw-semibold text-secondary privacy-policy-content">
+                    <?php echo (string) $activeTermsPolicy['contentHtml']; ?>
+                    <p class="mt-3 mb-0 text-xs fw-bold text-muted">Version: <?php echo htmlspecialchars((string) $activeTermsPolicy['version']); ?></p>
+                </div>
             </div>
         </div>
     </div>

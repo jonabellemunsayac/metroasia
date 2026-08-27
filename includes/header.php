@@ -6,7 +6,7 @@ $appBrand = 'Metro Asia';
 $appTitle = '';
 $pageTitle = $pageTitle ?? $appTitle;
 $active = $active ?? 'home';
-$assetVersion = $assetVersion ?? '3.1.38';
+$assetVersion = $assetVersion ?? '3.1.74';
 $themeName = $themeName ?? 'metro';
 $memberAccountStyles = $memberAccountStyles ?? false;
 $currentAdmin = current_admin();
@@ -16,7 +16,6 @@ $useAdminShell = $currentAdmin !== null && str_starts_with($active, 'admin');
 $publicNavItems = [
     ['key' => 'home', 'label' => 'Home', 'href' => app_url('ui/index.php#welcome')],
     ['key' => 'gallery', 'label' => 'Gallery', 'href' => app_url('ui/index.php#gallery')],
-    ['key' => 'rules', 'label' => 'Rules', 'href' => app_url('ui/rules.php')],
     ['key' => 'about', 'label' => 'About', 'href' => app_url('ui/index.php#about')],
     ['key' => 'contact', 'label' => 'Contact', 'href' => app_url('ui/index.php#contact-us')],
 ];
@@ -25,6 +24,12 @@ $adminNavItems = array_values(array_filter(array_map(static function (array $ite
     if ($currentAdmin !== null && !admin_menu_allowed($item['key'], $currentAdmin)) {
         return null;
     }
+    if ($currentAdmin !== null
+        && (string) ($currentAdmin['role'] ?? '') === 'admin'
+        && $item['key'] === 'admin-members') {
+        $item['label'] = 'Members';
+        $item['sub'] = 'Member profiles and fees';
+    }
     $item['href'] = app_url($item['path']);
     return $item;
 }, admin_menu_catalog())));
@@ -32,6 +37,7 @@ $adminNavItems = array_values(array_filter(array_map(static function (array $ite
 $isPublicHome = !$useAdminShell && $active === 'home';
 $memberCtaLabel = $currentMember ? 'My Bookings' : 'Login';
 $memberCtaHref = app_url($currentMember ? 'ui/member.php' : 'ui/member-login.php');
+$bookingCtaHref = app_url($currentMember ? 'ui/booking.php' : member_login_path('ui/booking.php'));
 $publicBreadcrumbLabels = [
     'home' => 'Home',
     'booking' => "Let's Play",
@@ -162,7 +168,7 @@ if ($active === 'member' && $pageTitle !== '') {
                 <?php endforeach; ?>
 
                 <div class="metro-nav-mobile-actions">
-                    <a class="metro-header-action metro-header-action-primary" href="<?php echo htmlspecialchars(app_url('ui/booking.php')); ?>">
+                    <a class="metro-header-action metro-header-action-primary" href="<?php echo htmlspecialchars($bookingCtaHref); ?>">
                         Let's Play
                     </a>
                     <a class="metro-header-action metro-header-action-secondary" href="<?php echo htmlspecialchars($memberCtaHref); ?>">
@@ -172,7 +178,7 @@ if ($active === 'member' && $pageTitle !== '') {
             </nav>
 
             <div class="metro-header-actions">
-                <a class="metro-header-action metro-header-action-primary" href="<?php echo htmlspecialchars(app_url('ui/booking.php')); ?>">
+                <a class="metro-header-action metro-header-action-primary" href="<?php echo htmlspecialchars($bookingCtaHref); ?>">
                     Let's Play
                 </a>
 

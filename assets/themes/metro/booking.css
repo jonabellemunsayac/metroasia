@@ -655,76 +655,66 @@
     gap: 16px;
 }
 
-.metro-booking-date-strip {
-    display: grid;
-    grid-template-columns: 42px minmax(0, 1fr) 42px;
-    gap: 10px;
-    align-items: stretch;
+.metro-booking-date-picker {
+    max-width: 360px;
 }
 
-.metro-date-cards {
+.metro-date-picker-field {
+    position: relative;
+    width: 100%;
     display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-    gap: 10px;
+    gap: 7px;
+    margin: 0;
+    color: var(--metro-primary);
+    font-size: .68rem;
+    font-weight: 900;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    cursor: pointer;
 }
 
-.metro-date-card,
-.metro-date-arrow {
+.metro-date-picker-field input {
+    width: 100%;
+    min-height: 54px;
+    padding: 12px 48px 12px 14px;
     border: 1px solid #ccd7e3;
     border-radius: 4px;
     background: #fff;
     color: var(--metro-primary);
-}
-
-.metro-date-arrow {
-    min-height: 56px;
-    display: grid;
-    place-items: center;
-}
-
-.metro-date-card {
-    min-height: 58px;
-    display: grid;
-    place-items: center;
-    gap: 3px;
-    padding: 8px 12px;
-    text-align: center;
-    transition: background .16s ease, border-color .16s ease, color .16s ease;
-}
-
-.metro-date-card span {
-    color: var(--metro-text);
-    font-size: .67rem;
+    font: inherit;
+    font-size: .95rem;
     font-weight: 900;
-    letter-spacing: .12em;
-    line-height: 1;
-    text-transform: uppercase;
+    letter-spacing: 0;
+    text-transform: none;
+    cursor: pointer;
 }
 
-.metro-date-card strong {
-    color: inherit;
-    font-size: .92rem;
-    font-weight: 900;
-    line-height: 1.1;
-}
-
-.metro-date-card:hover:not(:disabled),
-.metro-date-arrow:hover:not(:disabled),
-.metro-date-card.is-active {
+.metro-date-picker-field input:focus {
     border-color: var(--metro-primary);
-    background: var(--metro-primary);
-    color: #fff;
+    box-shadow: 0 0 0 3px rgba(46, 20, 67, .12);
+    outline: 0;
 }
 
-.metro-date-card:hover:not(:disabled) span,
-.metro-date-card.is-active span {
-    color: rgba(255, 255, 255, .75);
-}
-
-.metro-date-card:disabled,
-.metro-date-arrow:disabled {
+.metro-date-picker-field input:disabled {
     cursor: not-allowed;
-    opacity: .45;
+    opacity: .55;
+}
+
+.metro-date-picker-field input::-webkit-calendar-picker-indicator {
+    position: absolute;
+    inset: 0;
+    width: auto;
+    height: auto;
+    cursor: pointer;
+    opacity: 0;
+}
+
+.metro-date-picker-field .icon-sm {
+    position: absolute;
+    right: 14px;
+    bottom: 15px;
+    color: var(--metro-primary);
+    pointer-events: none;
 }
 
 .metro-date-current {
@@ -1100,8 +1090,10 @@ button.metro-schedule-slot.booking-slot-past {
 
 .metro-payment-display {
     display: grid;
+    grid-template-columns: minmax(210px, 280px) minmax(0, 1fr);
+    align-items: start;
     gap: 18px;
-    justify-items: center;
+    justify-items: stretch;
     padding: 4px;
 }
 
@@ -1165,7 +1157,8 @@ button.metro-schedule-slot.booking-slot-past {
 .metro-payment-detail-block {
     display: grid;
     gap: 12px;
-    width: min(100%, 520px);
+    width: 100%;
+    min-width: 0;
 }
 
 .metro-payment-channel-label {
@@ -1174,7 +1167,7 @@ button.metro-schedule-slot.booking-slot-past {
     font-size: .7rem;
     font-weight: 900;
     letter-spacing: .14em;
-    text-align: center;
+    text-align: left;
     text-transform: uppercase;
 }
 
@@ -1183,7 +1176,7 @@ button.metro-schedule-slot.booking-slot-past {
     color: var(--metro-primary);
     font-size: 1.1rem;
     font-weight: 900;
-    text-align: center;
+    text-align: left;
 }
 
 .metro-payment-detail-block dl {
@@ -1227,13 +1220,63 @@ button.metro-schedule-slot.booking-slot-past {
     font-size: .82rem;
     font-weight: 700;
     line-height: 1.55;
-    text-align: center;
+    text-align: left;
 }
 
 .metro-payment-proof-note {
     padding: 10px 12px;
     border-radius: 4px;
     background: #fff;
+}
+
+.metro-payment-timer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 18px;
+    margin-bottom: 16px;
+    padding: 14px 16px;
+    border: 1px solid rgba(216, 169, 40, .45);
+    border-radius: 6px;
+    background: #fff8e5;
+    color: var(--metro-primary);
+}
+
+.metro-payment-timer-label {
+    display: block;
+    margin-bottom: 3px;
+    color: #725414;
+    font-size: .68rem;
+    font-weight: 900;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+}
+
+.metro-payment-timer strong {
+    display: block;
+    color: var(--metro-primary);
+    font-size: 1.45rem;
+    font-weight: 900;
+    line-height: 1;
+}
+
+.metro-payment-timer p {
+    max-width: 620px;
+    margin: 0;
+    color: #725414;
+    font-size: .82rem;
+    font-weight: 800;
+    line-height: 1.45;
+}
+
+.metro-payment-timer.is-expired {
+    border-color: rgba(190, 18, 60, .35);
+    background: #fff1f2;
+}
+
+.metro-payment-timer.is-expired .metro-payment-timer-label,
+.metro-payment-timer.is-expired p {
+    color: #be123c;
 }
 
 .metro-inline-payment-section {
@@ -1568,14 +1611,6 @@ button.metro-schedule-slot.booking-slot-past {
         flex-direction: column;
     }
 
-    .metro-booking-date-strip {
-        grid-template-columns: 40px minmax(0, 1fr) 40px;
-    }
-
-    .metro-date-cards {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-    }
-
     .metro-booking-rates {
         grid-template-columns: 1fr;
     }
@@ -1597,6 +1632,22 @@ button.metro-schedule-slot.booking-slot-past {
     .metro-inline-field-grid,
     .metro-inline-payment-grid {
         grid-template-columns: 1fr;
+    }
+
+    .metro-payment-display {
+        grid-template-columns: 1fr;
+    }
+
+    .metro-payment-channel-label,
+    .metro-payment-detail-block h4,
+    .metro-payment-instruction-text,
+    .metro-payment-proof-note {
+        text-align: center;
+    }
+
+    .metro-payment-timer {
+        align-items: flex-start;
+        flex-direction: column;
     }
 
     .metro-inline-player-layout {

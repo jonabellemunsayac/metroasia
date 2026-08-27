@@ -83,23 +83,41 @@ include __DIR__ . '/../includes/header.php';
             <div class="d-flex flex-wrap align-items-end gap-2">
                 <label class="small fw-bold text-secondary">Sport
                     <select id="adminScheduleSportFilter" class="form-select form-select-sm">
-                        <option value="">All sports</option>
-                        <option value="Pickleball">Pickleball</option>
+                        <option value="Pickleball" selected>Pickleball</option>
                         <option value="Basketball">Basketball</option>
                         <option value="Volleyball">Volleyball</option>
                     </select>
                 </label>
-                <div class="btn-group btn-group-sm">
-                    <button id="adminSchedulePrev" class="btn btn-outline-secondary" type="button" aria-label="Previous schedule date">
-                        <i data-lucide="chevron-left" class="icon-sm"></i>
-                    </button>
-                    <span class="btn btn-light disabled text-dark">DATE: <span id="adminScheduleDateLabel"></span></span>
-                    <button id="adminScheduleNext" class="btn btn-outline-secondary" type="button" aria-label="Next schedule date">
-                        <i data-lucide="chevron-right" class="icon-sm"></i>
-                    </button>
-                </div>
+                <button id="adminScheduleCalendarOpen" class="btn btn-outline-primary btn-sm" type="button">
+                    <i data-lucide="calendar-days" class="icon-sm"></i>
+                    <span>Date: <span id="adminScheduleDateLabel"></span></span>
+                </button>
             </div>
         </div>
+        <?php if (($admin['role'] ?? '') === 'super_admin'): ?>
+        <div id="superAdminRangeOverride" class="super-admin-range-override border-bottom px-3 py-3">
+            <div class="d-flex flex-wrap align-items-end gap-2">
+                <div class="me-auto">
+                    <span class="section-kicker">Super Admin Range Override</span>
+                    <p class="mb-0 small text-secondary fw-semibold">Select a court and continuous time range, then open the existing reservation form.</p>
+                </div>
+                <label class="small fw-bold text-secondary">Sport
+                    <select id="superAdminRangeSport" class="form-select form-select-sm"></select>
+                </label>
+                <label class="small fw-bold text-secondary">Court
+                    <select id="superAdminRangeCourt" class="form-select form-select-sm"></select>
+                </label>
+                <label class="small fw-bold text-secondary">Start
+                    <select id="superAdminRangeStart" class="form-select form-select-sm"></select>
+                </label>
+                <label class="small fw-bold text-secondary">End
+                    <select id="superAdminRangeEnd" class="form-select form-select-sm"></select>
+                </label>
+                <button id="superAdminRangeOverrideButton" class="btn btn-warning btn-sm hidden" type="button">Override</button>
+            </div>
+            <p id="superAdminRangeOverrideHelp" class="mb-0 mt-2 small fw-semibold text-secondary"></p>
+        </div>
+        <?php endif; ?>
         <div class="table-responsive bg-light p-3">
             <div id="adminScheduleGrid" class="admin-schedule-grid grid rounded border bg-white"></div>
         </div>
@@ -111,6 +129,41 @@ include __DIR__ . '/../includes/header.php';
             <span><span class="legend-dot legend-dot-blocked"></span>Blocked / Past unavailable</span>
         </div>
     </section>
+
+    <div id="adminScheduleDatePickerModal" class="modal fade" tabindex="-1" aria-labelledby="adminScheduleDatePickerTitle" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <div>
+                        <span class="section-kicker">Schedule Date</span>
+                        <h2 id="adminScheduleDatePickerTitle" class="modal-title fw-black">Choose dashboard date</h2>
+                    </div>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="admin-date-calendar">
+                        <div class="admin-date-calendar-nav">
+                            <button id="adminScheduleCalendarPrev" type="button" class="btn btn-outline-secondary btn-sm" aria-label="Previous month">
+                                <i data-lucide="chevron-left" class="icon-sm"></i>
+                            </button>
+                            <strong id="adminScheduleCalendarTitle"></strong>
+                            <button id="adminScheduleCalendarNext" type="button" class="btn btn-outline-secondary btn-sm" aria-label="Next month">
+                                <i data-lucide="chevron-right" class="icon-sm"></i>
+                            </button>
+                        </div>
+                        <div class="admin-date-calendar-weekdays" aria-hidden="true">
+                            <span>Sun</span><span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span>
+                        </div>
+                        <div id="adminScheduleCalendarGrid" class="admin-date-calendar-grid"></div>
+                        <p id="adminScheduleCalendarHelp" class="mb-0 small fw-semibold text-secondary"></p>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button id="adminScheduleCalendarToday" type="button" class="btn btn-outline-primary btn-sm">Today</button>
+                </div>
+            </div>
+        </div>
+    </div>
 
     <div id="adminOverrideBookingModal" class="modal fade" tabindex="-1" aria-labelledby="adminOverrideBookingTitle" aria-hidden="true">
         <div class="modal-dialog modal-lg modal-dialog-scrollable admin-override-dialog">
@@ -125,27 +178,33 @@ include __DIR__ . '/../includes/header.php';
                         <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                     </div>
                     <div class="modal-body">
-                        <input required type="hidden" name="date" id="adminOverrideDate">
-                        <input required type="hidden" name="timeSlotId" id="adminOverrideTime">
+                        <input type="hidden" name="bookingId" id="adminOverrideBookingId">
+                        <input type="hidden" name="timeSlotIds" id="adminOverrideTimeSlotIds">
                         <div class="row g-3 admin-override-single-column">
-                            <label class="col-12 small fw-bold">Court
-                                <select required name="courtId" id="adminOverrideCourt" class="form-select"></select>
+                            <label class="col-12 small fw-bold">Date
+                                <input required type="date" name="date" id="adminOverrideDate" class="form-input">
+                            </label>
+                            <label class="col-12 small fw-bold">Time
+                                <select required name="timeSlotId" id="adminOverrideTime" class="form-select"></select>
                             </label>
                             <label class="col-12 small fw-bold">Sport
                                 <select required name="sport" id="adminOverrideSport" class="form-select"></select>
                             </label>
-                            <label class="col-12 small fw-bold">Member
-                                <select required name="memberId" id="adminOverrideCustomer" class="form-select"></select>
+                            <label class="col-12 small fw-bold">Court
+                                <select required name="courtId" id="adminOverrideCourt" class="form-select"></select>
                             </label>
-                            <div class="col-12 small text-secondary fw-semibold" id="adminOverrideCustomerHelp">Choose an active member. Contact details will be filled automatically.</div>
+                            <label class="col-12 small fw-bold">Member
+                                <select name="memberId" id="adminOverrideCustomer" class="form-select"></select>
+                            </label>
+                            <div class="col-12 small text-secondary fw-semibold" id="adminOverrideCustomerHelp">Choose a member to auto-fill details, or leave blank for walk-in / non-member booking.</div>
                             <label class="col-12 small fw-bold">Customer name
-                                <input required readonly name="name" id="adminOverrideName" class="form-input" placeholder="Selected member name">
+                                <input required name="name" id="adminOverrideName" class="form-input" placeholder="Customer or walk-in name">
                             </label>
                             <label class="col-12 small fw-bold">Phone
-                                <input required readonly name="phone" id="adminOverridePhone" class="form-input" placeholder="Selected member phone">
+                                <input name="phone" id="adminOverridePhone" class="form-input" placeholder="Customer phone (optional)">
                             </label>
                             <label class="col-12 small fw-bold">Email
-                                <input readonly type="email" name="email" id="adminOverrideEmail" class="form-input" placeholder="Selected member email">
+                                <input type="email" name="email" id="adminOverrideEmail" class="form-input" placeholder="Customer email (optional)">
                             </label>
                             <label class="col-12 small fw-bold">Status
                                 <select name="status" class="form-select">

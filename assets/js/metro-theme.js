@@ -228,73 +228,104 @@
   window.addEventListener('scroll', syncHeader, { passive: true });
 
   /* ------------------------------------------------------------
-   * 5. Homepage navigation scroll spy
-   * ---------------------------------------------------------- */
-  const samePageHash = link => {
-    const href = link.getAttribute('href') || '';
-    if (!href.includes('#')) return '';
+ * 5. Homepage navigation scroll spy
+ * ---------------------------------------------------------- */
 
-    try {
-      const url = new URL(href, window.location.href);
-      const currentPath = window.location.pathname.replace(/\/+$/, '');
-      const linkPath = url.pathname.replace(/\/+$/, '');
+const normalizePath = pathname => {
+  const path = pathname.replace(/\/+$/, '');
 
-      return url.origin === window.location.origin && linkPath === currentPath
-        ? url.hash
-        : '';
-    } catch (error) {
-      return href.startsWith('#') ? href : '';
-    }
-  };
-
-  const navSectionLinks = nav
-    ? Array.from(nav.querySelectorAll('a[href*="#"]')).filter(link => {
-        const hash = samePageHash(link);
-        return hash && doc.querySelector(hash);
-      })
-    : [];
-
-  const navSections = navSectionLinks.map(link => ({
-    link,
-    hash: samePageHash(link),
-    target: doc.querySelector(samePageHash(link))
-  }));
-
-  const setActiveNavSection = activeHash => {
-    if (!navSections.length) return;
-
-    navSections.forEach(({ link, hash }) => {
-      const isActive = hash === activeHash;
-      link.classList.toggle('active', isActive);
-      if (isActive) {
-        link.setAttribute('aria-current', 'page');
-      } else {
-        link.removeAttribute('aria-current');
-      }
-    });
-  };
-
-  const syncActiveNavSection = () => {
-    if (!navSections.length) return;
-
-    const headerOffset = header ? Math.min(header.offsetHeight, 96) : 0;
-    const marker = window.scrollY + headerOffset + Math.round(window.innerHeight * 0.22);
-    let activeSection = navSections[0];
-
-    navSections.forEach(section => {
-      if (section.target.offsetTop <= marker) {
-        activeSection = section;
-      }
-    });
-
-    setActiveNavSection(activeSection.hash);
-  };
-
-  if (navSections.length) {
-    syncActiveNavSection();
-    window.addEventListener('scroll', syncActiveNavSection, { passive: true });
-    window.addEventListener('resize', syncActiveNavSection);
+  // Treat the public root and /ui/index.php as the same Home page.
+  if (path === '' || path === '/ui' || path === '/ui/index.php') {
+    return '/';
   }
+
+  return path;
+};
+
+const samePageHash = link => {
+  const href = link.getAttribute('href') || '';
+  if (!href.includes('#')) return '';
+
+  try {
+    const url = new URL(href, window.location.href);
+
+    const currentPath = normalizePath(window.location.pathname);
+    const linkPath = normalizePath(url.pathname);
+
+    return url.origin === window.location.origin && linkPath === currentPath
+      ? url.hash
+      : '';
+  } catch (error) {
+    return href.startsWith('#') ? href : '';
+  }
+};
+
+const navSectionLinks = nav
+  ? Array.from(nav.querySelectorAll('a[href*="#"]')).filter(link => {
+      const hash = samePageHash(link);
+      return hash && doc.querySelector(hash);
+    })
+  : [];
+
+const navSections = navSectionLinks.map(link => ({
+  link,
+  hash: samePageHash(link),
+  target: doc.querySelector(samePageHash(link))
+}));
+
+const setActiveNavSection = activeHash => {
+  if (!navSections.length) return;
+
+  navSections.forEach(({ link, hash }) => {
+    const isActive = hash === activeHash;
+
+    link.classList.toggle('active', isActive);
+
+    if (isActive) {
+      link.setAttribute('aria-current', 'page');
+    } else {
+      link.removeAttribute('aria-current');
+    }
+  });
+};
+
+const syncActiveNavSection = () => {
+  if (!navSections.length) return;
+
+  const headerOffset = header
+    ? Math.min(header.offsetHeight, 96)
+    : 0;
+
+  const marker =
+    window.scrollY +
+    headerOffset +
+    Math.round(window.innerHeight * 0.22);
+
+  let activeSection = navSections[0];
+
+  navSections.forEach(section => {
+    if (section.target.offsetTop <= marker) {
+      activeSection = section;
+    }
+  });
+
+  setActiveNavSection(activeSection.hash);
+};
+
+if (navSections.length) {
+  syncActiveNavSection();
+
+  window.addEventListener(
+    'scroll',
+    syncActiveNavSection,
+    { passive: true }
+  );
+
+  window.addEventListener(
+    'resize',
+    syncActiveNavSection
+  );
+}
 
   /* ------------------------------------------------------------
    * 6. Smooth anchor navigation

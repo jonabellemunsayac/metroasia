@@ -8,7 +8,7 @@ function site_config_defaults(): array
     return [
         'venue_name' => 'MetroAsia Arena',
         'address' => '65 Elizco Rd, Pasig, 1600 Metro Manila',
-        'contact_phone' => '09XX XXX XXXX',
+        'contact_phone' => '',
         'contact_email' => 'support@metroasia.test',
         'messenger_url' => 'https://www.facebook.com/messages/t/',
         'map_embed_url' => 'https://www.google.com/maps?q=65%20Elizco%20Rd%2C%20Pasig%2C%201600%20Metro%20Manila&output=embed',
@@ -16,6 +16,7 @@ function site_config_defaults(): array
         'about_main_image_path' => 'assets/hero-pickleball.png',
         'about_small_image_path' => 'https://demo.zaktheme.web.id/Pickyard/wp-content/uploads/2025/11/paddle-tennis-equipment-on-the-ground-at-outdoor-c-2024-12-13-18-15-20-utc-1.webp',
         'contact_image_path' => 'assets/homepage-court.jpg',
+        'booking_max_date' => '',
         'gallery_1_title' => 'Pickleball',
         'gallery_1_caption' => 'Pickleball',
         'gallery_1_image' => 'assets/hero-pickleball.png',
