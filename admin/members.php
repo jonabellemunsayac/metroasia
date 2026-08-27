@@ -19,7 +19,7 @@ include __DIR__ . '/../includes/header.php';
                 <h2 class="mt-1 mb-1 fw-black">Access and account management</h2>
                 <p class="mb-0 small text-secondary fw-semibold">
                     <?php echo $canManageStaff
-                        ? 'Manage member profiles, QR lookup, entrance-fee payments, and staff/admin accounts.'
+                        ? 'Manage member profiles, QR lookup, entrance-fee payments, staff accounts, and permissions.'
                         : 'Manage member profiles, QR lookup, and entrance-fee payments.'; ?>
                 </p>
             </div>
@@ -31,27 +31,100 @@ include __DIR__ . '/../includes/header.php';
         </div>
     </section>
 
-    <section class="row g-3">
-        <div class="col-12">
-            <div class="app-card h-100">
-                <div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-3">
-                    <div>
-                        <span class="section-kicker">Members</span>
-                        <h2 class="mt-1 mb-0 fw-black">Registered member list</h2>
+    <?php if ($canManageStaff): ?>
+        <section class="app-card mb-3">
+            <ul class="nav nav-tabs" id="adminUsersMembersTabs" role="tablist">
+                <li class="nav-item" role="presentation">
+                    <button
+                        class="nav-link active fw-bold"
+                        id="members-tab"
+                        data-bs-toggle="tab"
+                        data-bs-target="#members-pane"
+                        type="button"
+                        role="tab"
+                        aria-controls="members-pane"
+                        aria-selected="true"
+                    >
+                        <span class="d-inline-flex align-items-center gap-2">
+                            <i data-lucide="users" class="icon-sm"></i>
+                            Members
+                        </span>
+                    </button>
+                </li>
+
+                <li class="nav-item" role="presentation">
+                    <button
+                        class="nav-link fw-bold"
+                        id="staff-tab"
+                        data-bs-toggle="tab"
+                        data-bs-target="#staff-pane"
+                        type="button"
+                        role="tab"
+                        aria-controls="staff-pane"
+                        aria-selected="false"
+                    >
+                        <span class="d-inline-flex align-items-center gap-2">
+                            <i data-lucide="badge-check" class="icon-sm"></i>
+                            Staff
+                        </span>
+                    </button>
+                </li>
+
+                <li class="nav-item" role="presentation">
+                    <button
+                        class="nav-link fw-bold"
+                        id="permissions-tab"
+                        data-bs-toggle="tab"
+                        data-bs-target="#permissions-pane"
+                        type="button"
+                        role="tab"
+                        aria-controls="permissions-pane"
+                        aria-selected="false"
+                    >
+                        <span class="d-inline-flex align-items-center gap-2">
+                            <i data-lucide="shield-check" class="icon-sm"></i>
+                            Permission Assignment
+                        </span>
+                    </button>
+                </li>
+            </ul>
+
+            <div class="tab-content pt-3" id="adminUsersMembersTabContent">
+                <div
+                    class="tab-pane fade show active"
+                    id="members-pane"
+                    role="tabpanel"
+                    aria-labelledby="members-tab"
+                    tabindex="0"
+                >
+                    <div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-3">
+                        <div>
+                            <span class="section-kicker">Members</span>
+                            <h2 class="mt-1 mb-0 fw-black">Registered member list</h2>
+                        </div>
+
+                        <div class="d-flex flex-wrap align-items-center gap-2">
+                            <input
+                                id="adminMemberSearch"
+                                class="form-input form-input-sm"
+                                placeholder="Search name, nickname, phone, or email"
+                            >
+                            <button id="adminScanMemberQr" class="btn btn-outline-secondary btn-sm" type="button">
+                                <i data-lucide="scan-line" class="icon-sm"></i>Scan QR
+                            </button>
+                        </div>
                     </div>
-                    <div class="d-flex flex-wrap align-items-center gap-2">
-                        <input id="adminMemberSearch" class="form-input form-input-sm" placeholder="Search name, nickname, phone, or email">
-                        <button id="adminScanMemberQr" class="btn btn-outline-secondary btn-sm" type="button">
-                            <i data-lucide="scan-line" class="icon-sm"></i>Scan QR
-                        </button>
-                    </div>
+
+                    <div id="adminMembers"></div>
                 </div>
-                <div id="adminMembers"></div>
-            </div>
-        </div>
-        <?php if ($canManageStaff): ?>
-            <div class="col-12">
-                <div class="app-card h-100">
+
+                <div
+                    class="tab-pane fade"
+                    id="staff-pane"
+                    role="tabpanel"
+                    aria-labelledby="staff-tab"
+                    tabindex="0"
+                >
                     <div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-3">
                         <div>
                             <span class="section-kicker">Admin Users</span>
@@ -59,20 +132,56 @@ include __DIR__ . '/../includes/header.php';
                         </div>
                         <span class="badge text-bg-primary">Admin only</span>
                     </div>
+
                     <div id="adminUsers" class="grid gap-3"></div>
-                    <hr class="my-4">
+                </div>
+
+                <div
+                    class="tab-pane fade"
+                    id="permissions-pane"
+                    role="tabpanel"
+                    aria-labelledby="permissions-tab"
+                    tabindex="0"
+                >
                     <div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-3">
                         <div>
                             <span class="section-kicker">Role Access</span>
                             <h2 class="mt-1 mb-0 fw-black">Menu permissions</h2>
                         </div>
-                        <p class="mb-0 small text-secondary fw-semibold">Choose which admin menus each staff role can open.</p>
+                        <p class="mb-0 small text-secondary fw-semibold">
+                            Choose which admin menus each staff role can open.
+                        </p>
                     </div>
+
                     <div id="adminRolePermissions"></div>
                 </div>
             </div>
-        <?php endif; ?>
-    </section>
+        </section>
+    <?php else: ?>
+        <section class="row g-3">
+            <div class="col-12">
+                <div class="app-card h-100">
+                    <div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-3">
+                        <div>
+                            <span class="section-kicker">Members</span>
+                            <h2 class="mt-1 mb-0 fw-black">Registered member list</h2>
+                        </div>
+                        <div class="d-flex flex-wrap align-items-center gap-2">
+                            <input
+                                id="adminMemberSearch"
+                                class="form-input form-input-sm"
+                                placeholder="Search name, nickname, phone, or email"
+                            >
+                            <button id="adminScanMemberQr" class="btn btn-outline-secondary btn-sm" type="button">
+                                <i data-lucide="scan-line" class="icon-sm"></i>Scan QR
+                            </button>
+                        </div>
+                    </div>
+                    <div id="adminMembers"></div>
+                </div>
+            </div>
+        </section>
+    <?php endif; ?>
 
     <div id="adminMemberModal" class="modal fade" tabindex="-1" aria-labelledby="adminMemberModalTitle" aria-hidden="true">
         <div class="modal-dialog modal-lg modal-dialog-scrollable">
