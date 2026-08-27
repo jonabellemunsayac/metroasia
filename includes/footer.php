@@ -56,17 +56,17 @@ if ($useAdminShell):
 
                     <div class="metro-social">
 
-                        <a href="#" aria-label="Facebook" title="Facebook">
+                        <a href="https://www.facebook.com/profile.php?id=61591142892175" target="_blank" aria-label="Facebook" title="Facebook">
                             <span class="social-text-icon">f</span>
                         </a>
 
-                        <a href="#" aria-label="Instagram" title="Instagram">
+                        <!-- <a href="#" aria-label="Instagram" title="Instagram">
                             <span class="instagram-icon" aria-hidden="true">
                                 <span class="instagram-dot"></span>
                             </span>
-                        </a>
+                        </a> -->
 
-                        <a href="#" aria-label="Contact MetroAsia Arena" title="Contact">
+                        <a href="https://www.facebook.com/messages/t/61591142892175" target="_blank" aria-label="Contact MetroAsia Arena" title="Contact">
                             <i data-lucide="message-circle" class="icon-sm"></i>
                         </a>
 

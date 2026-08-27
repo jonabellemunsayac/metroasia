@@ -247,6 +247,10 @@
         border-top: 1px solid var(--metro-border);
     }
 
+    .metro-nav-mobile-actions.is-member-area {
+        grid-template-columns: 1fr;
+    }
+
     .metro-nav-mobile-actions .metro-header-action {
         width: 100%;
         min-height: 40px;

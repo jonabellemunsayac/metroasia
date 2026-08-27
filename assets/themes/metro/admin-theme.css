@@ -1150,6 +1150,42 @@ body.public-body .public-password-field .admin-password-toggle{
   width:28px;
 }
 
+.sport-slot-toggle{
+  display:inline-flex;
+  min-width:86px;
+  min-height:30px;
+  align-items:center;
+  justify-content:center;
+  border:1px solid var(--admin-line);
+  border-radius:999px;
+  background:#fff;
+  color:var(--admin-ink);
+  cursor:pointer;
+  font-size:.72rem;
+  font-weight:900;
+}
+
+.sport-slot-toggle input{
+  position:absolute;
+  opacity:0;
+  pointer-events:none;
+}
+
+.sport-slot-toggle span{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+}
+
+.sport-slot-toggle:has(input:checked){
+  border-color:var(--admin-accent);
+  background:rgba(225,181,38,.18);
+}
+
+.sport-slot-toggle:not(:has(input:checked)){
+  color:var(--admin-muted);
+}
+
 @media(max-width:767.98px){
   body.public-body .public-member-account-form{
     max-height:none;

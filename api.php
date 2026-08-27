@@ -604,6 +604,127 @@ function normalize_supported_sports(array|string|null $value): array
     return $sports;
 }
 
+function valid_booking_sports(): array
+{
+    return ['Pickleball', 'Basketball', 'Volleyball'];
+}
+
+function ensure_core_booking_time_slots(PDO $pdo): void
+{
+    $fallbackPrice = (float) ($pdo->query('SELECT price FROM time_slots ORDER BY sort_order, id LIMIT 1')->fetchColumn() ?: 265);
+    $slots = [
+        ['Early morning', '05:00 AM - 06:00 AM', '05:00:00', '06:00:00', -2],
+        ['Early morning', '06:00 AM - 07:00 AM', '06:00:00', '07:00:00', -1],
+        ['Early morning', '07:00 AM - 08:00 AM', '07:00:00', '08:00:00', 0],
+    ];
+    $stmt = $pdo->prepare(
+        'INSERT IGNORE INTO time_slots (period, label, starts_at, ends_at, price, sort_order)
+         VALUES (?, ?, ?, ?, ?, ?)'
+    );
+    foreach ($slots as $slot) {
+        $stmt->execute([$slot[0], $slot[1], $slot[2], $slot[3], $fallbackPrice, $slot[4]]);
+    }
+}
+
+function ensure_sport_time_slot_availability(PDO $pdo): void
+{
+    $pdo->exec(
+        "CREATE TABLE IF NOT EXISTS sport_time_slot_availability (
+            id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+            sport ENUM('Pickleball','Basketball','Volleyball') NOT NULL,
+            time_slot_id INT UNSIGNED NOT NULL,
+            is_available TINYINT(1) NOT NULL DEFAULT 1,
+            created_by INT UNSIGNED NULL,
+            updated_by INT UNSIGNED NULL,
+            created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            UNIQUE KEY uniq_sport_time_slot (sport, time_slot_id),
+            INDEX idx_sport_time_slot_lookup (sport, is_available, time_slot_id),
+            CONSTRAINT fk_sport_slot_time_slot FOREIGN KEY (time_slot_id) REFERENCES time_slots(id) ON DELETE CASCADE,
+            CONSTRAINT fk_sport_slot_created_by FOREIGN KEY (created_by) REFERENCES admin_users(id) ON DELETE SET NULL,
+            CONSTRAINT fk_sport_slot_updated_by FOREIGN KEY (updated_by) REFERENCES admin_users(id) ON DELETE SET NULL
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci"
+    );
+
+    $slotRows = $pdo->query('SELECT id, starts_at FROM time_slots ORDER BY sort_order, id')->fetchAll();
+    $insert = $pdo->prepare(
+        'INSERT IGNORE INTO sport_time_slot_availability (sport, time_slot_id, is_available)
+         VALUES (?, ?, ?)'
+    );
+    foreach (valid_booking_sports() as $sport) {
+        $startThreshold = $sport === 'Pickleball' ? '07:00:00' : '05:00:00';
+        foreach ($slotRows as $slot) {
+            $insert->execute([
+                $sport,
+                (int) $slot['id'],
+                strcmp((string) $slot['starts_at'], $startThreshold) >= 0 ? 1 : 0,
+            ]);
+        }
+    }
+}
+
+function sport_time_slot_availability_payload(PDO $pdo): array
+{
+    ensure_core_booking_time_slots($pdo);
+    ensure_sport_time_slot_availability($pdo);
+
+    $rows = $pdo->query(
+        "SELECT sta.id, sta.sport, sta.time_slot_id, sta.is_available,
+                ts.label, ts.starts_at, ts.ends_at, ts.sort_order
+         FROM sport_time_slot_availability sta
+         JOIN time_slots ts ON ts.id = sta.time_slot_id
+         ORDER BY ts.sort_order, ts.id, FIELD(sta.sport, 'Pickleball', 'Basketball', 'Volleyball')"
+    )->fetchAll();
+
+    $availableSlotIds = array_fill_keys(valid_booking_sports(), []);
+    $availableLabels = array_fill_keys(valid_booking_sports(), []);
+    $items = [];
+    foreach ($rows as $row) {
+        $sport = (string) $row['sport'];
+        $item = [
+            'id' => (int) $row['id'],
+            'sport' => $sport,
+            'timeSlotId' => (int) $row['time_slot_id'],
+            'label' => $row['label'],
+            'startsAt' => substr((string) $row['starts_at'], 0, 5),
+            'endsAt' => substr((string) $row['ends_at'], 0, 5),
+            'sortOrder' => (int) $row['sort_order'],
+            'isAvailable' => (bool) $row['is_available'],
+        ];
+        $items[] = $item;
+        if ($item['isAvailable']) {
+            $availableSlotIds[$sport][] = $item['timeSlotId'];
+            $availableLabels[$sport][] = $item['label'];
+        }
+    }
+
+    return [
+        'sports' => valid_booking_sports(),
+        'items' => $items,
+        'availableSlotIds' => $availableSlotIds,
+        'availableLabels' => $availableLabels,
+    ];
+}
+
+function sport_time_slot_is_available(PDO $pdo, string $sport, int $slotId): bool
+{
+    if (!in_array($sport, valid_booking_sports(), true) || $slotId <= 0) {
+        return false;
+    }
+
+    ensure_core_booking_time_slots($pdo);
+    ensure_sport_time_slot_availability($pdo);
+
+    $stmt = $pdo->prepare(
+        'SELECT is_available
+         FROM sport_time_slot_availability
+         WHERE sport = ? AND time_slot_id = ?
+         LIMIT 1'
+    );
+    $stmt->execute([$sport, $slotId]);
+    return (int) $stmt->fetchColumn() === 1;
+}
+
 function court_payload(array $court): array
 {
     $sports = normalize_supported_sports($court['supported_sports'] ?? '');
@@ -940,6 +1061,8 @@ function active_blocks_for_booking(PDO $pdo, string $date, int $slotId, int $cou
 
 function get_state(PDO $pdo, bool $includeAdmin = false): array
 {
+    ensure_core_booking_time_slots($pdo);
+    $sportSlotAvailability = sport_time_slot_availability_payload($pdo);
     $courts = $pdo->query('SELECT id, display_number, name, court_type, surface_label, supported_sports FROM courts WHERE is_active = 1 ORDER BY display_number, id')->fetchAll();
     $rateRows = $pdo->query(
         "SELECT r.rate_per_hour, ts.starts_at, ts.ends_at, ts.sort_order
@@ -1087,6 +1210,7 @@ function get_state(PDO $pdo, bool $includeAdmin = false): array
         'rateRules' => rate_rules($pdo, false),
         'timeSlots' => $timeSlots,
         'slotDetails' => $slotDetails,
+        'sportSlotAvailability' => $sportSlotAvailability,
         'reservationStatuses' => RESERVATION_STATUSES,
         'blockingStatuses' => ['Held', 'Booked'],
         'permanentOccupancyStatus' => 'Booked',
@@ -1474,6 +1598,9 @@ if ($action === 'book') {
     if (!in_array($sport, ['Pickleball', 'Basketball', 'Volleyball'], true)) {
         json_response(['ok' => false, 'message' => 'Invalid sport.'], 422);
     }
+    if (!sport_time_slot_is_available($pdo, $sport, $slotId)) {
+        json_response(['ok' => false, 'message' => "{$sport} is not available for the selected time slot."], 422);
+    }
 
     $courtStmt = $pdo->prepare('SELECT supported_sports FROM courts WHERE id = ? AND is_active = 1');
     $courtStmt->execute([$courtId]);
@@ -1798,6 +1925,9 @@ if ($action === 'admin-override-booking') {
     }
     $isSuperAdminRangeOverride = $timeSlotIdsRaw !== '' && (string) ($admin['role'] ?? '') === 'super_admin';
     foreach ($slots as $slot) {
+        if (!sport_time_slot_is_available($pdo, $sport, (int) $slot['id'])) {
+            json_response(['ok' => false, 'message' => "{$sport} is not available for {$slot['label']}."], 422);
+        }
         if (!$isSuperAdminRangeOverride && slot_is_past($date, $slot)) {
             json_response(['ok' => false, 'message' => 'Past dates and time slots cannot be booked.'], 422);
         }
@@ -1997,6 +2127,9 @@ if ($action === 'admin-booking-update') {
     $slot = $slotStmt->fetch();
     if (!$slot) {
         json_response(['ok' => false, 'message' => 'Invalid time slot.'], 422);
+    }
+    if (!sport_time_slot_is_available($pdo, $sport, (int) $slot['id'])) {
+        json_response(['ok' => false, 'message' => "{$sport} is not available for {$slot['label']}."], 422);
     }
     if (slot_is_past($date, $slot)) {
         json_response(['ok' => false, 'message' => 'Past dates and time slots cannot be booked.'], 422);
@@ -2393,6 +2526,65 @@ if ($action === 'admin-court-save') {
     json_response([
         'ok' => true,
         'message' => 'Court saved.',
+        'state' => get_state($pdo, true),
+    ]);
+}
+
+if ($action === 'admin-sport-slot-availability') {
+    $admin = require_staff_admin_json();
+    if ((string) ($admin['role'] ?? '') !== 'super_admin') {
+        json_response(['ok' => false, 'message' => 'Super Admin permission required.'], 403);
+    }
+
+    ensure_core_booking_time_slots($pdo);
+    ensure_sport_time_slot_availability($pdo);
+
+    $slotRows = $pdo->query('SELECT id FROM time_slots ORDER BY sort_order, id')->fetchAll();
+    $slotIds = array_map('intval', array_column($slotRows, 'id'));
+    if ($slotIds === []) {
+        json_response(['ok' => false, 'message' => 'No time slots are configured.'], 422);
+    }
+
+    $postedAvailability = $_POST['availability'] ?? [];
+    if (!is_array($postedAvailability)) {
+        $postedAvailability = [];
+    }
+
+    $upsert = $pdo->prepare(
+        'INSERT INTO sport_time_slot_availability (sport, time_slot_id, is_available, created_by, updated_by)
+         VALUES (?, ?, ?, ?, ?)
+         ON DUPLICATE KEY UPDATE is_available = VALUES(is_available), updated_by = VALUES(updated_by), updated_at = NOW()'
+    );
+
+    $pdo->beginTransaction();
+    try {
+        foreach (valid_booking_sports() as $sport) {
+            $enabledIds = $postedAvailability[$sport] ?? [];
+            if (!is_array($enabledIds)) {
+                $enabledIds = [$enabledIds];
+            }
+            $enabledSet = array_fill_keys(array_map('intval', $enabledIds), true);
+            foreach ($slotIds as $slotId) {
+                $upsert->execute([
+                    $sport,
+                    $slotId,
+                    !empty($enabledSet[$slotId]) ? 1 : 0,
+                    (int) $admin['id'],
+                    (int) $admin['id'],
+                ]);
+            }
+        }
+        $pdo->commit();
+    } catch (Throwable $exception) {
+        if ($pdo->inTransaction()) {
+            $pdo->rollBack();
+        }
+        json_response(['ok' => false, 'message' => 'Could not save sport time-slot availability.'], 500);
+    }
+
+    json_response([
+        'ok' => true,
+        'message' => 'Sport time-slot availability saved.',
         'state' => get_state($pdo, true),
     ]);
 }
@@ -2990,6 +3182,7 @@ if ($action === 'admin-role-menu-permissions') {
     }
     if ($role === 'admin') {
         $allowedSet['admin-members'] = true;
+        unset($allowedSet['admin-sport-time-slots']);
     }
     if ($role === 'executive') {
         $allowedSet['admin-reports'] = true;

@@ -27,7 +27,7 @@ function run_setup(): array
 
     return [
         'Database schema created or updated.',
-        'No seed data was inserted or overwritten.',
+        'Existing production records were not overwritten.',
     ];
 }
 
@@ -82,6 +82,8 @@ function migrate_columns(PDO $pdo): void
     if (!column_exists($pdo, 'courts', 'supported_sports')) {
         $pdo->exec("ALTER TABLE courts ADD supported_sports VARCHAR(160) NOT NULL DEFAULT 'Pickleball' AFTER surface_label");
     }
+    ensure_core_booking_time_slots($pdo);
+    ensure_sport_time_slot_availability_table($pdo);
     ensure_rate_tables($pdo);
     if (!column_exists($pdo, 'court_bookings', 'sport')) {
         $pdo->exec("ALTER TABLE court_bookings ADD sport ENUM('Pickleball','Basketball','Volleyball') NOT NULL DEFAULT 'Pickleball' AFTER court_id");
@@ -363,6 +365,68 @@ function ensure_entrance_fee_table(PDO $pdo): void
             CONSTRAINT fk_entrance_fee_admin FOREIGN KEY (recorded_by) REFERENCES admin_users(id)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci"
     );
+}
+
+function ensure_core_booking_time_slots(PDO $pdo): void
+{
+    if (!table_exists($pdo, 'time_slots')) {
+        return;
+    }
+
+    $fallbackPrice = (float) ($pdo->query('SELECT price FROM time_slots ORDER BY sort_order, id LIMIT 1')->fetchColumn() ?: 265);
+    $slots = [
+        ['Early morning', '05:00 AM - 06:00 AM', '05:00:00', '06:00:00', -2],
+        ['Early morning', '06:00 AM - 07:00 AM', '06:00:00', '07:00:00', -1],
+        ['Early morning', '07:00 AM - 08:00 AM', '07:00:00', '08:00:00', 0],
+    ];
+    $stmt = $pdo->prepare(
+        'INSERT IGNORE INTO time_slots (period, label, starts_at, ends_at, price, sort_order)
+         VALUES (?, ?, ?, ?, ?, ?)'
+    );
+    foreach ($slots as $slot) {
+        $stmt->execute([$slot[0], $slot[1], $slot[2], $slot[3], $fallbackPrice, $slot[4]]);
+    }
+}
+
+function ensure_sport_time_slot_availability_table(PDO $pdo): void
+{
+    $pdo->exec(
+        "CREATE TABLE IF NOT EXISTS sport_time_slot_availability (
+            id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+            sport ENUM('Pickleball','Basketball','Volleyball') NOT NULL,
+            time_slot_id INT UNSIGNED NOT NULL,
+            is_available TINYINT(1) NOT NULL DEFAULT 1,
+            created_by INT UNSIGNED NULL,
+            updated_by INT UNSIGNED NULL,
+            created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            UNIQUE KEY uniq_sport_time_slot (sport, time_slot_id),
+            INDEX idx_sport_time_slot_lookup (sport, is_available, time_slot_id),
+            CONSTRAINT fk_sport_slot_time_slot FOREIGN KEY (time_slot_id) REFERENCES time_slots(id) ON DELETE CASCADE,
+            CONSTRAINT fk_sport_slot_created_by FOREIGN KEY (created_by) REFERENCES admin_users(id) ON DELETE SET NULL,
+            CONSTRAINT fk_sport_slot_updated_by FOREIGN KEY (updated_by) REFERENCES admin_users(id) ON DELETE SET NULL
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci"
+    );
+
+    $slotRows = $pdo->query('SELECT id, starts_at FROM time_slots ORDER BY sort_order, id')->fetchAll();
+    if ($slotRows === []) {
+        return;
+    }
+
+    $insert = $pdo->prepare(
+        'INSERT IGNORE INTO sport_time_slot_availability (sport, time_slot_id, is_available)
+         VALUES (?, ?, ?)'
+    );
+    foreach (['Pickleball', 'Basketball', 'Volleyball'] as $sport) {
+        $startThreshold = $sport === 'Pickleball' ? '07:00:00' : '05:00:00';
+        foreach ($slotRows as $slot) {
+            $insert->execute([
+                $sport,
+                (int) $slot['id'],
+                strcmp((string) $slot['starts_at'], $startThreshold) >= 0 ? 1 : 0,
+            ]);
+        }
+    }
 }
 
 function migrate_reservation_statuses(PDO $pdo, string $table): void

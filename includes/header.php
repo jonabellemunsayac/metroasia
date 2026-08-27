@@ -6,7 +6,7 @@ $appBrand = 'Metro Asia';
 $appTitle = '';
 $pageTitle = $pageTitle ?? $appTitle;
 $active = $active ?? 'home';
-$assetVersion = $assetVersion ?? '3.1.74';
+$assetVersion = $assetVersion ?? '3.1.78';
 $themeName = $themeName ?? 'metro';
 $memberAccountStyles = $memberAccountStyles ?? false;
 $currentAdmin = current_admin();
@@ -19,6 +19,16 @@ $publicNavItems = [
     ['key' => 'about', 'label' => 'About', 'href' => app_url('ui/index.php#about')],
     ['key' => 'contact', 'label' => 'Contact', 'href' => app_url('ui/index.php#contact-us')],
 ];
+
+$isMemberArea = $currentMember !== null && in_array($active, ['member', 'member-profile'], true);
+if ($isMemberArea) {
+    $publicNavItems = [
+        ['key' => 'member-home', 'label' => 'Home', 'href' => app_url('ui/index.php'), 'target' => '_blank'],
+        ['key' => 'member', 'label' => 'My Bookings', 'href' => app_url('ui/member.php')],
+        ['key' => 'member-profile', 'label' => 'Member Profile', 'href' => app_url('ui/member-profile.php')],
+        ['key' => 'member-logout', 'label' => 'Logout', 'href' => app_url('admin/logout.php?as=member')],
+    ];
+}
 
 $adminNavItems = array_values(array_filter(array_map(static function (array $item) use ($currentAdmin): ?array {
     if ($currentAdmin !== null && !admin_menu_allowed($item['key'], $currentAdmin)) {
@@ -46,6 +56,7 @@ $publicBreadcrumbLabels = [
     'about' => 'About',
     'contact' => 'Contact',
     'payment' => 'Payment',
+    'member-profile' => 'Member Profile',
 ];
 $breadcrumbCurrent = $publicBreadcrumbLabels[$active] ?? ($pageTitle !== '' ? $pageTitle : 'Page');
 if ($active === 'member' && $pageTitle !== '') {
@@ -162,18 +173,21 @@ if ($active === 'member' && $pageTitle !== '') {
                     <a
                         class="<?php echo $item['key'] === $active ? 'active' : ''; ?>"
                         href="<?php echo htmlspecialchars($item['href']); ?>"
+                        <?php if (!empty($item['target'])): ?>target="<?php echo htmlspecialchars((string) $item['target']); ?>" rel="noopener"<?php endif; ?>
                     >
                         <?php echo htmlspecialchars($item['label']); ?>
                     </a>
                 <?php endforeach; ?>
 
-                <div class="metro-nav-mobile-actions">
+                <div class="metro-nav-mobile-actions<?php echo $isMemberArea ? ' is-member-area' : ''; ?>">
                     <a class="metro-header-action metro-header-action-primary" href="<?php echo htmlspecialchars($bookingCtaHref); ?>">
                         Let's Play
                     </a>
+                    <?php if (!$isMemberArea): ?>
                     <a class="metro-header-action metro-header-action-secondary" href="<?php echo htmlspecialchars($memberCtaHref); ?>">
                         <?php echo htmlspecialchars($memberCtaLabel); ?>
                     </a>
+                    <?php endif; ?>
                 </div>
             </nav>
 
@@ -182,9 +196,11 @@ if ($active === 'member' && $pageTitle !== '') {
                     Let's Play
                 </a>
 
+                <?php if (!$isMemberArea): ?>
                 <a class="metro-header-action metro-header-action-secondary" href="<?php echo htmlspecialchars($memberCtaHref); ?>">
                     <?php echo htmlspecialchars($memberCtaLabel); ?>
                 </a>
+                <?php endif; ?>
 
                 <button
                     class="metro-menu-toggle"

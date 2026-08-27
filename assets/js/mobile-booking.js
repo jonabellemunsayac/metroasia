@@ -55,7 +55,9 @@
     }
 
     const courts = courtsForSelectedSport();
-    const times = Object.values(state.timeSlots || {}).flat();
+    const times = typeof slotsForSport === 'function'
+      ? slotsForSport(selectedSport).map(slot => slot.label)
+      : Object.values(state.timeSlots || {}).flat();
 
     if (els.dateLabel) {
       els.dateLabel.textContent = noEnabledBookingDates

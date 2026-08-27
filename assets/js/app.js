@@ -111,6 +111,9 @@ const els = {
     adminCourtType: document.getElementById('adminCourtType'),
     adminCourtSurface: document.getElementById('adminCourtSurface'),
     adminCourtActive: document.getElementById('adminCourtActive'),
+    adminSportSlotAvailability: document.getElementById('adminSportSlotAvailability'),
+    adminSportSlotForm: document.getElementById('adminSportSlotForm'),
+    adminSportSlotMessage: document.getElementById('adminSportSlotMessage'),
     adminCourtBlocks: document.getElementById('adminCourtBlocks'),
     adminOverrideLogs: document.getElementById('adminOverrideLogs'),
     adminMembers: document.getElementById('adminMembers'),
@@ -426,6 +429,7 @@ function renderAll() {
         ['Admin rate summary', renderAdminRateSummary],
         ['Admin rate audit', renderAdminRateAudit],
         ['Admin courts', renderAdminCourts],
+        ['Admin sport slot availability', renderAdminSportSlotAvailability],
         ['Admin court blocks', renderAdminCourtBlocks],
         ['Admin override logs', renderAdminOverrideLogs],
         ['Admin members', renderAdminMembers],
@@ -510,6 +514,17 @@ function setSelectOptions(select, options, selected) {
 
 function sortedRateSlots() {
     return Object.values(state?.slotDetails || {}).sort((a, b) => timeToMinutes(a.startsAt) - timeToMinutes(b.startsAt));
+}
+
+function slotAvailableForSport(slot, sport = selectedSport) {
+    const availability = state?.sportSlotAvailability?.availableSlotIds || {};
+    const configured = availability[sport];
+    if (!Array.isArray(configured)) return true;
+    return configured.map(Number).includes(Number(slot?.id));
+}
+
+function slotsForSport(sport = selectedSport) {
+    return sortedRateSlots().filter(slot => slotAvailableForSport(slot, sport));
 }
 
 function sortedCourtBlockSlots() {
@@ -1160,7 +1175,7 @@ function renderAdminSchedule() {
     if (!els.adminScheduleGrid || !state) return;
     const date = isoDate(adminScheduleDate);
     const columns = adminScheduleColumns();
-    const slots = Object.values(state.timeSlots || {}).flat();
+    const slots = slotsForSport(adminScheduleSportFilter).map(slot => slot.label);
     if (els.adminScheduleDateLabel) els.adminScheduleDateLabel.textContent = adminScheduleDateText(date);
     renderAdminScheduleCalendar();
     if (columns.length === 0) {
@@ -1219,13 +1234,18 @@ function renderAdminSchedule() {
 function renderAdminOverrideBookingForm() {
     if (!els.adminOverrideBookingForm || !state) return;
 
-    if (els.adminOverrideTime) {
-        els.adminOverrideTime.innerHTML = sortedCourtBlockSlots().map(slot => `
-            <option value="${slot.id}">${escapeHtml(compactTimeHeader(slot.label))}</option>
-        `).join('');
-    }
     updateAdminOverrideSportAndCourts('Pickleball');
+    populateAdminOverrideTimeOptions(els.adminOverrideSport?.value || 'Pickleball');
     renderAdminOverrideCustomerOptions();
+}
+
+function populateAdminOverrideTimeOptions(sport = els.adminOverrideSport?.value || 'Pickleball', preferredSlotId = '') {
+    if (!els.adminOverrideTime) return;
+    const slots = slotsForSport(sport);
+    const current = preferredSlotId || els.adminOverrideTime.value || slots[0]?.id || '';
+    els.adminOverrideTime.innerHTML = slots.map(slot => `
+        <option value="${escapeHtml(slot.id)}" ${String(slot.id) === String(current) ? 'selected' : ''}>${escapeHtml(compactTimeHeader(slot.label))}</option>
+    `).join('');
 }
 
 function renderAdminOverrideCustomerOptions(selectedId = '') {
@@ -1296,6 +1316,7 @@ function updateAdminOverrideSportAndCourts(preferredSport = '', preferredCourtId
         const label = court.labels?.[selectedSport] || court.name || `Court ${court.id}`;
         return `<option value="${escapeHtml(court.id)}" ${String(court.id) === String(selectedCourtId) ? 'selected' : ''}>${escapeHtml(label)}</option>`;
     }).join('');
+    populateAdminOverrideTimeOptions(selectedSport);
 }
 
 function superAdminRangeCourtsForSport(sport) {
@@ -1304,8 +1325,8 @@ function superAdminRangeCourtsForSport(sport) {
     );
 }
 
-function superAdminRangeSlotOptions() {
-    const slots = sortedCourtBlockSlots();
+function superAdminRangeSlotOptions(sport = els.superAdminRangeSport?.value || adminScheduleSportFilter || 'Pickleball') {
+    const slots = slotsForSport(sport);
     const starts = slots.map(slot => [slot.startsAt, formatRuleTime(slot.startsAt)]);
     const endMap = new Map();
     slots.forEach(slot => {
@@ -1328,7 +1349,8 @@ function selectedSuperAdminRangeSlots() {
     const endMinutes = String(end).startsWith('00:00') ? 1440 : timeToMinutes(end);
     if (endMinutes <= startMinutes) return [];
 
-    const slots = sortedCourtBlockSlots()
+    const sport = els.superAdminRangeSport?.value || adminScheduleSportFilter || 'Pickleball';
+    const slots = slotsForSport(sport)
         .filter(slot => {
             const slotStart = timeToMinutes(slot.startsAt);
             const slotEnd = String(slot.endsAt).startsWith('00:00') ? 1440 : timeToMinutes(slot.endsAt);
@@ -1370,7 +1392,7 @@ function renderSuperAdminRangeOverride() {
         court.labels?.[sport] || court.name || `Court ${court.id}`
     ]), selectedCourt);
 
-    const { slots, starts, ends } = superAdminRangeSlotOptions();
+    const { slots, starts, ends } = superAdminRangeSlotOptions(sport);
     const selectedStart = els.superAdminRangeStart?.value || slots[0]?.startsAt || '';
     const selectedEnd = els.superAdminRangeEnd?.value || slots[Math.min(2, slots.length - 1)]?.endsAt || slots[0]?.endsAt || '';
     setSelectOptions(els.superAdminRangeStart, starts, selectedStart);
@@ -1422,11 +1444,11 @@ function openSuperAdminRangeOverride() {
     if (els.adminOverrideBookingId) els.adminOverrideBookingId.value = '';
     if (els.adminOverrideTimeSlotIds) els.adminOverrideTimeSlotIds.value = slots.map(slot => slot.id).join(',');
     if (els.adminOverrideDate) els.adminOverrideDate.value = date;
+    updateAdminOverrideSportAndCourts(sport, courtId);
     if (els.adminOverrideTime) {
         els.adminOverrideTime.innerHTML = `<option value="${escapeHtml(slots[0].id)}">${escapeHtml(`${formatRuleTime(start)} - ${formatRuleTime(end)}`)}</option>`;
         els.adminOverrideTime.value = slots[0].id;
     }
-    updateAdminOverrideSportAndCourts(sport, courtId);
     renderAdminOverrideCustomerOptions();
     applyAdminOverrideCustomer();
 
@@ -2131,7 +2153,7 @@ function renderBookingGrid() {
         clearBookingSelection();
     }
     const courts = courtsForSelectedSport();
-    const allSlots = Object.values(state.timeSlots || {}).flat();
+    const allSlots = slotsForSport(selectedSport).map(slot => slot.label);
     if (els.dateLabel) {
         els.dateLabel.textContent = noEnabledBookingDates
             ? 'No booking dates are currently enabled.'
@@ -2916,6 +2938,78 @@ function openAdminCourtModal(id = '') {
     }
     if (window.bootstrap && els.adminCourtModal) {
         bootstrap.Modal.getOrCreateInstance(els.adminCourtModal).show();
+    }
+}
+
+function renderAdminSportSlotAvailability() {
+    if (!els.adminSportSlotAvailability || !state) return;
+    if (!adminIsSuperAdmin()) {
+        els.adminSportSlotAvailability.innerHTML = '<div class="rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm fw-bold text-rose-700">Super Admin access is required.</div>';
+        return;
+    }
+
+    const sports = state?.sportSlotAvailability?.sports || supportedBookingSports;
+    const allSlots = sortedRateSlots();
+    const availability = state?.sportSlotAvailability?.availableSlotIds || {};
+    if (allSlots.length === 0) {
+        els.adminSportSlotAvailability.innerHTML = '<div class="rounded-xl border border-dashed border-line bg-white p-4 text-sm fw-bold text-secondary">No time slots are configured.</div>';
+        return;
+    }
+
+    els.adminSportSlotAvailability.innerHTML = `
+        <div class="table-responsive">
+            <table class="table table-sm align-middle mb-0">
+                <thead>
+                    <tr class="small text-secondary">
+                        <th>Time Slot</th>
+                        <th>Start</th>
+                        <th>End</th>
+                        ${sports.map(sport => `<th class="text-center">${escapeHtml(sport)}</th>`).join('')}
+                    </tr>
+                </thead>
+                <tbody class="small fw-semibold">
+                    ${allSlots.map(slot => `
+                        <tr>
+                            <td class="fw-black text-primary">${escapeHtml(compactTime(slot.label))}</td>
+                            <td>${escapeHtml(formatRuleTime(slot.startsAt))}</td>
+                            <td>${escapeHtml(formatRuleTime(slot.endsAt))}</td>
+                            ${sports.map(sport => {
+                                const checked = Array.isArray(availability[sport])
+                                    ? availability[sport].map(Number).includes(Number(slot.id))
+                                    : true;
+                                return `
+                                    <td class="text-center">
+                                        <label class="sport-slot-toggle" title="${escapeHtml(`${sport} ${checked ? 'available' : 'unavailable'} for ${compactTime(slot.label)}`)}">
+                                            <input type="checkbox" name="availability[${escapeHtml(sport)}][]" value="${escapeHtml(slot.id)}" ${checked ? 'checked' : ''}>
+                                            <span>${checked ? 'Available' : 'Off'}</span>
+                                        </label>
+                                    </td>
+                                `;
+                            }).join('')}
+                        </tr>
+                    `).join('')}
+                </tbody>
+            </table>
+        </div>
+    `;
+}
+
+async function submitAdminSportSlotAvailability(event) {
+    event.preventDefault();
+    if (!els.adminSportSlotForm) return;
+    const formData = new FormData(els.adminSportSlotForm);
+    const response = await fetch(`${api}?action=admin-sport-slot-availability`, { method: 'POST', body: formData });
+    const payload = await response.json();
+    if (els.adminSportSlotMessage) {
+        els.adminSportSlotMessage.textContent = payload.message || (payload.ok ? 'Saved.' : 'Could not save availability.');
+        els.adminSportSlotMessage.className = `rounded-md p-2 text-xs font-bold mt-3 ${payload.ok ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-700'}`;
+    }
+    if (payload.ok) {
+        state = payload.state;
+        renderAll();
+        showAdminToast(payload.message || 'Sport availability saved successfully.');
+    } else if (response.status === 401) {
+        window.location.href = adminLoginUrl;
     }
 }
 
@@ -4334,6 +4428,13 @@ document.querySelectorAll('[data-password-toggle]').forEach(button => {
     });
 });
 els.adminAddCourt?.addEventListener('click', () => openAdminCourtModal());
+els.adminSportSlotForm?.addEventListener('submit', submitAdminSportSlotAvailability);
+els.adminSportSlotForm?.addEventListener('change', event => {
+    const input = event.target?.closest?.('.sport-slot-toggle input');
+    if (!input) return;
+    const label = input.closest('.sport-slot-toggle')?.querySelector('span');
+    if (label) label.textContent = input.checked ? 'Available' : 'Off';
+});
 document.querySelectorAll('[data-open-terms-conditions]').forEach(button => {
     button.addEventListener('click', () => {
         if (window.bootstrap && els.termsConditionsModal) {

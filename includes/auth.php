@@ -261,6 +261,7 @@ function admin_menu_catalog(): array
         'admin-courts' => ['key' => 'admin-courts', 'label' => 'Courts', 'sub' => 'Court setup and sports', 'path' => 'admin/courts.php', 'icon' => 'blocks'],
         'admin-court-blockings' => ['key' => 'admin-court-blockings', 'label' => 'Court blockings', 'sub' => 'Maintenance and events', 'path' => 'admin/court-blockings.php', 'icon' => 'shield-alert'],
         'admin-rates' => ['key' => 'admin-rates', 'label' => 'Rates', 'sub' => 'Court pricing', 'path' => 'admin/rates.php', 'icon' => 'badge-dollar-sign'],
+        'admin-sport-time-slots' => ['key' => 'admin-sport-time-slots', 'label' => 'Sport Time Slots', 'sub' => 'Sport availability', 'path' => 'admin/sport-time-slots.php', 'icon' => 'clock-3'],
         'admin-payment' => ['key' => 'admin-payment', 'label' => 'Payment Setup', 'sub' => 'GCash and BDO', 'path' => 'admin/payment.php', 'icon' => 'credit-card'],
         'admin-site-config' => ['key' => 'admin-site-config', 'label' => 'Site Config', 'sub' => 'Public content and links', 'path' => 'admin/site-config.php', 'icon' => 'settings'],
         'admin-terms' => ['key' => 'admin-terms', 'label' => 'Terms & Conditions', 'sub' => 'Policy content', 'path' => 'admin/terms-conditions.php', 'icon' => 'file-text'],
@@ -272,8 +273,13 @@ function admin_menu_catalog(): array
 function admin_default_menu_permissions(string $role): array
 {
     $keys = array_keys(admin_menu_catalog());
-    if ($role === 'admin' || $role === 'super_admin') {
+    if ($role === 'super_admin') {
         return array_fill_keys($keys, true);
+    }
+    if ($role === 'admin') {
+        $permissions = array_fill_keys($keys, true);
+        unset($permissions['admin-sport-time-slots']);
+        return $permissions;
     }
     if ($role === 'reception' || $role === 'staff') {
         return array_fill_keys(['admin', 'admin-bookings', 'admin-members'], true);
@@ -341,6 +347,9 @@ function admin_menu_allowed(string $menuKey, ?array $admin = null): bool
     $role = (string) ($admin['role'] ?? '');
     if ($role === 'super_admin') {
         return true;
+    }
+    if ($menuKey === 'admin-sport-time-slots') {
+        return false;
     }
     if ($role === 'staff') {
         $role = 'reception';
