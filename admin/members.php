@@ -116,6 +116,7 @@ include __DIR__ . '/../includes/header.php';
                     </div>
 
                     <div id="adminMembers"></div>
+                    <div id="adminMembersPagination" class="mt-3"></div>
                 </div>
 
                 <div
@@ -134,6 +135,7 @@ include __DIR__ . '/../includes/header.php';
                     </div>
 
                     <div id="adminUsers" class="grid gap-3"></div>
+                    <div id="adminUsersPagination" class="mt-3"></div>
                 </div>
 
                 <div
@@ -178,6 +180,7 @@ include __DIR__ . '/../includes/header.php';
                         </div>
                     </div>
                     <div id="adminMembers"></div>
+                    <div id="adminMembersPagination" class="mt-3"></div>
                 </div>
             </div>
         </section>
@@ -437,5 +440,338 @@ include __DIR__ . '/../includes/header.php';
             </div>
         </div>
     </div>
+
+<style>
+/* Permission Assignment: vertical permission list.
+   Presentation only — existing forms, checkbox names, role values,
+   save buttons, permissions logic, and app.js handlers remain unchanged. */
+
+#permissions-pane #adminRolePermissions {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 16px;
+    align-items: start;
+}
+
+#permissions-pane .admin-role-permission-card {
+    display: block;
+    margin: 0;
+    padding: 18px 20px;
+    border: 1px solid var(--bs-border-color, #dee2e6);
+    border-radius: 12px;
+    background: #fff;
+}
+
+#permissions-pane .admin-role-permission-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+    margin-bottom: 14px;
+    padding-bottom: 14px;
+    border-bottom: 1px solid var(--bs-border-color, #dee2e6);
+}
+
+#permissions-pane .admin-role-permission-head > div {
+    min-width: 0;
+}
+
+#permissions-pane .admin-role-permission-head h3 {
+    margin: 0 0 4px;
+    font-size: 1rem;
+    font-weight: 800;
+}
+
+#permissions-pane .admin-role-permission-head p {
+    margin: 0;
+    font-size: 0.78rem;
+    line-height: 1.45;
+    color: var(--bs-secondary-color, #6c757d);
+}
+
+#permissions-pane .admin-role-permission-head .btn {
+    flex: 0 0 auto;
+}
+
+#permissions-pane .admin-role-menu-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    border: 1px solid var(--bs-border-color, #dee2e6);
+    border-radius: 10px;
+    overflow: hidden;
+}
+
+#permissions-pane .admin-role-menu-item {
+    display: grid;
+    grid-template-columns: 24px minmax(0, 1fr);
+    align-items: start;
+    gap: 10px;
+    width: 100%;
+    margin: 0;
+    padding: 12px 14px;
+    border: 0;
+    border-bottom: 1px solid var(--bs-border-color, #dee2e6);
+    border-radius: 0;
+    background: #fff;
+    cursor: pointer;
+}
+
+#permissions-pane .admin-role-menu-item:last-child {
+    border-bottom: 0;
+}
+
+#permissions-pane .admin-role-menu-item:hover {
+    background: var(--bs-tertiary-bg, #f8f9fa);
+}
+
+#permissions-pane .admin-role-menu-item.is-locked {
+    background: var(--bs-tertiary-bg, #f8f9fa);
+    opacity: 0.75;
+    cursor: default;
+}
+
+#permissions-pane .admin-role-menu-item input[type="checkbox"] {
+    margin-top: 3px;
+}
+
+#permissions-pane .admin-role-menu-item > span {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+}
+
+#permissions-pane .admin-role-menu-item strong {
+    font-size: 0.84rem;
+    line-height: 1.3;
+}
+
+#permissions-pane .admin-role-menu-item small {
+    display: block;
+    font-size: 0.7rem;
+    line-height: 1.4;
+    color: var(--bs-secondary-color, #6c757d);
+}
+
+#permissions-pane [data-admin-role-permission-message] {
+    margin-top: 12px !important;
+}
+
+@media (max-width: 991.98px) {
+    #permissions-pane #adminRolePermissions {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+@media (max-width: 767.98px) {
+    #permissions-pane #adminRolePermissions {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 575.98px) {
+    #permissions-pane .admin-role-permission-card {
+        padding: 14px;
+    }
+
+    #permissions-pane .admin-role-permission-head {
+        flex-direction: column;
+    }
+}
+</style>
+
+<script>
+(() => {
+    'use strict';
+
+    const PAGE_SIZE = 10;
+
+    function createTablePaginator(containerId, paginationId) {
+        const container = document.getElementById(containerId);
+        const pagination = document.getElementById(paginationId);
+
+        if (!container || !pagination) return;
+
+        let currentPage = 1;
+        let rendering = false;
+
+        const getRows = () =>
+            Array.from(container.querySelectorAll('table tbody tr'));
+
+        const renderPagination = () => {
+            if (rendering) return;
+            rendering = true;
+
+            const rows = getRows();
+            const totalItems = rows.length;
+            const totalPages = Math.max(1, Math.ceil(totalItems / PAGE_SIZE));
+
+            if (currentPage > totalPages) {
+                currentPage = totalPages;
+            }
+
+            if (currentPage < 1) {
+                currentPage = 1;
+            }
+
+            const start = (currentPage - 1) * PAGE_SIZE;
+            const end = start + PAGE_SIZE;
+
+            rows.forEach((row, index) => {
+                row.style.display = index >= start && index < end ? '' : 'none';
+            });
+
+            if (totalItems <= PAGE_SIZE) {
+                pagination.innerHTML = '';
+                rendering = false;
+                return;
+            }
+
+            const firstItem = start + 1;
+            const lastItem = Math.min(end, totalItems);
+
+            const pageButtons = [];
+
+            const addPageButton = page => {
+                pageButtons.push(`
+                    <li class="page-item ${page === currentPage ? 'active' : ''}">
+                        <button
+                            class="page-link"
+                            type="button"
+                            data-page="${page}"
+                            ${page === currentPage ? 'aria-current="page"' : ''}
+                        >
+                            ${page}
+                        </button>
+                    </li>
+                `);
+            };
+
+            // Keep the pagination compact when there are many pages.
+            const visiblePages = new Set([
+                1,
+                totalPages,
+                currentPage - 1,
+                currentPage,
+                currentPage + 1
+            ]);
+
+            let previousPage = 0;
+
+            [...visiblePages]
+                .filter(page => page >= 1 && page <= totalPages)
+                .sort((a, b) => a - b)
+                .forEach(page => {
+                    if (previousPage && page - previousPage > 1) {
+                        pageButtons.push(`
+                            <li class="page-item disabled" aria-hidden="true">
+                                <span class="page-link">…</span>
+                            </li>
+                        `);
+                    }
+
+                    addPageButton(page);
+                    previousPage = page;
+                });
+
+            pagination.innerHTML = `
+                <div class="d-flex flex-wrap align-items-center justify-content-between gap-2">
+                    <div class="small text-secondary fw-semibold">
+                        Showing ${firstItem}-${lastItem} of ${totalItems}
+                    </div>
+
+                    <nav aria-label="Pagination">
+                        <ul class="pagination pagination-sm mb-0">
+                            <li class="page-item ${currentPage === 1 ? 'disabled' : ''}">
+                                <button
+                                    class="page-link"
+                                    type="button"
+                                    data-page="${currentPage - 1}"
+                                    aria-label="Previous page"
+                                    ${currentPage === 1 ? 'disabled' : ''}
+                                >
+                                    Previous
+                                </button>
+                            </li>
+
+                            ${pageButtons.join('')}
+
+                            <li class="page-item ${currentPage === totalPages ? 'disabled' : ''}">
+                                <button
+                                    class="page-link"
+                                    type="button"
+                                    data-page="${currentPage + 1}"
+                                    aria-label="Next page"
+                                    ${currentPage === totalPages ? 'disabled' : ''}
+                                >
+                                    Next
+                                </button>
+                            </li>
+                        </ul>
+                    </nav>
+                </div>
+            `;
+
+            rendering = false;
+        };
+
+        pagination.addEventListener('click', event => {
+            const button = event.target.closest('[data-page]');
+            if (!button || button.disabled) return;
+
+            const requestedPage = Number(button.dataset.page);
+            if (!Number.isInteger(requestedPage) || requestedPage < 1) return;
+
+            currentPage = requestedPage;
+            renderPagination();
+
+            container.scrollIntoView({
+                behavior: 'smooth',
+                block: 'nearest'
+            });
+        });
+
+        const observer = new MutationObserver(() => {
+            if (rendering) return;
+
+            // app.js replaces table markup after search/save operations.
+            // Reset to page one whenever the underlying rendered list changes.
+            currentPage = 1;
+            window.requestAnimationFrame(renderPagination);
+        });
+
+        observer.observe(container, {
+            childList: true,
+            subtree: true
+        });
+
+        renderPagination();
+    }
+
+    function initAdminUserPagination() {
+        createTablePaginator(
+            'adminMembers',
+            'adminMembersPagination'
+        );
+
+        createTablePaginator(
+            'adminUsers',
+            'adminUsersPagination'
+        );
+    }
+
+    if (document.readyState === 'loading') {
+        document.addEventListener(
+            'DOMContentLoaded',
+            initAdminUserPagination,
+            { once: true }
+        );
+    } else {
+        initAdminUserPagination();
+    }
+})();
+</script>
+
 </main>
 <?php include __DIR__ . '/../includes/footer.php'; ?>
