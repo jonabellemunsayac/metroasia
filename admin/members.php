@@ -87,6 +87,24 @@ include __DIR__ . '/../includes/header.php';
                         </span>
                     </button>
                 </li>
+
+                <li class="nav-item" role="presentation">
+                    <button
+                        class="nav-link fw-bold"
+                        id="access-logs-tab"
+                        data-bs-toggle="tab"
+                        data-bs-target="#access-logs-pane"
+                        type="button"
+                        role="tab"
+                        aria-controls="access-logs-pane"
+                        aria-selected="false"
+                    >
+                        <span class="d-inline-flex align-items-center gap-2">
+                            <i data-lucide="history" class="icon-sm"></i>
+                            Access Logs
+                        </span>
+                    </button>
+                </li>
             </ul>
 
             <div class="tab-content pt-3" id="adminUsersMembersTabContent">
@@ -156,6 +174,30 @@ include __DIR__ . '/../includes/header.php';
                     </div>
 
                     <div id="adminRolePermissions"></div>
+                </div>
+
+                <div
+                    class="tab-pane fade"
+                    id="access-logs-pane"
+                    role="tabpanel"
+                    aria-labelledby="access-logs-tab"
+                    tabindex="0"
+                >
+                    <div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-3">
+                        <div>
+                            <span class="section-kicker">Access History</span>
+                            <h2 class="mt-1 mb-0 fw-black">Admin and member sessions</h2>
+                        </div>
+
+                        <input
+                            id="adminAccessLogSearch"
+                            class="form-input form-input-sm"
+                            placeholder="Search name, email, role, event, IP, or session"
+                        >
+                    </div>
+
+                    <div id="adminAccessLogs"></div>
+                    <div id="adminAccessLogsPagination" class="mt-3"></div>
                 </div>
             </div>
         </section>
@@ -758,6 +800,11 @@ include __DIR__ . '/../includes/header.php';
         createTablePaginator(
             'adminUsers',
             'adminUsersPagination'
+        );
+
+        createTablePaginator(
+            'adminAccessLogs',
+            'adminAccessLogsPagination'
         );
     }
 

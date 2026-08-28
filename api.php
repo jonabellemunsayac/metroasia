@@ -1289,6 +1289,7 @@ function get_state(PDO $pdo, bool $includeAdmin = false): array
         $state['adminOverrideLogs'] = override_logs($pdo);
         $state['adminMembers'] = $admin && admin_menu_allowed('admin-members', $admin) ? admin_members($pdo) : [];
         $state['adminUsers'] = $admin && admin_can_manage_staff($admin) ? admin_users_list($pdo) : [];
+        $state['adminAccessLogs'] = $admin && admin_can_manage_staff($admin) ? admin_access_logs($pdo) : [];
     }
 
     $member = current_member();
@@ -1517,6 +1518,54 @@ function admin_users_list(PDO $pdo): array
     ], $stmt->fetchAll());
 }
 
+function admin_access_logs(PDO $pdo): array
+{
+    access_log_ensure_table($pdo);
+
+    $stmt = $pdo->query(
+        "SELECT al.id, al.account_type, al.account_id, al.role, al.event_type, al.session_id,
+                al.ip_address, al.user_agent, al.session_payload, al.created_at,
+                au.name AS admin_name, au.email AS admin_email,
+                m.name AS member_name, m.nickname AS member_nickname, m.email AS member_email
+         FROM access_logs al
+         LEFT JOIN admin_users au ON al.account_type = 'admin' AND au.id = al.account_id
+         LEFT JOIN members m ON al.account_type = 'member' AND m.id = al.account_id
+         ORDER BY al.created_at DESC, al.id DESC
+         LIMIT 300"
+    );
+
+    return array_map(static function (array $row): array {
+        $payload = [];
+        if (!empty($row['session_payload'])) {
+            $decoded = json_decode((string) $row['session_payload'], true);
+            if (is_array($decoded)) {
+                $payload = $decoded;
+            }
+        }
+
+        $isAdmin = (string) $row['account_type'] === 'admin';
+        $name = $isAdmin ? ($row['admin_name'] ?? '') : ($row['member_name'] ?? '');
+        $email = $isAdmin ? ($row['admin_email'] ?? '') : ($row['member_email'] ?? '');
+
+        return [
+            'id' => (int) $row['id'],
+            'accountType' => $row['account_type'],
+            'accountId' => (int) $row['account_id'],
+            'accountName' => $name ?: ucfirst((string) $row['account_type']) . ' #' . $row['account_id'],
+            'accountEmail' => $email ?: '',
+            'memberNickname' => $row['member_nickname'] ?? '',
+            'role' => $row['role'] ?? '',
+            'roleLabel' => $isAdmin ? admin_role_label((string) ($row['role'] ?? '')) : 'Member',
+            'eventType' => $row['event_type'],
+            'sessionId' => $row['session_id'] ?? '',
+            'ipAddress' => $row['ip_address'] ?? '',
+            'userAgent' => $row['user_agent'] ?? '',
+            'sessionPayload' => $payload,
+            'createdAt' => date(DATE_ATOM, strtotime($row['created_at'])),
+        ];
+    }, $stmt->fetchAll());
+}
+
 function admin_reservations(PDO $pdo): array
 {
     $courtRows = $pdo->query(
@@ -1594,11 +1643,213 @@ function admin_reservations(PDO $pdo): array
     ], $rows);
 }
 
+function booking_history_actor(?string $type, ?int $id, ?string $name, ?string $role): string
+{
+    $type = trim((string) $type);
+    $name = trim((string) $name);
+    $role = trim((string) $role);
+    if ($name !== '') {
+        return $role !== '' ? "{$name} ({$role})" : $name;
+    }
+    if ($type !== '' && $id !== null && $id > 0) {
+        return "{$type} #{$id}";
+    }
+
+    return 'System';
+}
+
+function booking_history_entry(string $createdAt, string $actor, string $action, string $reason = '', array $values = []): array
+{
+    return [
+        'createdAt' => $createdAt,
+        'actor' => $actor,
+        'action' => $action,
+        'reason' => $reason,
+        'values' => $values,
+    ];
+}
+
+function override_payload_matches_booking(array $payload, int $bookingId, string $bookingReference): bool
+{
+    if ((int) ($payload['bookingId'] ?? 0) === $bookingId) {
+        return true;
+    }
+    if (in_array($bookingId, array_map('intval', (array) ($payload['bookingIds'] ?? [])), true)) {
+        return true;
+    }
+    if ($bookingReference !== '' && (string) ($payload['bookingReference'] ?? '') === $bookingReference) {
+        return true;
+    }
+
+    foreach (['cancelledBookings', 'conflicts'] as $key) {
+        foreach ((array) ($payload[$key] ?? []) as $item) {
+            if (is_array($item) && (int) ($item['id'] ?? 0) === $bookingId) {
+                return true;
+            }
+        }
+    }
+
+    return false;
+}
+
+function booking_history_override_values(array $payload): array
+{
+    $source = is_array($payload['updated'] ?? null)
+        ? $payload['updated']
+        : (is_array($payload['block'] ?? null) ? $payload['block'] : $payload);
+    $values = [];
+    foreach ([
+        'bookingReference' => 'Reference',
+        'date' => 'Date',
+        'time' => 'Time',
+        'timeSlotId' => 'Time Slot ID',
+        'courtId' => 'Court ID',
+        'sport' => 'Sport',
+        'status' => 'Status',
+        'paymentMethod' => 'Payment',
+        'customerName' => 'Customer',
+        'customerPhone' => 'Phone',
+        'customerEmail' => 'Email',
+        'finalAmount' => 'Amount',
+    ] as $key => $label) {
+        if (!array_key_exists($key, $source) || $source[$key] === null || $source[$key] === '') {
+            continue;
+        }
+        $value = is_array($source[$key]) ? implode(', ', array_map('strval', $source[$key])) : (string) $source[$key];
+        $values[] = ['label' => $label, 'value' => $value];
+    }
+
+    return $values;
+}
+
+function admin_booking_logs(PDO $pdo, int $bookingId, string $bookingReference = ''): array
+{
+    if ($bookingId <= 0 && $bookingReference === '') {
+        json_response(['ok' => false, 'message' => 'Booking ID or reference is required.'], 422);
+    }
+
+    $where = $bookingId > 0 ? 'cb.id = ?' : 'cb.booking_reference = ?';
+    $bookingStmt = $pdo->prepare(
+        "SELECT cb.id, cb.booking_reference, cb.booking_date, cb.time_slot_id, ts.label AS time_label,
+                cb.court_id, c.name AS court_name, cb.sport, cb.status, cb.customer_name,
+                cb.payment_method, cb.final_amount, cb.created_by_type, cb.created_by_id,
+                creator_admin.name AS creator_admin_name, creator_admin.role AS creator_admin_role,
+                creator_member.name AS creator_member_name,
+                cb.created_at, cb.reviewed_at, cb.cancelled_at, cb.cancel_reason,
+                reviewer.name AS reviewed_by_name, reviewer.role AS reviewed_by_role,
+                canceller.name AS cancelled_by_name, canceller.role AS cancelled_by_role
+         FROM court_bookings cb
+         JOIN time_slots ts ON ts.id = cb.time_slot_id
+         LEFT JOIN courts c ON c.id = cb.court_id
+         LEFT JOIN admin_users creator_admin ON cb.created_by_type = 'admin' AND creator_admin.id = cb.created_by_id
+         LEFT JOIN members creator_member ON cb.created_by_type = 'member' AND creator_member.id = cb.created_by_id
+         LEFT JOIN admin_users reviewer ON reviewer.id = cb.reviewed_by
+         LEFT JOIN admin_users canceller ON canceller.id = cb.cancelled_by
+         WHERE {$where}
+         LIMIT 1"
+    );
+    $bookingStmt->execute([$bookingId > 0 ? $bookingId : $bookingReference]);
+    $booking = $bookingStmt->fetch();
+    if (!$booking) {
+        json_response(['ok' => false, 'message' => 'Booking not found.'], 404);
+    }
+
+    $bookingId = (int) $booking['id'];
+    $bookingReference = trim((string) ($booking['booking_reference'] ?? $bookingReference));
+    $entries = [];
+    $entries[] = booking_history_entry(
+        db_datetime_to_ph_atom($booking['created_at']) ?? date(DATE_ATOM, strtotime($booking['created_at'])),
+        booking_history_actor(
+            $booking['created_by_type'],
+            $booking['created_by_id'] !== null ? (int) $booking['created_by_id'] : null,
+            $booking['created_by_type'] === 'admin' ? ($booking['creator_admin_name'] ?? '') : ($booking['creator_member_name'] ?? ''),
+            $booking['created_by_type'] === 'admin' ? ($booking['creator_admin_role'] ?? '') : 'member'
+        ),
+        'Booking created',
+        '',
+        [
+            ['label' => 'Reference', 'value' => $bookingReference ?: 'N/A'],
+            ['label' => 'Date', 'value' => $booking['booking_date']],
+            ['label' => 'Time', 'value' => $booking['time_label']],
+            ['label' => 'Court', 'value' => trim((string) ($booking['court_name'] ?? '')) ?: public_court_name((int) $booking['court_id'], (string) $booking['sport'])],
+            ['label' => 'Sport', 'value' => $booking['sport']],
+            ['label' => 'Status', 'value' => $booking['status']],
+            ['label' => 'Payment', 'value' => $booking['payment_method']],
+            ['label' => 'Amount', 'value' => (string) $booking['final_amount']],
+        ]
+    );
+
+    if (!empty($booking['reviewed_at'])) {
+        $entries[] = booking_history_entry(
+            date(DATE_ATOM, strtotime($booking['reviewed_at'])),
+            booking_history_actor('admin', null, $booking['reviewed_by_name'] ?? '', $booking['reviewed_by_role'] ?? ''),
+            'Booking confirmed',
+            '',
+            [['label' => 'Status', 'value' => 'Booked']]
+        );
+    }
+
+    if (!empty($booking['cancelled_at'])) {
+        $entries[] = booking_history_entry(
+            date(DATE_ATOM, strtotime($booking['cancelled_at'])),
+            booking_history_actor('admin', null, $booking['cancelled_by_name'] ?? '', $booking['cancelled_by_role'] ?? ''),
+            'Booking cancelled',
+            $booking['cancel_reason'] ?? '',
+            [['label' => 'Status', 'value' => 'Cancelled']]
+        );
+    }
+
+    $logStmt = $pdo->query(
+        "SELECT ol.action, ol.target_type, ol.target_id, ol.conflict_summary, ol.payload, ol.created_at,
+                au.name AS admin_name, au.role AS admin_role
+         FROM override_logs ol
+         LEFT JOIN admin_users au ON au.id = ol.admin_id
+         WHERE ol.target_type IN ('court_booking','court_block')
+         ORDER BY ol.created_at DESC, ol.id DESC
+         LIMIT 500"
+    );
+    foreach ($logStmt->fetchAll() as $row) {
+        $targetIds = array_filter(array_map('trim', explode(',', (string) ($row['target_id'] ?? ''))));
+        $payload = json_decode((string) ($row['payload'] ?? ''), true);
+        $payload = is_array($payload) ? $payload : [];
+        if (!in_array((string) $bookingId, $targetIds, true) && !override_payload_matches_booking($payload, $bookingId, $bookingReference)) {
+            continue;
+        }
+
+        $entries[] = booking_history_entry(
+            date(DATE_ATOM, strtotime($row['created_at'])),
+            booking_history_actor('admin', null, $row['admin_name'] ?? '', $row['admin_role'] ?? ''),
+            ucwords(str_replace('-', ' ', (string) $row['action'])),
+            (string) ($payload['reason'] ?? ($payload['block']['reason'] ?? $row['conflict_summary'] ?? '')),
+            booking_history_override_values($payload)
+        );
+    }
+
+    usort($entries, static fn (array $a, array $b): int => strcmp((string) $b['createdAt'], (string) $a['createdAt']));
+
+    return [
+        'booking' => [
+            'id' => $bookingId,
+            'reference' => $bookingReference,
+            'customerName' => $booking['customer_name'],
+            'status' => $booking['status'],
+        ],
+        'logs' => $entries,
+    ];
+}
+
 $action = $_GET['action'] ?? $_POST['action'] ?? 'state';
 $pdo = db_or_error();
 
 if ($action === 'state') {
     json_response(['ok' => true, 'state' => get_state($pdo, current_admin() !== null)]);
+}
+
+if ($action === 'admin-booking-logs') {
+    require_admin_json();
+    $id = (int) str_replace('court:', '', (string) ($_GET['id'] ?? ''));
+    $reference = trim((string) ($_GET['reference'] ?? ''));
+    json_response(['ok' => true] + admin_booking_logs($pdo, $id, $reference));
 }
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {

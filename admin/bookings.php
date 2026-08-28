@@ -161,5 +161,26 @@ include __DIR__ . '/../includes/header.php';
             </div>
         </div>
     </div>
+
+    <div id="adminBookingLogsModal" class="modal fade" tabindex="-1" aria-labelledby="adminBookingLogsTitle" aria-hidden="true">
+        <div class="modal-dialog modal-lg modal-dialog-scrollable">
+            <div class="modal-content">
+                <div class="modal-header py-2">
+                    <div>
+                        <span class="section-kicker">Booking History</span>
+                        <h2 id="adminBookingLogsTitle" class="modal-title fw-black">Activity logs</h2>
+                        <p id="adminBookingLogsSummary" class="mb-0 small text-secondary fw-semibold"></p>
+                    </div>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div id="adminBookingLogsBody" class="modal-body p-2">
+                    <p class="small fw-semibold text-secondary mb-0">Loading logs...</p>
+                </div>
+                <div class="modal-footer py-2">
+                    <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
 </main>
 <?php include __DIR__ . '/../includes/footer.php'; ?>

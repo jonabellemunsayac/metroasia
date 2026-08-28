@@ -21,6 +21,7 @@ let adminBookingEndDate = pageParams.has('to') ? pageParams.get('to') : todayIso
 let adminBookingSort = pageParams.get('sort') || 'created-desc';
 let adminScheduleCalendarMonth = new Date(adminScheduleDate.getFullYear(), adminScheduleDate.getMonth(), 1);
 let adminMemberSearch = '';
+let adminAccessLogSearch = '';
 let adminRateSportFilter = '';
 let adminRateCourtFilter = '';
 let adminQrStream = null;
@@ -118,6 +119,8 @@ const els = {
     adminOverrideLogs: document.getElementById('adminOverrideLogs'),
     adminMembers: document.getElementById('adminMembers'),
     adminUsers: document.getElementById('adminUsers'),
+    adminAccessLogs: document.getElementById('adminAccessLogs'),
+    adminAccessLogSearch: document.getElementById('adminAccessLogSearch'),
     adminRolePermissions: document.getElementById('adminRolePermissions'),
     adminScheduleGrid: document.getElementById('adminScheduleGrid'),
     adminScheduleDateLabel: document.getElementById('adminScheduleDateLabel'),
@@ -167,6 +170,10 @@ const els = {
     adminReceiptReservationId: document.getElementById('adminReceiptReservationId'),
     adminReceiptUploadSummary: document.getElementById('adminReceiptUploadSummary'),
     adminReceiptUploadMessage: document.getElementById('adminReceiptUploadMessage'),
+    adminBookingLogsModal: document.getElementById('adminBookingLogsModal'),
+    adminBookingLogsTitle: document.getElementById('adminBookingLogsTitle'),
+    adminBookingLogsSummary: document.getElementById('adminBookingLogsSummary'),
+    adminBookingLogsBody: document.getElementById('adminBookingLogsBody'),
     adminMemberSearch: document.getElementById('adminMemberSearch'),
     adminAddMember: document.getElementById('adminAddMember'),
     adminMemberModal: document.getElementById('adminMemberModal'),
@@ -434,6 +441,7 @@ function renderAll() {
         ['Admin override logs', renderAdminOverrideLogs],
         ['Admin members', renderAdminMembers],
         ['Admin users', renderAdminUsers],
+        ['Admin access logs', renderAdminAccessLogs],
         ['Admin role permissions', renderAdminRolePermissions],
         ['Phone validation', enhancePhoneInputs],
     ].forEach(([label, renderer]) => safeRender(label, renderer));
@@ -2633,6 +2641,9 @@ function renderAdmin() {
     els.admin.querySelectorAll('[data-admin-receipt-upload]').forEach(button => {
         button.addEventListener('click', () => openReceiptUploadModal(button.dataset.adminReceiptUpload));
     });
+    els.admin.querySelectorAll('[data-admin-booking-logs]').forEach(button => {
+        button.addEventListener('click', () => openAdminBookingLogsModal(button.dataset.adminBookingLogs, button.dataset.bookingReference || ''));
+    });
 }
 
 function renderAdminFilterButtons() {
@@ -2644,12 +2655,14 @@ function renderAdminFilterButtons() {
 }
 
 function adminReservationActions(item) {
+    const logsButton = `<button type="button" class="btn btn-outline-secondary btn-sm" data-admin-booking-logs="${escapeHtml(item.id)}" data-booking-reference="${escapeHtml(item.bookingReference || '')}">Logs / History</button>`;
     if (!adminCanManageOperations()) {
-        return '<span class="text-xs text-secondary">View only</span>';
+        return logsButton;
     }
     if (item.status === 'Held') {
         return `
             <div class="d-inline-flex flex-wrap justify-content-end gap-1">
+                ${logsButton}
                 <button data-admin-id="${item.id}" data-status="Booked" class="btn btn-success btn-sm">Verify / Confirm</button>
                 <button data-admin-id="${item.id}" data-status="Cancelled" class="btn btn-outline-danger btn-sm">Cancel</button>
             </div>
@@ -2659,12 +2672,17 @@ function adminReservationActions(item) {
     if (item.status === 'Booked') {
         return `
             <div class="d-inline-flex flex-wrap justify-content-end gap-1">
+                ${logsButton}
                 <button data-admin-id="${item.id}" data-status="Cancelled" class="btn btn-outline-danger btn-sm">Cancel</button>
             </div>
         `;
     }
 
-    return '<span class="text-xs text-secondary">No actions</span>';
+    return `
+        <div class="d-inline-flex flex-wrap justify-content-end gap-1">
+            ${logsButton}
+        </div>
+    `;
 }
 
 function adminStatusClass(status) {
@@ -3843,6 +3861,109 @@ function renderAdminUsers() {
     });
 }
 
+function accessLogEventLabel(eventType) {
+    return String(eventType || '')
+        .split('_')
+        .map(part => part.charAt(0).toUpperCase() + part.slice(1))
+        .join(' ') || 'Activity';
+}
+
+function accessLogSearchText(log) {
+    const details = log?.sessionPayload?.details || {};
+    return [
+        log?.accountName,
+        log?.accountEmail,
+        log?.memberNickname,
+        log?.accountType,
+        log?.accountId,
+        log?.role,
+        log?.roleLabel,
+        log?.eventType,
+        accessLogEventLabel(log?.eventType),
+        log?.createdAt,
+        adminBookingLogDate(log?.createdAt),
+        log?.sessionId,
+        log?.ipAddress,
+        log?.userAgent,
+        details.reason,
+        log?.sessionPayload?.requestUri
+    ].join(' ').toLowerCase();
+}
+
+function renderAdminAccessLogs() {
+    if (!els.adminAccessLogs || !state) return;
+    if (!adminCanManageStaff()) {
+        els.adminAccessLogs.innerHTML = '';
+        return;
+    }
+
+    const query = adminAccessLogSearch.trim().toLowerCase();
+    const logs = (state.adminAccessLogs || []).filter(log => !query || accessLogSearchText(log).includes(query));
+
+    if (logs.length === 0) {
+        els.adminAccessLogs.innerHTML = '<div class="rounded-xl border border-dashed border-line bg-white p-5 text-sm font-bold text-muted">No access logs match the current search.</div>';
+        return;
+    }
+
+    els.adminAccessLogs.innerHTML = `
+        <div class="table-responsive">
+            <table class="table table-hover align-middle admin-members-table mb-0">
+                <thead>
+                    <tr>
+                        <th scope="col">Date / Time</th>
+                        <th scope="col">User / Member</th>
+                        <th scope="col">Event</th>
+                        <th scope="col">Session</th>
+                        <th scope="col">IP / Device</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${logs.map(log => {
+                        const details = log.sessionPayload?.details || {};
+                        const reason = details.reason ? `Reason: ${details.reason}` : '';
+                        const requestUri = log.sessionPayload?.requestUri ? `URI: ${log.sessionPayload.requestUri}` : '';
+                        const timeout = log.sessionPayload?.timeoutSeconds ? `${log.sessionPayload.timeoutSeconds}s timeout` : '';
+                        const sessionBits = [reason, timeout, requestUri].filter(Boolean);
+                        const badgeClass = log.eventType === 'login'
+                            ? 'text-bg-success'
+                            : log.eventType === 'logout'
+                                ? 'text-bg-secondary'
+                                : 'text-bg-warning';
+
+                        return `
+                            <tr>
+                                <td class="text-sm fw-semibold text-secondary" style="white-space: nowrap;">
+                                    ${escapeHtml(adminBookingLogDate(log.createdAt))}
+                                </td>
+                                <td>
+                                    <div class="fw-black text-ink">${escapeHtml(log.accountName || `${log.accountType} #${log.accountId}`)}</div>
+                                    <div class="text-xs font-semibold text-muted">
+                                        ${escapeHtml(log.accountEmail || log.memberNickname || 'No email')}
+                                    </div>
+                                    <div class="text-xs font-semibold text-muted">
+                                        ${escapeHtml(log.roleLabel || log.accountType || 'Account')} #${escapeHtml(log.accountId || '')}
+                                    </div>
+                                </td>
+                                <td>
+                                    <span class="badge ${badgeClass}">${escapeHtml(accessLogEventLabel(log.eventType))}</span>
+                                </td>
+                                <td class="text-xs fw-semibold text-secondary" style="min-width: 220px; overflow-wrap: anywhere;">
+                                    <div>${escapeHtml(log.sessionId || 'No session ID')}</div>
+                                    ${sessionBits.length ? `<div class="mt-1">${escapeHtml(sessionBits.join(' | '))}</div>` : ''}
+                                </td>
+                                <td class="text-xs fw-semibold text-secondary" style="min-width: 220px; overflow-wrap: anywhere;">
+                                    <div>${escapeHtml(log.ipAddress || 'No IP recorded')}</div>
+                                    <div class="mt-1">${escapeHtml(log.userAgent || 'No user agent')}</div>
+                                </td>
+                            </tr>
+                        `;
+                    }).join('')}
+                </tbody>
+            </table>
+        </div>
+    `;
+}
+
 function renderAdminRolePermissions() {
     if (!els.adminRolePermissions || !state) return;
     if (!adminCanManageStaff()) {
@@ -4098,6 +4219,98 @@ async function submitReceiptUpload(event) {
         }
     } else if (response.status === 401) {
         window.location.href = adminLoginUrl;
+    }
+}
+
+function adminBookingLogDate(value) {
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return 'N/A';
+    const datePart = date.toLocaleDateString('en-US', {
+        weekday: 'short',
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric',
+        timeZone: metroTimeZone
+    });
+    const timePart = date.toLocaleTimeString('en-US', {
+        hour: 'numeric',
+        minute: '2-digit',
+        hour12: true,
+        timeZone: metroTimeZone
+    }).replace(/\s/g, '');
+    return `${datePart} ${timePart} PHT`;
+}
+
+function renderAdminBookingLogs(logs = []) {
+    if (!els.adminBookingLogsBody) return;
+    if (!logs.length) {
+        els.adminBookingLogsBody.innerHTML = '<p class="small fw-semibold text-secondary mb-0">No activity logs found for this booking.</p>';
+        return;
+    }
+
+    els.adminBookingLogsBody.innerHTML = logs.map(log => {
+        const values = Array.isArray(log.values) ? log.values : [];
+        const visibleValues = values.filter(value => String(value?.value ?? '').trim() !== '');
+        return `
+            <article class="border-bottom px-2 py-2">
+                <div class="d-flex flex-wrap align-items-start justify-content-between gap-2">
+                    <div class="min-w-0">
+                        <strong class="small text-ink d-block">${escapeHtml(log.action || 'Activity')}</strong>
+                    </div>
+                    <div class="text-xs fw-semibold text-secondary text-end">
+                        <span>${escapeHtml(log.actor || 'System')}</span>
+                        <span class="ms-2">${escapeHtml(adminBookingLogDate(log.createdAt))}</span>
+                    </div>
+                </div>
+                ${log.reason ? `<div class="mt-1 text-xs fw-semibold text-warning" style="white-space: normal; overflow-wrap: anywhere;">Reason: ${escapeHtml(log.reason)}</div>` : ''}
+                ${visibleValues.length ? `
+                    <dl class="mt-1 mb-0 text-xs">
+                        ${visibleValues.map(value => `
+                            <div class="d-flex gap-2 py-1">
+                                <dt class="mb-0 text-secondary fw-black" style="width: 92px; flex: 0 0 92px;">${escapeHtml(value.label || '')}</dt>
+                                <dd class="mb-0 text-ink" style="min-width: 0; overflow-wrap: anywhere;">${escapeHtml(value.value ?? '')}</dd>
+                            </div>
+                        `).join('')}
+                    </dl>
+                ` : ''}
+            </article>
+        `;
+    }).join('');
+}
+
+async function openAdminBookingLogsModal(id, reference = '') {
+    if (!els.adminBookingLogsModal || !els.adminBookingLogsBody) return;
+    const item = reservationById(id);
+    if (els.adminBookingLogsTitle) {
+        els.adminBookingLogsTitle.textContent = `Activity logs${reference ? ` - ${reference}` : ''}`;
+    }
+    if (els.adminBookingLogsSummary) {
+        els.adminBookingLogsSummary.textContent = item
+            ? `${item.customerName || 'Customer'} | ${item.courtName || `Court ${item.court}`} | ${item.status}`
+            : 'Loading booking activity.';
+    }
+    els.adminBookingLogsBody.innerHTML = '<p class="small fw-semibold text-secondary mb-0">Loading logs...</p>';
+    bootstrap.Modal.getOrCreateInstance(els.adminBookingLogsModal).show();
+
+    try {
+        const params = new URLSearchParams({
+            action: 'admin-booking-logs',
+            id: id || '',
+            reference: reference || '',
+        });
+        const response = await fetch(`${api}?${params.toString()}`);
+        const payload = await response.json();
+        if (!payload.ok) {
+            els.adminBookingLogsBody.innerHTML = `<p class="small fw-bold text-danger mb-0">${escapeHtml(payload.message || 'Could not load logs.')}</p>`;
+            return;
+        }
+        if (els.adminBookingLogsSummary && payload.booking) {
+            els.adminBookingLogsSummary.textContent = `${payload.booking.customerName || 'Customer'} | ${payload.booking.reference || 'No reference'} | ${payload.booking.status || ''}`;
+        }
+        renderAdminBookingLogs(payload.logs || []);
+    } catch (error) {
+        console.error('Could not load booking logs.', error);
+        els.adminBookingLogsBody.innerHTML = '<p class="small fw-bold text-danger mb-0">Could not load logs. Please try again.</p>';
     }
 }
 
@@ -4404,6 +4617,10 @@ els.adminBookingSort?.addEventListener('change', event => {
 els.adminMemberSearch?.addEventListener('input', event => {
     adminMemberSearch = event.target.value;
     renderAdminMembers();
+});
+els.adminAccessLogSearch?.addEventListener('input', event => {
+    adminAccessLogSearch = event.target.value;
+    renderAdminAccessLogs();
 });
 els.adminRateSportFilter?.addEventListener('change', event => {
     adminRateSportFilter = event.target.value;
