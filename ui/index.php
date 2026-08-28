@@ -58,6 +58,12 @@ $aboutSmallImage = site_asset_url((string) ($siteConfig['about_small_image_path'
 if ($aboutSmallImage === '') {
     $aboutSmallImage = site_asset_url((string) $tf['about_small']);
 }
+
+$serviceImages = [];
+for ($i = 1; $i <= 4; $i++) {
+    $serviceImage = site_asset_url((string) ($siteConfig["service_{$i}_image_path"] ?? ''));
+    $serviceImages[$i] = $serviceImage !== '' ? $serviceImage : (string) $tf["service_{$i}"];
+}
 ?>
 
 <main class="metro-home-page">
@@ -258,7 +264,7 @@ if ($aboutSmallImage === '') {
     </section>
 
     <!-- SERVICES / PLAY OPTIONS -->
-    <section class="metro-home-block metro-services-block">
+    <section id="play-options" class="metro-home-block metro-services-block">
         <div class="metro-container metro-panel metro-services-panel">
             <div class="metro-heading">
                 <h2>From First Game to Match Day</h2>
@@ -267,25 +273,25 @@ if ($aboutSmallImage === '') {
 
             <div class="metro-service-grid">
                 <article class="metro-service-card">
-                    <img src="<?php echo htmlspecialchars($tf['service_1']); ?>" alt="Open play">
+                    <img src="<?php echo htmlspecialchars($serviceImages[1]); ?>" alt="Open play">
                     <h3>Open Play</h3>
                     <p>Reserve a court for casual games with friends, family, or teammates.</p>
                 </article>
 
                 <article class="metro-service-card">
-                    <img src="<?php echo htmlspecialchars($tf['service_2']); ?>" alt="Group games">
+                    <img src="<?php echo htmlspecialchars($serviceImages[2]); ?>" alt="Group games">
                     <h3>Group Games</h3>
                     <p>Organize group sessions and enjoy dedicated court time together.</p>
                 </article>
 
                 <article class="metro-service-card">
-                    <img src="<?php echo htmlspecialchars($tf['service_3']); ?>" alt="Multi-sport play">
+                    <img src="<?php echo htmlspecialchars($serviceImages[3]); ?>" alt="Multi-sport play">
                     <h3>Multi-Sport Play</h3>
                     <p>Book available pickleball, basketball, and volleyball court schedules.</p>
                 </article>
 
                 <article class="metro-service-card">
-                    <img src="<?php echo htmlspecialchars($tf['service_4']); ?>" alt="Member play">
+                    <img src="<?php echo htmlspecialchars($serviceImages[4]); ?>" alt="Member play">
                     <h3>Member Play</h3>
                     <p>Sign in to manage bookings, payment status, and reservation history.</p>
                 </article>

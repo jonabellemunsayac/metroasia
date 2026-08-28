@@ -49,6 +49,21 @@ CREATE TABLE IF NOT EXISTS members (
     updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+CREATE TABLE IF NOT EXISTS access_logs (
+    id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    account_type ENUM('admin','member') NOT NULL,
+    account_id INT UNSIGNED NOT NULL,
+    role VARCHAR(40) NULL,
+    event_type ENUM('login','logout','session_expired') NOT NULL,
+    session_id VARCHAR(128) NULL,
+    ip_address VARCHAR(45) NULL,
+    user_agent VARCHAR(255) NULL,
+    session_payload JSON NULL,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_access_account (account_type, account_id, created_at),
+    INDEX idx_access_event (event_type, created_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 CREATE TABLE IF NOT EXISTS courts (
     id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     display_number INT UNSIGNED NOT NULL,

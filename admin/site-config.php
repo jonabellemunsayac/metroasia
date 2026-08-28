@@ -48,6 +48,36 @@ $fieldMeta = [
     'booking_max_date' => ['Booking Max Date', 'date'],
 ];
 
+function admin_home_service_image_cards(): array
+{
+    return [
+        1 => [
+            'key' => 'service_1_image_path',
+            'label' => 'Open Play',
+            'alt' => 'Open play',
+            'slug' => 'open-play',
+        ],
+        2 => [
+            'key' => 'service_2_image_path',
+            'label' => 'Group Games',
+            'alt' => 'Group games',
+            'slug' => 'group-games',
+        ],
+        3 => [
+            'key' => 'service_3_image_path',
+            'label' => 'Multi-Sport Play',
+            'alt' => 'Multi-sport play',
+            'slug' => 'multi-sport-play',
+        ],
+        4 => [
+            'key' => 'service_4_image_path',
+            'label' => 'Member Play',
+            'alt' => 'Member play',
+            'slug' => 'member-play',
+        ],
+    ];
+}
+
 function admin_gallery_images(PDO $pdo): array
 {
     $grouped = array_fill_keys(array_values(site_config_gallery_categories()), []);
@@ -115,6 +145,176 @@ function admin_save_gallery_upload(PDO $pdo, array $admin): void
     ]);
 }
 
+function admin_save_site_config_value(PDO $pdo, array $admin, string $key, string $value, string $label, string $fieldType = 'text', int $sortOrder = 10): void
+{
+    $stmt = $pdo->prepare(
+        'INSERT INTO site_config (config_key, config_value, label, field_type, sort_order, updated_by)
+         VALUES (?, ?, ?, ?, ?, ?)
+         ON DUPLICATE KEY UPDATE config_value = VALUES(config_value), label = VALUES(label),
+            field_type = VALUES(field_type), sort_order = VALUES(sort_order), updated_by = VALUES(updated_by)'
+    );
+    $stmt->execute([$key, $value, $label, $fieldType, $sortOrder, (int) $admin['id']]);
+}
+
+function admin_delete_managed_home_about_file(string $path): void
+{
+    $normalizedPath = str_replace('\\', '/', trim($path));
+    if (!str_starts_with($normalizedPath, 'uploads/home-about/')) {
+        return;
+    }
+
+    $absolutePath = dirname(__DIR__) . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, $normalizedPath);
+    $uploadRoot = dirname(__DIR__) . DIRECTORY_SEPARATOR . 'uploads' . DIRECTORY_SEPARATOR . 'home-about' . DIRECTORY_SEPARATOR;
+    $resolvedPath = realpath($absolutePath);
+    $resolvedRoot = realpath($uploadRoot);
+    if ($resolvedPath !== false && $resolvedRoot !== false && str_starts_with($resolvedPath, $resolvedRoot) && is_file($resolvedPath)) {
+        unlink($resolvedPath);
+    }
+}
+
+function admin_delete_managed_home_service_file(string $path): void
+{
+    $normalizedPath = str_replace('\\', '/', trim($path));
+    if (!str_starts_with($normalizedPath, 'uploads/home-services/')) {
+        return;
+    }
+
+    $absolutePath = dirname(__DIR__) . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, $normalizedPath);
+    $uploadRoot = dirname(__DIR__) . DIRECTORY_SEPARATOR . 'uploads' . DIRECTORY_SEPARATOR . 'home-services' . DIRECTORY_SEPARATOR;
+    $resolvedPath = realpath($absolutePath);
+    $resolvedRoot = realpath($uploadRoot);
+    if ($resolvedPath !== false && $resolvedRoot !== false && str_starts_with($resolvedPath, $resolvedRoot) && is_file($resolvedPath)) {
+        unlink($resolvedPath);
+    }
+}
+
+function admin_upload_home_about_image(PDO $pdo, array $admin): void
+{
+    if (!isset($_FILES['about_main_image']) || $_FILES['about_main_image']['error'] === UPLOAD_ERR_NO_FILE) {
+        throw new RuntimeException('Choose an image to upload.');
+    }
+    if ($_FILES['about_main_image']['error'] !== UPLOAD_ERR_OK || $_FILES['about_main_image']['size'] > 8 * 1024 * 1024) {
+        throw new RuntimeException('Image upload failed or exceeded 8MB.');
+    }
+
+    $tmp = (string) $_FILES['about_main_image']['tmp_name'];
+    $mime = mime_content_type($tmp) ?: '';
+    $allowed = [
+        'image/jpeg' => 'jpg',
+        'image/png' => 'png',
+        'image/webp' => 'webp',
+    ];
+    if (!isset($allowed[$mime])) {
+        throw new RuntimeException('Use a JPG, PNG, or WEBP image.');
+    }
+
+    $dir = dirname(__DIR__) . DIRECTORY_SEPARATOR . 'uploads' . DIRECTORY_SEPARATOR . 'home-about';
+    if (!is_dir($dir)) {
+        mkdir($dir, 0775, true);
+    }
+
+    $filename = 'more-than-court-' . date('Ymd-His') . '-' . bin2hex(random_bytes(4)) . '.' . $allowed[$mime];
+    if (!move_uploaded_file($tmp, $dir . DIRECTORY_SEPARATOR . $filename)) {
+        throw new RuntimeException('Could not save home about image.');
+    }
+
+    $currentConfig = site_config($pdo);
+    admin_delete_managed_home_about_file((string) ($currentConfig['about_main_image_path'] ?? ''));
+
+    admin_save_site_config_value(
+        $pdo,
+        $admin,
+        'about_main_image_path',
+        'uploads/home-about/' . $filename,
+        'About Main Image Path',
+        'text',
+        90
+    );
+}
+
+function admin_update_home_about_image_path(PDO $pdo, array $admin): void
+{
+    $path = trim((string) ($_POST['about_main_image_path'] ?? ''));
+    admin_save_site_config_value($pdo, $admin, 'about_main_image_path', $path, 'About Main Image Path', 'text', 90);
+}
+
+function admin_delete_home_about_image(PDO $pdo, array $admin, string $currentPath): void
+{
+    admin_delete_managed_home_about_file($currentPath);
+    admin_save_site_config_value($pdo, $admin, 'about_main_image_path', '', 'About Main Image Path', 'text', 90);
+}
+
+function admin_home_service_image_meta(): array
+{
+    $index = (int) ($_POST['service_index'] ?? 0);
+    $cards = admin_home_service_image_cards();
+    if (!isset($cards[$index])) {
+        throw new RuntimeException('Choose a valid service card.');
+    }
+
+    return $cards[$index];
+}
+
+function admin_upload_home_service_image(PDO $pdo, array $admin): void
+{
+    $meta = admin_home_service_image_meta();
+    if (!isset($_FILES['home_service_image']) || $_FILES['home_service_image']['error'] === UPLOAD_ERR_NO_FILE) {
+        throw new RuntimeException('Choose an image to upload.');
+    }
+    if ($_FILES['home_service_image']['error'] !== UPLOAD_ERR_OK || $_FILES['home_service_image']['size'] > 8 * 1024 * 1024) {
+        throw new RuntimeException('Image upload failed or exceeded 8MB.');
+    }
+
+    $tmp = (string) $_FILES['home_service_image']['tmp_name'];
+    $mime = mime_content_type($tmp) ?: '';
+    $allowed = [
+        'image/jpeg' => 'jpg',
+        'image/png' => 'png',
+        'image/webp' => 'webp',
+    ];
+    if (!isset($allowed[$mime])) {
+        throw new RuntimeException('Use a JPG, PNG, or WEBP image.');
+    }
+
+    $dir = dirname(__DIR__) . DIRECTORY_SEPARATOR . 'uploads' . DIRECTORY_SEPARATOR . 'home-services';
+    if (!is_dir($dir)) {
+        mkdir($dir, 0775, true);
+    }
+
+    $filename = 'service-' . $meta['slug'] . '-' . date('Ymd-His') . '-' . bin2hex(random_bytes(4)) . '.' . $allowed[$mime];
+    if (!move_uploaded_file($tmp, $dir . DIRECTORY_SEPARATOR . $filename)) {
+        throw new RuntimeException('Could not save service image.');
+    }
+
+    $currentConfig = site_config($pdo);
+    admin_delete_managed_home_service_file((string) ($currentConfig[$meta['key']] ?? ''));
+
+    admin_save_site_config_value(
+        $pdo,
+        $admin,
+        $meta['key'],
+        'uploads/home-services/' . $filename,
+        $meta['label'] . ' Image Path',
+        'text',
+        100
+    );
+}
+
+function admin_update_home_service_image_path(PDO $pdo, array $admin): void
+{
+    $meta = admin_home_service_image_meta();
+    $path = trim((string) ($_POST['service_image_path'] ?? ''));
+    admin_save_site_config_value($pdo, $admin, $meta['key'], $path, $meta['label'] . ' Image Path', 'text', 100);
+}
+
+function admin_delete_home_service_image(PDO $pdo, array $admin): void
+{
+    $meta = admin_home_service_image_meta();
+    $currentConfig = site_config($pdo);
+    admin_delete_managed_home_service_file((string) ($currentConfig[$meta['key']] ?? ''));
+    admin_save_site_config_value($pdo, $admin, $meta['key'], '', $meta['label'] . ' Image Path', 'text', 100);
+}
+
 function admin_update_gallery_images(PDO $pdo): void
 {
     $ids = array_map('intval', (array) ($_POST['gallery_ids'] ?? []));
@@ -144,6 +344,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         } elseif ($action === 'gallery_update') {
             admin_update_gallery_images($pdo);
             $message = 'Gallery ordering and visibility saved.';
+        } elseif ($action === 'about_image_upload') {
+            admin_upload_home_about_image($pdo, $admin);
+            $message = 'Home about image uploaded.';
+        } elseif ($action === 'about_image_update_path') {
+            admin_update_home_about_image_path($pdo, $admin);
+            $message = 'Home about image path saved.';
+        } elseif ($action === 'about_image_delete') {
+            $currentConfig = site_config($pdo);
+            admin_delete_home_about_image($pdo, $admin, (string) ($currentConfig['about_main_image_path'] ?? ''));
+            $message = 'Home about image removed.';
+        } elseif ($action === 'service_image_upload') {
+            admin_upload_home_service_image($pdo, $admin);
+            $message = 'Service card image uploaded.';
+        } elseif ($action === 'service_image_update_path') {
+            admin_update_home_service_image_path($pdo, $admin);
+            $message = 'Service card image path saved.';
+        } elseif ($action === 'service_image_delete') {
+            admin_delete_home_service_image($pdo, $admin);
+            $message = 'Service card image removed.';
         } else {
             if (trim((string) ($_POST['contact_phone'] ?? '')) !== '' && !admin_is_valid_contact_phone((string) $_POST['contact_phone'])) {
                 throw new RuntimeException(admin_contact_phone_validation_message());
@@ -160,6 +379,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             );
             $sort = 10;
             foreach ($fieldMeta as $key => [$label, $type]) {
+                if (!array_key_exists($key, $_POST)) {
+                    $sort += 10;
+                    continue;
+                }
                 $stmt->execute([
                     $key,
                     $key === 'contact_phone'
@@ -182,6 +405,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 $config = site_config($pdo);
 site_config_seed_gallery_images($pdo, $config);
 $galleryImages = admin_gallery_images($pdo);
+$aboutMainImagePath = trim((string) ($config['about_main_image_path'] ?? ''));
+$aboutMainImageUrl = site_asset_url($aboutMainImagePath);
+$serviceImageCards = array_map(static function (array $card) use ($config): array {
+    $path = trim((string) ($config[$card['key']] ?? ''));
+    $card['path'] = $path;
+    $card['url'] = site_asset_url($path);
+    return $card;
+}, admin_home_service_image_cards());
 
 include __DIR__ . '/../includes/header.php';
 ?>
@@ -204,11 +435,11 @@ include __DIR__ . '/../includes/header.php';
         <div class="alert alert-danger"><?php echo htmlspecialchars($error); ?></div>
     <?php endif; ?>
 
-    <form method="post" class="grid gap-3">
+    <form method="post" class="grid gap-3 mb-3">
         <input type="hidden" name="action" value="site_config">
         <section class="app-card">
             <div class="row g-3">
-                <?php foreach (['venue_name', 'address', 'contact_phone', 'contact_email', 'messenger_url', 'map_embed_url', 'booking_max_date', 'hero_image_path', 'about_main_image_path', 'about_small_image_path', 'contact_image_path'] as $key): ?>
+                <?php foreach (['venue_name', 'address', 'contact_phone', 'contact_email', 'messenger_url', 'map_embed_url', 'booking_max_date', 'hero_image_path', 'about_small_image_path', 'contact_image_path'] as $key): ?>
                     <?php [$label, $type] = $fieldMeta[$key]; ?>
                     <label class="col-md-6 small fw-bold"><?php echo htmlspecialchars($label); ?>
                         <input
@@ -230,7 +461,163 @@ include __DIR__ . '/../includes/header.php';
         <div class="d-flex justify-content-end">
             <button class="btn btn-primary" type="submit">Save Config</button>
         </div>
+        
     </form>
+
+    <section class="app-card mb-3">
+        <div class="d-flex flex-wrap align-items-start justify-content-between gap-3 mb-3">
+            <div>
+                <span class="section-kicker">Home Screen</span>
+                <h3 class="mt-1 mb-1 fw-black">More Than Just a Court image</h3>
+                <p class="mb-0 small text-secondary fw-semibold">Manage the large image shown beside the homepage about copy.</p>
+            </div>
+            <a href="<?php echo htmlspecialchars(app_url('ui/index.php#about')); ?>" class="btn btn-outline-primary btn-sm">View Section</a>
+        </div>
+
+        <div class="row g-3 align-items-start">
+            <div class="col-lg-4">
+                <div class="rounded-lg border border-line p-2">
+                    <?php if ($aboutMainImageUrl !== ''): ?>
+                        <img
+                            src="<?php echo htmlspecialchars($aboutMainImageUrl); ?>"
+                            alt="More Than Just a Court preview"
+                            class="rounded object-cover w-100"
+                            style="aspect-ratio: 4 / 3;"
+                        >
+                    <?php else: ?>
+                        <div class="rounded bg-light text-muted fw-semibold" style="aspect-ratio: 4 / 3; display: grid; place-items: center;">
+                            No image selected
+                        </div>
+                    <?php endif; ?>
+                </div>
+                <div class="text-xs font-semibold text-muted mt-2">
+                    <?php echo $aboutMainImagePath !== '' ? htmlspecialchars($aboutMainImagePath) : 'Upload an image or add a path/URL.'; ?>
+                </div>
+            </div>
+
+            <div class="col-lg-8">
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <form method="post" enctype="multipart/form-data" class="rounded-lg border border-line p-3 h-100">
+                            <input type="hidden" name="action" value="about_image_upload">
+                            <label class="small fw-bold d-block">Upload or replace image
+                                <input
+                                    required
+                                    type="file"
+                                    name="about_main_image"
+                                    accept=".jpg,.jpeg,.png,.webp"
+                                    class="form-input mt-1"
+                                >
+                            </label>
+                            <p class="small text-secondary fw-semibold mt-2 mb-3">JPG, PNG, or WEBP up to 8MB.</p>
+                            <button class="btn btn-primary btn-sm" type="submit">Upload Image</button>
+                        </form>
+                    </div>
+
+                    <div class="col-md-6">
+                        <form method="post" class="rounded-lg border border-line p-3 h-100">
+                            <input type="hidden" name="action" value="about_image_update_path">
+                            <label class="small fw-bold d-block">Image path or URL
+                                <input
+                                    name="about_main_image_path"
+                                    type="text"
+                                    value="<?php echo htmlspecialchars($aboutMainImagePath); ?>"
+                                    class="form-input mt-1"
+                                    placeholder="assets/hero-pickleball.png"
+                                >
+                            </label>
+                            <p class="small text-secondary fw-semibold mt-2 mb-3">Use a local path like <code>assets/hero-pickleball.png</code> or a full URL.</p>
+                            <div class="d-flex flex-wrap gap-2">
+                                <button class="btn btn-primary btn-sm" type="submit">Save Path</button>
+                                <button
+                                    class="btn btn-outline-danger btn-sm"
+                                    type="submit"
+                                    name="action"
+                                    value="about_image_delete"
+                                    onclick="return confirm('Remove the homepage about image?');"
+                                >
+                                    Delete Image
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section class="app-card mb-3">
+        <div class="d-flex flex-wrap align-items-start justify-content-between gap-3 mb-3">
+            <div>
+                <span class="section-kicker">Home Screen</span>
+                <h3 class="mt-1 mb-1 fw-black">From First Game to Match Day images</h3>
+                <p class="mb-0 small text-secondary fw-semibold">Manage the four image cards shown in the homepage play options section.</p>
+            </div>
+            <a href="<?php echo htmlspecialchars(app_url('ui/index.php#play-options')); ?>" class="btn btn-outline-primary btn-sm">View Section</a>
+        </div>
+
+        <div class="row g-3">
+            <?php foreach ($serviceImageCards as $index => $card): ?>
+                <div class="col-xl-3 col-md-6">
+                    <div class="rounded-lg border border-line p-3 h-100">
+                        <p class="small fw-black text-primary mb-2"><?php echo htmlspecialchars((string) $card['label']); ?></p>
+                        <?php if ($card['url'] !== ''): ?>
+                            <img
+                                src="<?php echo htmlspecialchars((string) $card['url']); ?>"
+                                alt="<?php echo htmlspecialchars((string) $card['alt']); ?>"
+                                class="rounded object-cover w-100 mb-2"
+                                style="aspect-ratio: 4 / 3;"
+                            >
+                        <?php else: ?>
+                            <div class="rounded bg-light text-muted fw-semibold mb-2" style="aspect-ratio: 4 / 3; display: grid; place-items: center;">
+                                Default image
+                            </div>
+                        <?php endif; ?>
+                        <div class="text-xs font-semibold text-muted mb-3">
+                            <?php echo $card['path'] !== '' ? htmlspecialchars((string) $card['path']) : 'Using homepage default.'; ?>
+                        </div>
+
+                        <form method="post" enctype="multipart/form-data" class="grid gap-2 mb-3">
+                            <input type="hidden" name="action" value="service_image_upload">
+                            <input type="hidden" name="service_index" value="<?php echo (int) $index; ?>">
+                            <input
+                                required
+                                type="file"
+                                name="home_service_image"
+                                accept=".jpg,.jpeg,.png,.webp"
+                                class="form-input"
+                            >
+                            <button class="btn btn-primary btn-sm" type="submit">Upload Image</button>
+                        </form>
+
+                        <form method="post" class="grid gap-2">
+                            <input type="hidden" name="action" value="service_image_update_path">
+                            <input type="hidden" name="service_index" value="<?php echo (int) $index; ?>">
+                            <input
+                                name="service_image_path"
+                                type="text"
+                                value="<?php echo htmlspecialchars((string) $card['path']); ?>"
+                                class="form-input"
+                                placeholder="assets/homepage-court.jpg"
+                            >
+                            <div class="d-flex flex-wrap gap-2">
+                                <button class="btn btn-primary btn-sm" type="submit">Save Path</button>
+                                <button
+                                    class="btn btn-outline-danger btn-sm"
+                                    type="submit"
+                                    name="action"
+                                    value="service_image_delete"
+                                    onclick="return confirm('Remove this service card image?');"
+                                >
+                                    Delete
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            <?php endforeach; ?>
+        </div>
+    </section>
 
     <section class="app-card">
         <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">

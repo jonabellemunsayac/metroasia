@@ -31,6 +31,41 @@ function json_response(array $payload, int $status = 200): never
     exit;
 }
 
+function db_datetime_to_ph_atom(?string $value): ?string
+{
+    $value = trim((string) $value);
+    if ($value === '') {
+        return null;
+    }
+
+    try {
+        $date = DateTimeImmutable::createFromFormat('Y-m-d H:i:s', $value, new DateTimeZone('UTC'));
+        if (!$date) {
+            $date = new DateTimeImmutable($value, new DateTimeZone('UTC'));
+        }
+    } catch (Throwable) {
+        return null;
+    }
+
+    return $date->setTimezone(new DateTimeZone('Asia/Manila'))->format(DATE_ATOM);
+}
+
+function write_override_log(PDO $pdo, int $adminId, string $action, string $targetType, ?string $targetId, string $conflictSummary, array $payload): void
+{
+    $stmt = $pdo->prepare(
+        'INSERT INTO override_logs (admin_id, action, target_type, target_id, conflict_summary, payload)
+         VALUES (?, ?, ?, ?, ?, ?)'
+    );
+    $stmt->execute([
+        $adminId,
+        $action,
+        $targetType,
+        $targetId,
+        $conflictSummary,
+        json_encode($payload, JSON_THROW_ON_ERROR),
+    ]);
+}
+
 function db_or_error(): PDO
 {
     try {
@@ -948,6 +983,12 @@ function active_bookings_for_block(PDO $pdo, string $date, int $slotId, ?int $co
         $courtName = public_court_name((int) $row['court_id'], (string) $row['sport']);
         $matches[] = [
             'id' => (int) $row['id'],
+            'courtId' => (int) $row['court_id'],
+            'courtName' => $courtName,
+            'sport' => $row['sport'],
+            'status' => $row['status'],
+            'customerName' => $row['customer_name'],
+            'time' => $row['time_label'],
             'summary' => "#{$row['id']} {$courtName} {$row['sport']} {$row['status']} for {$row['customer_name']} ({$row['time_label']})",
         ];
     }
@@ -1535,7 +1576,7 @@ function admin_reservations(PDO $pdo): array
         'cancelReason' => $row['cancel_reason'],
         'reviewedByName' => $row['reviewed_by_name'],
         'cancelledByName' => $row['cancelled_by_name'],
-        'createdAt' => date(DATE_ATOM, strtotime($row['created_at'])),
+        'createdAt' => db_datetime_to_ph_atom($row['created_at']),
         'reviewedAt' => $row['reviewed_at'] ? date(DATE_ATOM, strtotime($row['reviewed_at'])) : null,
         'cancelledAt' => $row['cancelled_at'] ? date(DATE_ATOM, strtotime($row['cancelled_at'])) : null,
     ], $rows);
@@ -2026,32 +2067,33 @@ if ($action === 'admin-override-booking') {
             $bookingIds[] = (int) $pdo->lastInsertId();
         }
 
-        if ($conflictSummaries !== [] || $overrideConfirm) {
-            $audit = $pdo->prepare(
-                'INSERT INTO override_logs (admin_id, action, target_type, target_id, conflict_summary, payload)
-                 VALUES (?, ?, ?, ?, ?, ?)'
-            );
-            $audit->execute([
-                (int) $admin['id'],
-                'admin-booking-override',
-                'court_booking',
-                implode(',', $bookingIds),
-                implode('; ', $conflictSummaries),
-                json_encode([
-                    'bookingIds' => $bookingIds,
-                    'date' => $date,
-                    'timeSlotIds' => array_map(static fn (array $slot): int => (int) $slot['id'], $slots),
-                    'time' => array_map(static fn (array $slot): string => (string) $slot['label'], $slots),
-                    'courtId' => $courtId,
-                    'sport' => $sport,
-                    'status' => $status,
-                    'rangeOverride' => $timeSlotIdsRaw !== '',
-                    'reason' => $reason,
-                    'cancelledBookings' => $bookingConflicts,
-                    'cancelledBlocks' => $blockConflicts,
-                ], JSON_THROW_ON_ERROR),
-            ]);
-        }
+        write_override_log(
+            $pdo,
+            (int) $admin['id'],
+            'admin-booking-override',
+            'court_booking',
+            implode(',', $bookingIds),
+            implode('; ', $conflictSummaries),
+            [
+                'bookingIds' => $bookingIds,
+                'bookingReference' => $bookingReference,
+                'memberId' => $memberId > 0 ? $memberId : null,
+                'customerName' => $name,
+                'customerEmail' => $email,
+                'customerPhone' => $phone,
+                'date' => $date,
+                'timeSlotIds' => array_map(static fn (array $slot): int => (int) $slot['id'], $slots),
+                'time' => array_map(static fn (array $slot): string => (string) $slot['label'], $slots),
+                'courtId' => $courtId,
+                'sport' => $sport,
+                'status' => $status,
+                'paymentMethod' => $paymentMethod,
+                'rangeOverride' => $timeSlotIdsRaw !== '',
+                'reason' => $reason,
+                'cancelledBookings' => $bookingConflicts,
+                'cancelledBlocks' => $blockConflicts,
+            ]
+        );
 
         $pdo->commit();
     } catch (Throwable $exception) {
@@ -2079,6 +2121,7 @@ if ($action === 'admin-booking-update') {
     $phone = trim((string) ($_POST['phone'] ?? ''));
     $email = trim((string) ($_POST['email'] ?? ''));
     $paymentMethod = trim((string) ($_POST['paymentMethod'] ?? 'Admin Override')) ?: 'Admin Override';
+    $reason = trim((string) ($_POST['overrideReason'] ?? 'Admin dashboard booking edit')) ?: 'Admin dashboard booking edit';
     $playerNickname = '';
 
     if ($bookingId <= 0) {
@@ -2091,7 +2134,14 @@ if ($action === 'admin-booking-update') {
         json_response(['ok' => false, 'message' => 'Invalid sport.'], 422);
     }
 
-    $existingStmt = $pdo->prepare('SELECT id, status FROM court_bookings WHERE id = ?');
+    $existingStmt = $pdo->prepare(
+        'SELECT cb.id, cb.booking_reference, cb.member_id, cb.booking_date, cb.time_slot_id,
+                ts.label AS time_label, cb.court_id, cb.sport, cb.status, cb.customer_name,
+                cb.player_nickname, cb.customer_email, cb.customer_phone, cb.payment_method, cb.final_amount
+         FROM court_bookings cb
+         JOIN time_slots ts ON ts.id = cb.time_slot_id
+         WHERE cb.id = ?'
+    );
     $existingStmt->execute([$bookingId]);
     $existing = $existingStmt->fetch();
     if (!$existing) {
@@ -2185,6 +2235,50 @@ if ($action === 'admin-booking-update') {
             booking_rate_snapshot(['timeSlot' => $slot['label'], 'sport' => $sport, 'courtId' => $courtId, 'date' => $date, 'adminEdit' => true], $rate),
             $bookingId,
         ]);
+
+        write_override_log(
+            $pdo,
+            (int) $admin['id'],
+            'admin-booking-update',
+            'court_booking',
+            (string) $bookingId,
+            '',
+            [
+                'bookingId' => $bookingId,
+                'bookingReference' => $existing['booking_reference'] ?? '',
+                'reason' => $reason,
+                'previous' => [
+                    'memberId' => $existing['member_id'] !== null ? (int) $existing['member_id'] : null,
+                    'customerName' => $existing['customer_name'],
+                    'customerEmail' => $existing['customer_email'] ?? '',
+                    'customerPhone' => $existing['customer_phone'] ?? '',
+                    'playerNickname' => $existing['player_nickname'] ?? '',
+                    'date' => $existing['booking_date'],
+                    'timeSlotId' => (int) $existing['time_slot_id'],
+                    'time' => $existing['time_label'],
+                    'courtId' => (int) $existing['court_id'],
+                    'sport' => $existing['sport'],
+                    'status' => $existing['status'],
+                    'paymentMethod' => $existing['payment_method'],
+                    'finalAmount' => (float) $existing['final_amount'],
+                ],
+                'updated' => [
+                    'memberId' => $memberId > 0 ? $memberId : null,
+                    'customerName' => $name,
+                    'customerEmail' => $email,
+                    'customerPhone' => $phone,
+                    'playerNickname' => $playerNickname !== '' ? $playerNickname : (strtok($name, ' ') ?: $name),
+                    'date' => $date,
+                    'timeSlotId' => $timeSlotId,
+                    'time' => $slot['label'],
+                    'courtId' => $courtId,
+                    'sport' => $sport,
+                    'status' => $existing['status'],
+                    'paymentMethod' => $paymentMethod,
+                    'finalAmount' => (float) $rate['finalAmount'],
+                ],
+            ]
+        );
         $pdo->commit();
     } catch (Throwable $exception) {
         if ($pdo->inTransaction()) {
@@ -2647,10 +2741,10 @@ if ($action === 'admin-court-block') {
             $conflicts = array_merge($conflicts, active_bookings_for_block($pdo, $blockDate, $slotId, $courtId, $sport));
         }
     }
-    if ($conflicts !== []) {
+    if ($conflicts !== [] && !$overrideConfirm) {
         json_response([
             'ok' => false,
-            'requiresOverride' => false,
+            'requiresOverride' => true,
             'message' => 'This block overlaps active reservations: ' . implode('; ', array_column($conflicts, 'summary')),
             'conflicts' => $conflicts,
         ], 409);
@@ -2707,29 +2801,29 @@ if ($action === 'admin-court-block') {
             : 'Cancelled block record saved.';
     }
 
-    if ($conflicts !== [] && $overrideConfirm) {
-        $summary = implode('; ', array_column($conflicts, 'summary'));
-        $stmt = $pdo->prepare(
-            'INSERT INTO override_logs (admin_id, action, target_type, target_id, conflict_summary, payload)
-             VALUES (?, ?, ?, ?, ?, ?)'
-        );
-        $stmt->execute([
-            (int) $admin['id'],
-            'court-block-override',
-            'court_block',
-            (string) $id,
-            $summary,
-            json_encode([
+    write_override_log(
+        $pdo,
+        (int) $admin['id'],
+        'court-block-override',
+        'court_block',
+        implode(',', $savedIds),
+        implode('; ', array_column($conflicts, 'summary')),
+        [
+            'blockIds' => $savedIds,
+            'status' => $status,
+            'isActive' => $isActive,
+            'overrideConfirmed' => $overrideConfirm,
+            'block' => [
                 'blockDate' => $blockDate,
                 'timeSlotIds' => $timeSlotIds,
                 'courtId' => $courtId,
                 'sport' => $sport,
                 'reason' => $reason,
                 'notes' => $notes,
-                'conflicts' => $conflicts,
-            ], JSON_THROW_ON_ERROR),
-        ]);
-    }
+            ],
+            'conflicts' => $conflicts,
+        ]
+    );
 
     json_response([
         'ok' => true,
@@ -2752,7 +2846,7 @@ if ($action === 'admin-court-block-status') {
 
     $placeholders = implode(',', array_fill(0, count($ids), '?'));
     $stmt = $pdo->prepare(
-        "SELECT id, block_date, time_slot_id, court_id, sport
+        "SELECT id, block_date, time_slot_id, court_id, sport, reason, notes, status
          FROM court_blocks
          WHERE id IN ({$placeholders})"
     );
@@ -2795,6 +2889,30 @@ if ($action === 'admin-court-block-status') {
          WHERE id IN ({$placeholders})"
     );
     $stmt->execute($params);
+
+    write_override_log(
+        $pdo,
+        (int) $admin['id'],
+        'court-block-status',
+        'court_block',
+        implode(',', $ids),
+        '',
+        [
+            'blockIds' => $ids,
+            'status' => $status,
+            'isActive' => $isActive,
+            'blocks' => array_map(static fn (array $row): array => [
+                'id' => (int) $row['id'],
+                'previousStatus' => $row['status'],
+                'blockDate' => $row['block_date'],
+                'timeSlotId' => (int) $row['time_slot_id'],
+                'courtId' => $row['court_id'] !== null ? (int) $row['court_id'] : null,
+                'sport' => $row['sport'],
+                'reason' => $row['reason'],
+                'notes' => $row['notes'] ?? '',
+            ], $rows),
+        ]
+    );
 
     json_response([
         'ok' => true,

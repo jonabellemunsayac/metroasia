@@ -71,6 +71,7 @@ function migrate_columns(PDO $pdo): void
         );
     }
     ensure_member_profile_columns($pdo);
+    access_log_ensure_table($pdo);
     if (!column_exists($pdo, 'courts', 'display_number')) {
         $pdo->exec('ALTER TABLE courts ADD display_number INT UNSIGNED NULL AFTER id');
         $pdo->exec('UPDATE courts SET display_number = id');

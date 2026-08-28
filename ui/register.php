@@ -158,6 +158,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 session_regenerate_id(true);
                 unset($_SESSION['admin_id']);
                 $_SESSION['member_id'] = (int) $pdo->lastInsertId();
+                start_access_session('member', (int) $_SESSION['member_id'], 'member', 'registration');
                 redirect_to($memberRedirect);
             }
         } catch (PDOException $exception) {

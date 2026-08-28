@@ -2295,7 +2295,7 @@ function adminReservationCreatedText(item) {
         hour12: true,
         timeZone: metroTimeZone
     }).replace(/\s/g, '');
-    return `${datePart} ${timePart}`;
+    return `${datePart} ${timePart} PHT`;
 }
 
 function groupedReservationStatus(items) {

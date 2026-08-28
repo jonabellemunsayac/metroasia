@@ -7,6 +7,8 @@ if (session_status() !== PHP_SESSION_ACTIVE) {
     session_start();
 }
 
+const ACCESS_SESSION_TIMEOUT_SECONDS = 28800; // 8 hrs
+
 function app_url(string $path = ''): string
 {
     $path = ltrim($path, '/');
@@ -48,6 +50,153 @@ function redirect_to(string $path): never
 {
     header('Location: ' . app_url($path));
     exit;
+}
+
+function access_log_ensure_table(PDO $pdo): void
+{
+    $pdo->exec(
+        "CREATE TABLE IF NOT EXISTS access_logs (
+            id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+            account_type ENUM('admin','member') NOT NULL,
+            account_id INT UNSIGNED NOT NULL,
+            role VARCHAR(40) NULL,
+            event_type ENUM('login','logout','session_expired') NOT NULL,
+            session_id VARCHAR(128) NULL,
+            ip_address VARCHAR(45) NULL,
+            user_agent VARCHAR(255) NULL,
+            session_payload JSON NULL,
+            created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            INDEX idx_access_account (account_type, account_id, created_at),
+            INDEX idx_access_event (event_type, created_at)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci"
+    );
+}
+
+function access_log_client_ip(): string
+{
+    return substr((string) ($_SERVER['REMOTE_ADDR'] ?? ''), 0, 45);
+}
+
+function access_log_session_payload(array $details = []): array
+{
+    return array_filter([
+        'authType' => $_SESSION['auth_type'] ?? null,
+        'loginAt' => $_SESSION['auth_login_at'] ?? null,
+        'lastActivityAt' => $_SESSION['auth_last_activity_at'] ?? null,
+        'timeoutSeconds' => ACCESS_SESSION_TIMEOUT_SECONDS,
+        'requestUri' => $_SERVER['REQUEST_URI'] ?? null,
+        'details' => $details,
+    ], static fn ($value): bool => $value !== null && $value !== []);
+}
+
+function write_access_log(string $eventType, string $accountType, int $accountId, ?string $role = null, array $details = []): void
+{
+    if (!in_array($eventType, ['login', 'logout', 'session_expired'], true)
+        || !in_array($accountType, ['admin', 'member'], true)
+        || $accountId <= 0) {
+        return;
+    }
+
+    try {
+        $pdo = db();
+        access_log_ensure_table($pdo);
+        $stmt = $pdo->prepare(
+            'INSERT INTO access_logs
+             (account_type, account_id, role, event_type, session_id, ip_address, user_agent, session_payload)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
+        );
+        $stmt->execute([
+            $accountType,
+            $accountId,
+            $role,
+            $eventType,
+            session_id(),
+            access_log_client_ip(),
+            substr((string) ($_SERVER['HTTP_USER_AGENT'] ?? ''), 0, 255),
+            json_encode(access_log_session_payload($details), JSON_THROW_ON_ERROR),
+        ]);
+    } catch (Throwable) {
+        // Access logging must not block authentication.
+    }
+}
+
+function access_log_account_role(string $accountType, int $accountId): ?string
+{
+    if ($accountId <= 0) {
+        return null;
+    }
+
+    try {
+        if ($accountType === 'admin') {
+            $stmt = db()->prepare('SELECT role FROM admin_users WHERE id = ? LIMIT 1');
+            $stmt->execute([$accountId]);
+            $role = $stmt->fetchColumn();
+            return $role ? (string) $role : null;
+        }
+
+        return 'member';
+    } catch (Throwable) {
+        return $accountType === 'member' ? 'member' : null;
+    }
+}
+
+function write_current_access_logout(string $reason = 'manual'): void
+{
+    $adminId = (int) ($_SESSION['admin_id'] ?? 0);
+    if ($adminId > 0) {
+        $role = $_SESSION['auth_role'] ?? access_log_account_role('admin', $adminId);
+        write_access_log('logout', 'admin', $adminId, is_string($role) ? $role : null, ['reason' => $reason]);
+    }
+
+    $memberId = (int) ($_SESSION['member_id'] ?? 0);
+    if ($memberId > 0) {
+        write_access_log('logout', 'member', $memberId, 'member', ['reason' => $reason]);
+    }
+}
+
+function start_access_session(string $accountType, int $accountId, ?string $role = null, string $reason = 'password'): void
+{
+    $_SESSION['auth_type'] = $accountType;
+    $_SESSION['auth_login_at'] = time();
+    $_SESSION['auth_last_activity_at'] = time();
+    $_SESSION['auth_role'] = $role;
+    write_access_log('login', $accountType, $accountId, $role, ['reason' => $reason]);
+}
+
+function clear_access_session_metadata(): void
+{
+    unset($_SESSION['auth_type'], $_SESSION['auth_login_at'], $_SESSION['auth_last_activity_at'], $_SESSION['auth_role']);
+}
+
+function expire_access_session_if_needed(string $accountType): bool
+{
+    $sessionKey = $accountType === 'admin' ? 'admin_id' : 'member_id';
+    $accountId = (int) ($_SESSION[$sessionKey] ?? 0);
+    if ($accountId <= 0) {
+        return false;
+    }
+
+    $now = time();
+    $lastActivity = (int) ($_SESSION['auth_last_activity_at'] ?? 0);
+    if ($lastActivity <= 0) {
+        $_SESSION['auth_type'] = $accountType;
+        $_SESSION['auth_login_at'] = $_SESSION['auth_login_at'] ?? $now;
+        $_SESSION['auth_last_activity_at'] = $now;
+        return false;
+    }
+
+    if (($now - $lastActivity) <= ACCESS_SESSION_TIMEOUT_SECONDS) {
+        $_SESSION['auth_last_activity_at'] = $now;
+        return false;
+    }
+
+    $role = $_SESSION['auth_role'] ?? access_log_account_role($accountType, $accountId);
+    write_access_log('session_expired', $accountType, $accountId, is_string($role) ? $role : null, [
+        'expiredAfterSeconds' => $now - $lastActivity,
+    ]);
+    unset($_SESSION[$sessionKey]);
+    clear_access_session_metadata();
+    return true;
 }
 
 function safe_member_redirect_path(?string $target, string $fallback = 'ui/member.php'): string
@@ -131,6 +280,7 @@ function sign_in_account(string $email, string $password): ?string
         unset($_SESSION['member_id']);
         $_SESSION['admin_id'] = (int) $admin['id'];
         db()->prepare('UPDATE admin_users SET last_login_at = NOW() WHERE id = ?')->execute([(int) $admin['id']]);
+        start_access_session('admin', (int) $admin['id'], (string) ($admin['role'] ?? 'admin'));
         return 'admin';
     }
 
@@ -140,6 +290,7 @@ function sign_in_account(string $email, string $password): ?string
         unset($_SESSION['admin_id']);
         $_SESSION['member_id'] = (int) $member['id'];
         db()->prepare('UPDATE members SET last_login_at = NOW() WHERE id = ?')->execute([(int) $member['id']]);
+        start_access_session('member', (int) $member['id'], 'member');
         return 'member';
     }
 
@@ -152,7 +303,8 @@ function find_login_account(string $table, string $email): ?array
         throw new InvalidArgumentException('Unsupported login table.');
     }
 
-    $stmt = db()->prepare("SELECT id, password_hash FROM {$table} WHERE email = ? AND is_active = 1");
+    $select = $table === 'admin_users' ? 'id, password_hash, role' : "id, password_hash, 'member' AS role";
+    $stmt = db()->prepare("SELECT {$select} FROM {$table} WHERE email = ? AND is_active = 1");
     $stmt->execute([$email]);
     $account = $stmt->fetch();
 
@@ -200,6 +352,9 @@ function email_available_for_admin_user(string $email, int $excludeAdminId = 0):
 function current_admin(): ?array
 {
     if (empty($_SESSION['admin_id'])) {
+        return null;
+    }
+    if (expire_access_session_if_needed('admin')) {
         return null;
     }
 
@@ -424,6 +579,9 @@ function require_members_admin_json(): array
 function current_member(): ?array
 {
     if (empty($_SESSION['member_id'])) {
+        return null;
+    }
+    if (expire_access_session_if_needed('member')) {
         return null;
     }
 

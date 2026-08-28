@@ -50,6 +50,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $update->execute([$passwordHash, $adminId]);
                     unset($_SESSION['member_id']);
                     $_SESSION['admin_id'] = $adminId;
+                    start_access_session('admin', $adminId, access_log_account_role('admin', $adminId), 'password_reset');
                     redirect_to('admin/dashboard.php');
                 }
 
@@ -57,6 +58,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $update->execute([$passwordHash, $memberId]);
                 unset($_SESSION['admin_id']);
                 $_SESSION['member_id'] = $memberId;
+                start_access_session('member', $memberId, 'member', 'password_reset');
                 redirect_to($memberRedirect);
             }
         } catch (Throwable) {
