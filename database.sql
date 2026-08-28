@@ -244,6 +244,8 @@ CREATE TABLE IF NOT EXISTS court_bookings (
     cancelled_by INT UNSIGNED NULL,
     cancelled_at DATETIME NULL,
     cancel_reason VARCHAR(255) NULL,
+    created_by_type ENUM('admin','member') NULL,
+    created_by_id INT UNSIGNED NULL,
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     INDEX idx_booking_reference (booking_reference),

@@ -116,6 +116,28 @@ function migrate_columns(PDO $pdo): void
     if (!column_exists($pdo, 'court_bookings', 'rate_snapshot')) {
         $pdo->exec('ALTER TABLE court_bookings ADD rate_snapshot JSON NULL AFTER final_amount');
     }
+    if (!column_exists($pdo, 'court_bookings', 'created_by_type')) {
+        $pdo->exec("ALTER TABLE court_bookings ADD created_by_type ENUM('admin','member') NULL AFTER cancel_reason");
+    }
+    if (!column_exists($pdo, 'court_bookings', 'created_by_id')) {
+        $pdo->exec('ALTER TABLE court_bookings ADD created_by_id INT UNSIGNED NULL AFTER created_by_type');
+    }
+    $pdo->exec(
+        "UPDATE court_bookings
+         SET created_by_type = 'member', created_by_id = member_id
+         WHERE created_by_type IS NULL AND member_id IS NOT NULL"
+    );
+    if (table_exists($pdo, 'override_logs')) {
+        $pdo->exec(
+            "UPDATE court_bookings cb
+             JOIN override_logs ol
+               ON ol.action = 'admin-booking-override'
+              AND ol.target_type = 'court_booking'
+              AND FIND_IN_SET(cb.id, ol.target_id)
+             SET cb.created_by_type = 'admin', cb.created_by_id = ol.admin_id
+             WHERE cb.created_by_type IS NULL AND ol.admin_id IS NOT NULL"
+        );
+    }
     ensure_entrance_fee_table($pdo);
     $pdo->exec(
         'UPDATE court_bookings cb

@@ -2298,6 +2298,19 @@ function adminReservationCreatedText(item) {
     return `${datePart} ${timePart} PHT`;
 }
 
+function adminReservationCreatorText(item) {
+    const type = String(item.createdByType || '').trim();
+    const id = item.createdById ? ` #${item.createdById}` : '';
+    const name = String(item.createdByName || '').trim();
+    if (!type && !name) return '';
+
+    const role = type === 'admin'
+        ? String(item.createdByRole || 'admin').replaceAll('_', ' ')
+        : 'member';
+    const label = name || `${role}${id}`;
+    return `Created by ${label} (${role}${id})`;
+}
+
 function groupedReservationStatus(items) {
     const statuses = [...new Set(items.map(item => item.status))];
     if (statuses.length === 1) return statuses[0];
@@ -2584,6 +2597,7 @@ function renderAdmin() {
             </td>
             <td>
                 <p class="mb-0 text-xs fw-black text-ink">${escapeHtml(adminReservationCreatedText(item))}</p>
+                ${adminReservationCreatorText(item) ? `<p class="mb-0 text-xs text-secondary">${escapeHtml(adminReservationCreatorText(item))}</p>` : ''}
             </td>
             <td>
                 <p class="mb-1 fw-black">${escapeHtml(item.paymentMethod || 'N/A')}</p>

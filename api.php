@@ -1524,12 +1524,18 @@ function admin_reservations(PDO $pdo): array
                 cb.member_id, cb.booking_date AS date, cb.time_slot_id,
                 ts.label AS time, cb.court_id AS court, c.name AS court_name, cb.sport, NULL AS session_id, NULL AS session_title,
                 cb.status, cb.customer_name, cb.player_nickname, cb.customer_email, cb.customer_phone, cb.payment_method,
-                cb.receipt_path, cb.final_amount, m.name AS member_name, m.nickname AS member_nickname, cb.cancel_reason, cb.created_at, cb.reviewed_at, cb.cancelled_at,
+                cb.receipt_path, cb.final_amount, m.name AS member_name, m.nickname AS member_nickname,
+                cb.created_by_type, cb.created_by_id,
+                creator_admin.name AS creator_admin_name, creator_admin.role AS creator_admin_role,
+                creator_member.name AS creator_member_name,
+                cb.cancel_reason, cb.created_at, cb.reviewed_at, cb.cancelled_at,
                 reviewer.name AS reviewed_by_name, canceller.name AS cancelled_by_name
          FROM court_bookings cb
          JOIN time_slots ts ON ts.id = cb.time_slot_id
          LEFT JOIN courts c ON c.id = cb.court_id
          LEFT JOIN members m ON m.id = cb.member_id
+         LEFT JOIN admin_users creator_admin ON cb.created_by_type = 'admin' AND creator_admin.id = cb.created_by_id
+         LEFT JOIN members creator_member ON cb.created_by_type = 'member' AND creator_member.id = cb.created_by_id
          LEFT JOIN admin_users reviewer ON reviewer.id = cb.reviewed_by
          LEFT JOIN admin_users canceller ON canceller.id = cb.cancelled_by"
     )->fetchAll();
@@ -1573,6 +1579,12 @@ function admin_reservations(PDO $pdo): array
         'receipt' => $row['receipt_path'],
         'finalAmount' => (float) $row['final_amount'],
         'memberName' => $row['member_name'],
+        'createdByType' => $row['created_by_type'],
+        'createdById' => $row['created_by_id'] !== null ? (int) $row['created_by_id'] : null,
+        'createdByName' => $row['created_by_type'] === 'admin'
+            ? ($row['creator_admin_name'] ?? '')
+            : ($row['creator_member_name'] ?? ''),
+        'createdByRole' => $row['created_by_type'] === 'admin' ? ($row['creator_admin_role'] ?? '') : 'member',
         'cancelReason' => $row['cancel_reason'],
         'reviewedByName' => $row['reviewed_by_name'],
         'cancelledByName' => $row['cancelled_by_name'],
@@ -1673,8 +1685,8 @@ if ($action === 'book') {
 
         $stmt = $pdo->prepare(
             'INSERT INTO court_bookings
-             (booking_reference, member_id, booking_date, time_slot_id, court_id, sport, status, customer_name, player_nickname, customer_email, customer_phone, customer_notes, payment_method, receipt_path, base_rate, final_amount, rate_snapshot)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+             (booking_reference, member_id, booking_date, time_slot_id, court_id, sport, status, customer_name, player_nickname, customer_email, customer_phone, customer_notes, payment_method, receipt_path, base_rate, final_amount, rate_snapshot, created_by_type, created_by_id)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
         );
         $stmt->execute([
             $bookingReference,
@@ -1694,6 +1706,8 @@ if ($action === 'book') {
             $rate['baseRate'],
             $rate['finalAmount'],
             booking_rate_snapshot(['timeSlot' => $time, 'sport' => $sport, 'courtId' => $courtId, 'date' => $date], $rate),
+            'member',
+            (int) $member['id'],
         ]);
         $bookingId = (int) $pdo->lastInsertId();
         $pdo->commit();
@@ -2038,8 +2052,8 @@ if ($action === 'admin-override-booking') {
 
         $stmt = $pdo->prepare(
             'INSERT INTO court_bookings
-             (booking_reference, member_id, booking_date, time_slot_id, court_id, sport, status, customer_name, player_nickname, customer_email, customer_phone, payment_method, base_rate, final_amount, rate_snapshot, reviewed_by, reviewed_at)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+             (booking_reference, member_id, booking_date, time_slot_id, court_id, sport, status, customer_name, player_nickname, customer_email, customer_phone, payment_method, base_rate, final_amount, rate_snapshot, reviewed_by, reviewed_at, created_by_type, created_by_id)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
         );
         $reviewedAt = $status === 'Booked' ? date('Y-m-d H:i:s') : null;
         $bookingIds = [];
@@ -2063,6 +2077,8 @@ if ($action === 'admin-override-booking') {
                 booking_rate_snapshot(['timeSlot' => $slot['label'], 'sport' => $sport, 'courtId' => $courtId, 'date' => $date, 'override' => true], $rate),
                 $status === 'Booked' ? (int) $admin['id'] : null,
                 $reviewedAt,
+                'admin',
+                (int) $admin['id'],
             ]);
             $bookingIds[] = (int) $pdo->lastInsertId();
         }
@@ -2077,6 +2093,9 @@ if ($action === 'admin-override-booking') {
             [
                 'bookingIds' => $bookingIds,
                 'bookingReference' => $bookingReference,
+                'createdByType' => 'admin',
+                'createdById' => (int) $admin['id'],
+                'createdByRole' => $admin['role'] ?? '',
                 'memberId' => $memberId > 0 ? $memberId : null,
                 'customerName' => $name,
                 'customerEmail' => $email,
