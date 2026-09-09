@@ -107,6 +107,176 @@ function api_column_exists(PDO $pdo, string $table, string $column): bool
     return (int) $stmt->fetchColumn() > 0;
 }
 
+function api_table_exists(PDO $pdo, string $table): bool
+{
+    $stmt = $pdo->prepare(
+        'SELECT COUNT(*) FROM INFORMATION_SCHEMA.TABLES
+         WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ?'
+    );
+    $stmt->execute([$table]);
+    return (int) $stmt->fetchColumn() > 0;
+}
+
+function api_index_exists(PDO $pdo, string $table, string $index): bool
+{
+    $stmt = $pdo->prepare(
+        'SELECT COUNT(*) FROM INFORMATION_SCHEMA.STATISTICS
+         WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? AND INDEX_NAME = ?'
+    );
+    $stmt->execute([$table, $index]);
+    return (int) $stmt->fetchColumn() > 0;
+}
+
+function api_index_columns(PDO $pdo, string $table, string $index): array
+{
+    $stmt = $pdo->prepare(
+        'SELECT COLUMN_NAME
+         FROM INFORMATION_SCHEMA.STATISTICS
+         WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? AND INDEX_NAME = ?
+         ORDER BY SEQ_IN_INDEX'
+    );
+    $stmt->execute([$table, $index]);
+    return array_map('strval', array_column($stmt->fetchAll(), 'COLUMN_NAME'));
+}
+
+function ensure_rate_management_schema(PDO $pdo): void
+{
+    static $done = false;
+    if ($done) {
+        return;
+    }
+
+    $pdo->exec(
+        "CREATE TABLE IF NOT EXISTS holiday_schedules (
+            id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+            `date` DATE NOT NULL,
+            holiday_name VARCHAR(160) NOT NULL,
+            UNIQUE KEY uniq_holiday_schedule_date (`date`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci"
+    );
+    $pdo->exec(
+        "CREATE TABLE IF NOT EXISTS holiday_schedule_audit_logs (
+            id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+            holiday_schedule_id INT UNSIGNED NULL,
+            admin_id INT UNSIGNED NULL,
+            action VARCHAR(40) NOT NULL,
+            previous_payload JSON NULL,
+            new_payload JSON NULL,
+            reason VARCHAR(255) NULL,
+            created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            INDEX idx_holiday_schedule_audit (holiday_schedule_id, created_at),
+            CONSTRAINT fk_holiday_schedule_audit_holiday FOREIGN KEY (holiday_schedule_id) REFERENCES holiday_schedules(id) ON DELETE SET NULL,
+            CONSTRAINT fk_holiday_schedule_audit_admin FOREIGN KEY (admin_id) REFERENCES admin_users(id)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci"
+    );
+
+    if (api_table_exists($pdo, 'rates') && api_column_exists($pdo, 'rates', 'day_of_week')) {
+        $stmt = $pdo->prepare(
+            "SELECT COLUMN_TYPE
+             FROM INFORMATION_SCHEMA.COLUMNS
+             WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'rates' AND COLUMN_NAME = 'day_of_week'
+             LIMIT 1"
+        );
+        $stmt->execute();
+        if (strpos((string) $stmt->fetchColumn(), "'Holiday'") === false) {
+            $pdo->exec(
+                "ALTER TABLE rates
+                 MODIFY day_of_week ENUM('Any','Holiday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday') NOT NULL DEFAULT 'Any'"
+            );
+        }
+
+        if (!api_column_exists($pdo, 'rates', 'effective_date')) {
+            $pdo->exec("ALTER TABLE rates ADD effective_date DATE NOT NULL DEFAULT '1970-01-01' AFTER rate_per_hour");
+        }
+
+        if (api_table_exists($pdo, 'rate_audit_logs') && api_column_exists($pdo, 'rate_audit_logs', 'rate_id')) {
+            $pdo->exec(
+                'UPDATE rate_audit_logs ral
+                 JOIN (
+                    SELECT duplicate_rate.id AS duplicate_id, MIN(kept_rate.id) AS kept_id
+                    FROM rates duplicate_rate
+                    JOIN rates kept_rate
+                      ON duplicate_rate.court_id = kept_rate.court_id
+                     AND duplicate_rate.sport = kept_rate.sport
+                     AND duplicate_rate.day_of_week = kept_rate.day_of_week
+                     AND duplicate_rate.time_slot_id = kept_rate.time_slot_id
+                     AND duplicate_rate.effective_date = kept_rate.effective_date
+                     AND duplicate_rate.id > kept_rate.id
+                    GROUP BY duplicate_rate.id
+                 ) duplicates ON duplicates.duplicate_id = ral.rate_id
+                 SET ral.rate_id = duplicates.kept_id'
+            );
+        }
+        $pdo->exec(
+            'DELETE duplicate_rate
+             FROM rates kept_rate
+             JOIN rates duplicate_rate
+               ON duplicate_rate.court_id = kept_rate.court_id
+              AND duplicate_rate.sport = kept_rate.sport
+              AND duplicate_rate.day_of_week = kept_rate.day_of_week
+              AND duplicate_rate.time_slot_id = kept_rate.time_slot_id
+              AND duplicate_rate.effective_date = kept_rate.effective_date
+              AND duplicate_rate.id > kept_rate.id'
+        );
+
+        $lookupColumns = ['court_id', 'sport', 'day_of_week', 'time_slot_id', 'effective_date'];
+        if (api_index_columns($pdo, 'rates', 'uniq_rate_lookup') !== $lookupColumns) {
+            if (api_index_exists($pdo, 'rates', 'uniq_rate_lookup')) {
+                $pdo->exec('ALTER TABLE rates DROP INDEX uniq_rate_lookup');
+            }
+            $pdo->exec('ALTER TABLE rates ADD UNIQUE KEY uniq_rate_lookup (court_id, sport, day_of_week, time_slot_id, effective_date)');
+        }
+        if (api_index_columns($pdo, 'rates', 'idx_rates_lookup') !== $lookupColumns) {
+            if (api_index_exists($pdo, 'rates', 'idx_rates_lookup')) {
+                $pdo->exec('ALTER TABLE rates DROP INDEX idx_rates_lookup');
+            }
+            $pdo->exec('ALTER TABLE rates ADD INDEX idx_rates_lookup (court_id, sport, day_of_week, time_slot_id, effective_date)');
+        }
+    }
+
+    $done = true;
+}
+
+function ensure_booking_list_indexes(PDO $pdo): void
+{
+    static $done = false;
+    if ($done || !api_table_exists($pdo, 'court_bookings')) {
+        return;
+    }
+
+    $indexes = [
+        'idx_booking_admin_status_created' => [
+            'columns' => ['status', 'created_at', 'id'],
+            'sql' => 'ALTER TABLE court_bookings ADD INDEX idx_booking_admin_status_created (status, created_at, id)',
+        ],
+        'idx_booking_admin_date_status' => [
+            'columns' => ['booking_date', 'status', 'created_at'],
+            'sql' => 'ALTER TABLE court_bookings ADD INDEX idx_booking_admin_date_status (booking_date, status, created_at)',
+        ],
+        'idx_booking_admin_reference_status' => [
+            'columns' => ['booking_reference', 'status', 'booking_date'],
+            'sql' => 'ALTER TABLE court_bookings ADD INDEX idx_booking_admin_reference_status (booking_reference, status, booking_date)',
+        ],
+        'idx_booking_admin_created_by' => [
+            'columns' => ['created_by_type', 'created_by_id'],
+            'sql' => 'ALTER TABLE court_bookings ADD INDEX idx_booking_admin_created_by (created_by_type, created_by_id)',
+        ],
+    ];
+
+    foreach ($indexes as $index => $definition) {
+        foreach ($definition['columns'] as $column) {
+            if (!api_column_exists($pdo, 'court_bookings', $column)) {
+                continue 2;
+            }
+        }
+        if (!api_index_exists($pdo, 'court_bookings', $index)) {
+            $pdo->exec($definition['sql']);
+        }
+    }
+
+    $done = true;
+}
+
 function ensure_member_terms_columns(PDO $pdo): void
 {
     if (!api_column_exists($pdo, 'members', 'terms_conditions_agree')) {
@@ -115,6 +285,26 @@ function ensure_member_terms_columns(PDO $pdo): void
 
     if (!api_column_exists($pdo, 'members', 'terms_agreed_at')) {
         $pdo->exec('ALTER TABLE members ADD terms_agreed_at DATETIME NULL');
+    }
+}
+
+function ensure_entrance_fee_activity_columns(PDO $pdo): void
+{
+    if (!api_column_exists($pdo, 'member_entrance_fee_payments', 'entry_type')) {
+        $pdo->exec("ALTER TABLE member_entrance_fee_payments ADD entry_type VARCHAR(20) NOT NULL DEFAULT 'entrance_fee' AFTER id");
+    }
+    if (!api_column_exists($pdo, 'member_entrance_fee_payments', 'play_start_time')) {
+        $pdo->exec('ALTER TABLE member_entrance_fee_payments ADD play_start_time TIME NULL AFTER payment_time');
+    }
+    if (!api_column_exists($pdo, 'member_entrance_fee_payments', 'play_date')) {
+        $pdo->exec('ALTER TABLE member_entrance_fee_payments ADD play_date DATE NULL AFTER payment_time');
+        $pdo->exec('UPDATE member_entrance_fee_payments SET play_date = payment_date WHERE play_date IS NULL');
+    }
+    if (!api_column_exists($pdo, 'member_entrance_fee_payments', 'play_end_time')) {
+        $pdo->exec('ALTER TABLE member_entrance_fee_payments ADD play_end_time TIME NULL AFTER play_start_time');
+    }
+    if (!api_column_exists($pdo, 'member_entrance_fee_payments', 'played_hours')) {
+        $pdo->exec('ALTER TABLE member_entrance_fee_payments ADD played_hours DECIMAL(6,2) NOT NULL DEFAULT 0 AFTER play_end_time');
     }
 }
 
@@ -510,12 +700,12 @@ function display_time_label(string $time): string
 
 function valid_rate_days(): array
 {
-    return ['Any', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+    return ['Any', 'Holiday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 }
 
 function valid_rate_day_selections(): array
 {
-    return ['Any', 'Weekday', 'Weekend', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+    return ['Any', 'Holiday', 'Weekday', 'Weekend', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 }
 
 function expand_rate_day_selection(string $selection): array
@@ -532,14 +722,16 @@ function expand_rate_day_selection(string $selection): array
 
 function rate_rules(PDO $pdo, bool $includeInactive = false): array
 {
+    ensure_rate_management_schema($pdo);
+
     $stmt = $pdo->query(
         "SELECT r.id, r.court_id, c.name AS court_name, r.sport, r.day_of_week, r.time_slot_id,
                 ts.label AS time_label, ts.starts_at, ts.ends_at,
-                r.rate_per_hour, r.updated_at
+                r.rate_per_hour, r.effective_date, r.updated_at
          FROM rates r
          JOIN courts c ON c.id = r.court_id
          JOIN time_slots ts ON ts.id = r.time_slot_id
-         ORDER BY c.display_number, c.id, r.sport, FIELD(r.day_of_week, 'Any', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'), ts.sort_order, ts.id"
+         ORDER BY c.display_number, c.id, r.sport, FIELD(r.day_of_week, 'Any', 'Holiday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'), r.effective_date DESC, ts.sort_order, ts.id"
     );
 
     return array_map(static fn (array $row): array => [
@@ -559,7 +751,8 @@ function rate_rules(PDO $pdo, bool $includeInactive = false): array
         'durationLabel' => 'Time slot',
         'pricePerHour' => (float) $row['rate_per_hour'],
         'memberPricePerHour' => null,
-        'effectiveFrom' => null,
+        'effectiveFrom' => $row['effective_date'] ?? '1970-01-01',
+        'effectiveDate' => $row['effective_date'] ?? '1970-01-01',
         'effectiveTo' => null,
         'priority' => 0,
         'isActive' => true,
@@ -568,30 +761,83 @@ function rate_rules(PDO $pdo, bool $includeInactive = false): array
     ], $stmt->fetchAll());
 }
 
+function holiday_schedules(PDO $pdo): array
+{
+    ensure_rate_management_schema($pdo);
+
+    $stmt = $pdo->query(
+        'SELECT id, `date`, holiday_name
+         FROM holiday_schedules
+         ORDER BY `date` DESC, id DESC'
+    );
+
+    return array_map(static fn (array $row): array => [
+        'id' => (int) $row['id'],
+        'date' => $row['date'],
+        'holidayName' => $row['holiday_name'],
+    ], $stmt->fetchAll());
+}
+
+function holiday_name_for_date(PDO $pdo, string $date): ?string
+{
+    ensure_rate_management_schema($pdo);
+
+    $stmt = $pdo->prepare('SELECT holiday_name FROM holiday_schedules WHERE `date` = ? LIMIT 1');
+    $stmt->execute([$date]);
+    $holidayName = $stmt->fetchColumn();
+
+    return $holidayName === false ? null : (string) $holidayName;
+}
+
+function write_holiday_schedule_audit(PDO $pdo, ?int $holidayScheduleId, int $adminId, string $action, ?array $previous, ?array $current, string $reason): void
+{
+    $stmt = $pdo->prepare(
+        'INSERT INTO holiday_schedule_audit_logs (holiday_schedule_id, admin_id, action, previous_payload, new_payload, reason)
+         VALUES (?, ?, ?, ?, ?, ?)'
+    );
+    $stmt->execute([
+        $holidayScheduleId,
+        $adminId,
+        $action,
+        $previous ? json_encode($previous, JSON_THROW_ON_ERROR) : null,
+        $current ? json_encode($current, JSON_THROW_ON_ERROR) : null,
+        $reason !== '' ? $reason : null,
+    ]);
+}
+
 function calculate_booking_rate(PDO $pdo, int $courtId, string $sport, string $date, array $slot, bool $isMember): array
 {
     $duration = duration_hours((string) $slot['starts_at'], (string) $slot['ends_at']);
-    $dayOfWeek = date('l', strtotime($date));
+    $holidayName = holiday_name_for_date($pdo, $date);
+    $dayOfWeek = $holidayName !== null ? 'Holiday' : date('l', strtotime($date));
     $stmt = $pdo->prepare(
-        "SELECT r.id, r.rate_per_hour, r.day_of_week, ts.label AS time_label
+        "SELECT r.id, r.rate_per_hour, r.day_of_week, r.effective_date, ts.label AS time_label
          FROM rates r
          JOIN time_slots ts ON ts.id = r.time_slot_id
          WHERE r.court_id = ? AND r.sport = ? AND r.time_slot_id = ?
            AND r.day_of_week IN ('Any', ?)
-         ORDER BY CASE WHEN r.day_of_week = ? THEN 0 ELSE 1 END
+           AND r.effective_date <= ?
+         ORDER BY CASE WHEN r.day_of_week = ? THEN 0 ELSE 1 END,
+                  r.effective_date DESC,
+                  r.id DESC
          LIMIT 1"
     );
-    $stmt->execute([$courtId, $sport, (int) $slot['id'], $dayOfWeek, $dayOfWeek]);
+    $stmt->execute([$courtId, $sport, (int) $slot['id'], $dayOfWeek, $date, $dayOfWeek]);
     $rate = $stmt->fetch();
 
     if ($rate) {
         $baseRate = (float) $rate['rate_per_hour'];
+        $rateLabel = $rate['day_of_week'] === 'Any' ? 'Rate' : $rate['day_of_week'] . ' rate';
+        if ($rate['day_of_week'] === 'Holiday' && $holidayName) {
+            $rateLabel = 'Holiday rate (' . $holidayName . ')';
+        }
+
         return [
             'baseRate' => $baseRate,
             'finalAmount' => $baseRate * $duration,
             'durationHours' => $duration,
             'ruleId' => (int) $rate['id'],
-            'ruleName' => ($rate['day_of_week'] === 'Any' ? 'Rate' : $rate['day_of_week'] . ' rate') . ' for ' . $rate['time_label'],
+            'ruleName' => $rateLabel . ' for ' . $rate['time_label'] . ' effective ' . $rate['effective_date'],
             'memberApplied' => false,
         ];
     }
@@ -647,17 +893,23 @@ function valid_booking_sports(): array
 function ensure_core_booking_time_slots(PDO $pdo): void
 {
     $fallbackPrice = (float) ($pdo->query('SELECT price FROM time_slots ORDER BY sort_order, id LIMIT 1')->fetchColumn() ?: 265);
-    $slots = [
-        ['Early morning', '05:00 AM - 06:00 AM', '05:00:00', '06:00:00', -2],
-        ['Early morning', '06:00 AM - 07:00 AM', '06:00:00', '07:00:00', -1],
-        ['Early morning', '07:00 AM - 08:00 AM', '07:00:00', '08:00:00', 0],
-    ];
-    $stmt = $pdo->prepare(
-        'INSERT IGNORE INTO time_slots (period, label, starts_at, ends_at, price, sort_order)
+    $exists = $pdo->prepare('SELECT id FROM time_slots WHERE starts_at = ? AND ends_at = ? LIMIT 1');
+    $insert = $pdo->prepare(
+        'INSERT INTO time_slots (period, label, starts_at, ends_at, price, sort_order)
          VALUES (?, ?, ?, ?, ?, ?)'
     );
-    foreach ($slots as $slot) {
-        $stmt->execute([$slot[0], $slot[1], $slot[2], $slot[3], $fallbackPrice, $slot[4]]);
+    for ($hour = 5; $hour < 24; $hour++) {
+        $nextHour = ($hour + 1) % 24;
+        $startsAt = sprintf('%02d:00:00', $hour);
+        $endsAt = sprintf('%02d:00:00', $nextHour);
+        $exists->execute([$startsAt, $endsAt]);
+        if ($exists->fetchColumn()) {
+            continue;
+        }
+
+        $period = $hour < 8 ? 'Early morning' : ($hour < 12 ? 'Morning' : ($hour < 18 ? 'Afternoon' : 'Evening'));
+        $label = display_time_label($startsAt) . ' - ' . display_time_label($endsAt);
+        $insert->execute([$period, $label, $startsAt, $endsAt, $fallbackPrice, $hour - 7]);
     }
 }
 
@@ -856,8 +1108,7 @@ function court_blocks(PDO $pdo, bool $includeCancelled = false): array
          LEFT JOIN admin_users creator ON creator.id = cb.created_by
          LEFT JOIN admin_users canceller ON canceller.id = cb.cancelled_by
          {$where}
-         ORDER BY cb.block_date DESC, ts.sort_order, cb.id DESC
-         LIMIT 80"
+         ORDER BY cb.block_date DESC, ts.sort_order, cb.id DESC"
     );
 
     return array_map(static fn (array $row): array => [
@@ -983,6 +1234,8 @@ function active_bookings_for_block(PDO $pdo, string $date, int $slotId, ?int $co
         $courtName = public_court_name((int) $row['court_id'], (string) $row['sport']);
         $matches[] = [
             'id' => (int) $row['id'],
+            'timeSlotId' => $slotId,
+            'date' => $date,
             'courtId' => (int) $row['court_id'],
             'courtName' => $courtName,
             'sport' => $row['sport'],
@@ -1025,7 +1278,11 @@ function court_block_slot_ids_for_request(PDO $pdo, int $fallbackSlotId, string 
         $slotStart = time_minutes_for_range((string) $slot['starts_at']);
         $slotEnd = time_minutes_for_range((string) $slot['ends_at'], true);
         if ($slotStart >= $rangeStart && $slotEnd <= $rangeEnd) {
-            $slotIds[] = (int) $slot['id'];
+            $slotIds[] = [
+                'id' => (int) $slot['id'],
+                'start' => $slotStart,
+                'end' => $slotEnd,
+            ];
         }
     }
 
@@ -1033,7 +1290,17 @@ function court_block_slot_ids_for_request(PDO $pdo, int $fallbackSlotId, string 
         json_response(['ok' => false, 'message' => 'Choose a time range that matches available booking slots.'], 422);
     }
 
-    return $slotIds;
+    usort($slotIds, static fn (array $a, array $b): int => $a['start'] <=> $b['start']);
+    if ($slotIds[0]['start'] !== $rangeStart || $slotIds[count($slotIds) - 1]['end'] !== $rangeEnd) {
+        json_response(['ok' => false, 'message' => 'Choose a time range that fully matches available booking slots.'], 422);
+    }
+    for ($index = 1, $count = count($slotIds); $index < $count; $index++) {
+        if ($slotIds[$index - 1]['end'] !== $slotIds[$index]['start']) {
+            json_response(['ok' => false, 'message' => 'Choose a continuous blocking time range.'], 422);
+        }
+    }
+
+    return array_column($slotIds, 'id');
 }
 
 function active_bookings_for_booking(PDO $pdo, string $date, int $slotId, int $courtId, string $sport): array
@@ -1103,20 +1370,26 @@ function active_blocks_for_booking(PDO $pdo, string $date, int $slotId, int $cou
 function get_state(PDO $pdo, bool $includeAdmin = false): array
 {
     ensure_core_booking_time_slots($pdo);
+    ensure_rate_management_schema($pdo);
     $sportSlotAvailability = sport_time_slot_availability_payload($pdo);
     $courts = $pdo->query('SELECT id, display_number, name, court_type, surface_label, supported_sports FROM courts WHERE is_active = 1 ORDER BY display_number, id')->fetchAll();
     $rateRows = $pdo->query(
-        "SELECT r.rate_per_hour, ts.starts_at, ts.ends_at, ts.sort_order
+        "SELECT r.court_id, c.name AS court_name, c.display_number, r.sport, r.rate_per_hour, ts.starts_at, ts.ends_at, ts.sort_order
          FROM rates r
+         JOIN courts c ON c.id = r.court_id AND c.is_active = 1
          JOIN time_slots ts ON ts.id = r.time_slot_id
          WHERE r.day_of_week = 'Any'
-         ORDER BY r.rate_per_hour, ts.sort_order"
+         ORDER BY r.sport, c.display_number, c.id, r.rate_per_hour, ts.sort_order"
     )->fetchAll();
     $rateGroups = [];
     foreach ($rateRows as $row) {
-        $key = (string) $row['rate_per_hour'];
+        $key = (string) $row['sport'] . '|' . (string) $row['court_id'] . '|' . (string) $row['rate_per_hour'];
         if (!isset($rateGroups[$key])) {
             $rateGroups[$key] = [
+                'courtId' => (int) $row['court_id'],
+                'courtName' => (string) $row['court_name'],
+                'courtSort' => (int) $row['display_number'],
+                'sport' => (string) $row['sport'],
                 'price' => (float) $row['rate_per_hour'],
                 'start' => (string) $row['starts_at'],
                 'end' => (string) $row['ends_at'],
@@ -1133,8 +1406,11 @@ function get_state(PDO $pdo, bool $includeAdmin = false): array
             $rateGroups[$key]['end'] = (string) $row['ends_at'];
         }
     }
-    usort($rateGroups, static fn (array $a, array $b): int => $a['sort'] <=> $b['sort'] ?: $a['price'] <=> $b['price']);
+    usort($rateGroups, static fn (array $a, array $b): int => strcmp($a['sport'], $b['sport']) ?: $a['courtSort'] <=> $b['courtSort'] ?: $a['sort'] <=> $b['sort'] ?: $a['price'] <=> $b['price']);
     $rates = array_map(static fn (array $group): array => [
+        'courtId' => $group['courtId'],
+        'courtName' => $group['courtName'],
+        'sport' => $group['sport'],
         'price' => (int) $group['price'],
         'time' => display_time_label($group['start']) . ' - ' . display_time_label($group['end']),
     ], $rateGroups);
@@ -1249,6 +1525,7 @@ function get_state(PDO $pdo, bool $includeAdmin = false): array
         'courts' => array_map(static fn (array $court): array => court_payload($court), $courts),
         'rates' => $rates,
         'rateRules' => rate_rules($pdo, false),
+        'holidaySchedules' => holiday_schedules($pdo),
         'timeSlots' => $timeSlots,
         'slotDetails' => $slotDetails,
         'sportSlotAvailability' => $sportSlotAvailability,
@@ -1280,10 +1557,21 @@ function get_state(PDO $pdo, bool $includeAdmin = false): array
         $state['adminRoleOptions'] = $admin && admin_can_manage_staff($admin) ? admin_role_options() : [];
         $state['adminMenuCatalog'] = $admin && admin_can_manage_staff($admin) ? array_values(admin_menu_catalog()) : [];
         $state['adminRoleMenuPermissions'] = $admin && admin_can_manage_staff($admin) ? $rolePermissions : [];
-        $state['adminReservations'] = admin_reservations($pdo);
+        $state['adminReservations'] = [];
+        $state['adminGroupedReservations'] = [];
+        $state['adminBookingPagination'] = [
+            'page' => 1,
+            'pageSize' => 20,
+            'total' => 0,
+            'totalPages' => 1,
+            'from' => 0,
+            'to' => 0,
+        ];
+        $state['adminBookingStatusCounts'] = ['Held' => 0, 'Booked' => 0, 'Cancelled' => 0, 'All' => 0];
         $state['adminPaymentChannels'] = payment_channels($pdo, true);
         $state['adminRateRules'] = rate_rules($pdo, true);
         $state['adminRateAudit'] = rate_audit_logs($pdo);
+        $state['adminHolidayScheduleAudit'] = holiday_schedule_audit_logs($pdo);
         $state['adminCourts'] = admin_courts($pdo);
         $state['adminCourtBlocks'] = court_blocks($pdo, true);
         $state['adminOverrideLogs'] = override_logs($pdo);
@@ -1371,9 +1659,9 @@ function rate_audit_logs(PDO $pdo): array
 {
     $stmt = $pdo->query(
         "SELECT ral.id, ral.rate_id,
-                CONCAT(COALESCE(c.name, 'Deleted rate'), ' ', COALESCE(r.sport, ''), ' ', COALESCE(r.day_of_week, ''), ' ', COALESCE(ts.label, '')) AS rate_name,
+                CONCAT(COALESCE(c.name, 'Deleted rate'), ' ', COALESCE(r.sport, ''), ' ', COALESCE(r.day_of_week, ''), ' ', COALESCE(ts.label, ''), ' effective ', COALESCE(r.effective_date, '')) AS rate_name,
                 au.name AS admin_name,
-                ral.action, ral.reason, ral.created_at
+                ral.action, ral.previous_payload, ral.new_payload, ral.reason, ral.created_at
          FROM rate_audit_logs ral
          LEFT JOIN rates r ON r.id = ral.rate_id
          LEFT JOIN courts c ON c.id = r.court_id
@@ -1383,15 +1671,182 @@ function rate_audit_logs(PDO $pdo): array
          LIMIT 12"
     );
 
-    return array_map(static fn (array $row): array => [
-        'id' => (int) $row['id'],
-        'ruleId' => $row['rate_id'] !== null ? (int) $row['rate_id'] : null,
-        'ruleName' => trim($row['rate_name']) ?: 'Deleted rate',
-        'adminName' => $row['admin_name'] ?? 'System',
-        'action' => $row['action'],
-        'reason' => $row['reason'] ?? '',
-        'createdAt' => date(DATE_ATOM, strtotime($row['created_at'])),
-    ], $stmt->fetchAll());
+    return array_map(static function (array $row): array {
+        $payload = json_decode((string) ($row['new_payload'] ?: $row['previous_payload'] ?: ''), true) ?: [];
+        $rateName = trim((string) $row['rate_name']);
+        if ($rateName === '' || str_starts_with($rateName, 'Deleted rate')) {
+            $rateName = trim(sprintf(
+                'Court #%s %s %s slot #%s',
+                $payload['court_id'] ?? '',
+                $payload['sport'] ?? '',
+                $payload['day_of_week'] ?? '',
+                $payload['time_slot_id'] ?? ''
+            )) ?: 'Deleted rate';
+        }
+
+        return [
+            'id' => (int) $row['id'],
+            'ruleId' => $row['rate_id'] !== null ? (int) $row['rate_id'] : null,
+            'ruleName' => $rateName,
+            'adminName' => $row['admin_name'] ?? 'System',
+            'action' => $row['action'],
+            'reason' => $row['reason'] ?? '',
+            'createdAt' => date(DATE_ATOM, strtotime($row['created_at'])),
+        ];
+    }, $stmt->fetchAll());
+}
+
+function holiday_schedule_audit_logs(PDO $pdo): array
+{
+    ensure_rate_management_schema($pdo);
+
+    $stmt = $pdo->query(
+        "SELECT hsal.id, hsal.holiday_schedule_id,
+                COALESCE(hs.holiday_name, 'Deleted holiday') AS holiday_name,
+                hs.`date` AS holiday_date,
+                au.name AS admin_name,
+                hsal.action, hsal.previous_payload, hsal.new_payload, hsal.reason, hsal.created_at
+         FROM holiday_schedule_audit_logs hsal
+         LEFT JOIN holiday_schedules hs ON hs.id = hsal.holiday_schedule_id
+         LEFT JOIN admin_users au ON au.id = hsal.admin_id
+         ORDER BY hsal.created_at DESC, hsal.id DESC
+         LIMIT 12"
+    );
+
+    return array_map(static function (array $row): array {
+        $payload = json_decode((string) ($row['new_payload'] ?: $row['previous_payload'] ?: ''), true) ?: [];
+
+        return [
+            'id' => (int) $row['id'],
+            'holidayScheduleId' => $row['holiday_schedule_id'] !== null ? (int) $row['holiday_schedule_id'] : null,
+            'holidayName' => $row['holiday_name'] !== 'Deleted holiday' ? $row['holiday_name'] : ($payload['holiday_name'] ?? 'Deleted holiday'),
+            'holidayDate' => $row['holiday_date'] ?? ($payload['date'] ?? ''),
+            'adminName' => $row['admin_name'] ?? 'System',
+            'action' => $row['action'],
+            'reason' => $row['reason'] ?? '',
+            'createdAt' => date(DATE_ATOM, strtotime($row['created_at'])),
+        ];
+    }, $stmt->fetchAll());
+}
+
+function valid_date_string(string $date): bool
+{
+    $parsed = DateTimeImmutable::createFromFormat('!Y-m-d', $date);
+    return $parsed instanceof DateTimeImmutable && $parsed->format('Y-m-d') === $date;
+}
+
+function rate_day_applies_to_date(PDO $pdo, string $dayOfWeek, string $date): bool
+{
+    if ($dayOfWeek === 'Any') {
+        return true;
+    }
+
+    $holidayName = holiday_name_for_date($pdo, $date);
+    $bookingDay = $holidayName !== null ? 'Holiday' : date('l', strtotime($date));
+    return $dayOfWeek === $bookingDay;
+}
+
+function advance_bookings_for_rate_change(PDO $pdo, array $courtIds, string $sport, array $daySelections, array $slotIds, string $effectiveDate): array
+{
+    if ($courtIds === [] || $slotIds === []) {
+        return [];
+    }
+
+    $courtPlaceholders = implode(',', array_fill(0, count($courtIds), '?'));
+    $slotPlaceholders = implode(',', array_fill(0, count($slotIds), '?'));
+    $stmt = $pdo->prepare(
+        "SELECT cb.id, cb.booking_reference, cb.booking_date, cb.time_slot_id, cb.court_id,
+                c.name AS court_name, cb.sport, cb.status, cb.customer_name,
+                cb.base_rate, cb.final_amount, ts.label AS time_label
+         FROM court_bookings cb
+         JOIN courts c ON c.id = cb.court_id
+         JOIN time_slots ts ON ts.id = cb.time_slot_id
+         WHERE cb.court_id IN ({$courtPlaceholders})
+           AND cb.sport = ?
+           AND cb.time_slot_id IN ({$slotPlaceholders})
+           AND cb.booking_date >= ?
+           AND cb.booking_date >= CURDATE()
+           AND cb.status IN (" . BLOCKING_RESERVATION_STATUS_SQL . ")
+         ORDER BY cb.booking_date, c.display_number, cb.court_id, ts.sort_order, cb.id"
+    );
+    $stmt->execute(array_merge($courtIds, [$sport], $slotIds, [$effectiveDate]));
+
+    $rows = [];
+    foreach ($stmt->fetchAll() as $row) {
+        foreach ($daySelections as $dayOfWeek) {
+            if (!rate_day_applies_to_date($pdo, (string) $dayOfWeek, (string) $row['booking_date'])) {
+                continue;
+            }
+            $rows[] = [
+                'id' => (int) $row['id'],
+                'reference' => $row['booking_reference'] ?? '',
+                'date' => $row['booking_date'],
+                'time' => $row['time_label'],
+                'timeSlotId' => (int) $row['time_slot_id'],
+                'courtId' => (int) $row['court_id'],
+                'courtName' => $row['court_name'] ?: public_court_name((int) $row['court_id'], (string) $row['sport']),
+                'sport' => $row['sport'],
+                'status' => $row['status'],
+                'customerName' => $row['customer_name'],
+                'currentBaseRate' => (float) $row['base_rate'],
+                'currentFinalAmount' => (float) $row['final_amount'],
+            ];
+            break;
+        }
+    }
+
+    return $rows;
+}
+
+function update_advance_bookings_for_rate_change(PDO $pdo, array $bookingIds): int
+{
+    if ($bookingIds === []) {
+        return 0;
+    }
+
+    $placeholders = implode(',', array_fill(0, count($bookingIds), '?'));
+    $stmt = $pdo->prepare(
+        "SELECT cb.id, cb.booking_date, cb.time_slot_id, cb.court_id, cb.sport, ts.label, ts.starts_at, ts.ends_at, ts.price
+         FROM court_bookings cb
+         JOIN time_slots ts ON ts.id = cb.time_slot_id
+         WHERE cb.id IN ({$placeholders})
+           AND cb.booking_date >= CURDATE()
+           AND cb.status IN (" . BLOCKING_RESERVATION_STATUS_SQL . ")"
+    );
+    $stmt->execute($bookingIds);
+
+    $update = $pdo->prepare(
+        'UPDATE court_bookings
+         SET base_rate = ?, final_amount = ?, rate_snapshot = ?
+         WHERE id = ?'
+    );
+
+    $updated = 0;
+    foreach ($stmt->fetchAll() as $row) {
+        $slot = [
+            'id' => (int) $row['time_slot_id'],
+            'label' => $row['label'],
+            'starts_at' => $row['starts_at'],
+            'ends_at' => $row['ends_at'],
+            'price' => $row['price'],
+        ];
+        $rate = calculate_booking_rate($pdo, (int) $row['court_id'], (string) $row['sport'], (string) $row['booking_date'], $slot, false);
+        $update->execute([
+            $rate['baseRate'],
+            $rate['finalAmount'],
+            booking_rate_snapshot([
+                'timeSlot' => $slot['label'],
+                'sport' => $row['sport'],
+                'courtId' => (int) $row['court_id'],
+                'date' => $row['booking_date'],
+                'rateAdjustment' => true,
+            ], $rate),
+            (int) $row['id'],
+        ]);
+        $updated++;
+    }
+
+    return $updated;
 }
 
 function override_logs(PDO $pdo): array
@@ -1419,6 +1874,7 @@ function override_logs(PDO $pdo): array
 function admin_members(PDO $pdo): array
 {
     ensure_member_terms_columns($pdo);
+    ensure_entrance_fee_activity_columns($pdo);
 
     $stmt = $pdo->query(
         "SELECT m.id, m.name, m.nickname, m.email, m.phone, m.profile_picture_path, m.birth_month, m.birth_year, m.skill_level,
@@ -1466,6 +1922,7 @@ function admin_members(PDO $pdo): array
     $placeholders = implode(',', array_fill(0, count($ids), '?'));
     $historyStmt = $pdo->prepare(
         "SELECT ef.id, ef.member_id, ef.amount, ef.payment_date, ef.payment_time, ef.booking_id,
+                ef.entry_type, ef.play_date, ef.play_start_time, ef.play_end_time, ef.played_hours,
                 ef.reference_number, ef.payment_method, ef.receipt_path, ef.notes, ef.created_at,
                 au.name AS recorded_by_name
          FROM member_entrance_fee_payments ef
@@ -1478,9 +1935,14 @@ function admin_members(PDO $pdo): array
     foreach ($historyStmt->fetchAll() as $row) {
         $history[(int) $row['member_id']][] = [
             'id' => (int) $row['id'],
+            'entryType' => $row['entry_type'] ?? 'entrance_fee',
             'amount' => (float) $row['amount'],
             'paymentDate' => $row['payment_date'],
             'paymentTime' => substr((string) $row['payment_time'], 0, 5),
+            'playDate' => $row['play_date'] ?? $row['payment_date'],
+            'playStartTime' => $row['play_start_time'] ? substr((string) $row['play_start_time'], 0, 5) : '',
+            'playEndTime' => $row['play_end_time'] ? substr((string) $row['play_end_time'], 0, 5) : '',
+            'playedHours' => (float) ($row['played_hours'] ?? 0),
             'bookingId' => $row['booking_id'] !== null ? (int) $row['booking_id'] : null,
             'referenceNumber' => $row['reference_number'] ?? '',
             'paymentMethod' => $row['payment_method'] ?? '',
@@ -1643,6 +2105,417 @@ function admin_reservations(PDO $pdo): array
     ], $rows);
 }
 
+function admin_booking_request_options(): array
+{
+    $status = trim((string) ($_GET['status'] ?? 'Held'));
+    if (!in_array($status, ['Held', 'Booked', 'Cancelled', 'All'], true)) {
+        $status = 'Held';
+    }
+
+    $startDate = trim((string) ($_GET['from'] ?? ''));
+    $endDate = trim((string) ($_GET['to'] ?? ''));
+    $isValidDate = static function (string $value): bool {
+        if ($value === '') {
+            return true;
+        }
+        $date = DateTimeImmutable::createFromFormat('!Y-m-d', $value);
+        return $date instanceof DateTimeImmutable && $date->format('Y-m-d') === $value;
+    };
+    if (!$isValidDate($startDate)) {
+        $startDate = '';
+    }
+    if (!$isValidDate($endDate)) {
+        $endDate = '';
+    }
+    if ($startDate !== '' && $endDate !== '' && $startDate > $endDate) {
+        [$startDate, $endDate] = [$endDate, $startDate];
+    }
+
+    $sort = trim((string) ($_GET['sort'] ?? 'created-desc'));
+    if (!in_array($sort, ['created-desc', 'reservation-asc', 'reservation-desc'], true)) {
+        $sort = 'created-desc';
+    }
+
+    $pageSize = (int) ($_GET['pageSize'] ?? 20);
+    if (!in_array($pageSize, [10, 20, 50, 100], true)) {
+        $pageSize = 20;
+    }
+
+    return [
+        'status' => $status,
+        'search' => trim((string) ($_GET['search'] ?? '')),
+        'from' => $startDate,
+        'to' => $endDate,
+        'sort' => $sort,
+        'page' => max(1, (int) ($_GET['page'] ?? 1)),
+        'pageSize' => $pageSize,
+    ];
+}
+
+function admin_booking_columns(PDO $pdo): array
+{
+    static $columns = null;
+    if ($columns !== null) {
+        return $columns;
+    }
+
+    $optionalColumns = [
+        'booking_reference',
+        'member_id',
+        'player_nickname',
+        'customer_email',
+        'customer_phone',
+        'payment_method',
+        'receipt_path',
+        'final_amount',
+        'created_by_type',
+        'created_by_id',
+        'cancel_reason',
+        'reviewed_by',
+        'reviewed_at',
+        'cancelled_by',
+        'cancelled_at',
+    ];
+    $columns = [];
+    foreach ($optionalColumns as $column) {
+        try {
+            $columns[$column] = api_column_exists($pdo, 'court_bookings', $column);
+        } catch (Throwable) {
+            $columns[$column] = false;
+        }
+    }
+    try {
+        $columns['members_table'] = api_table_exists($pdo, 'members');
+        $columns['members_nickname'] = $columns['members_table'] && api_column_exists($pdo, 'members', 'nickname');
+        $columns['courts_table'] = api_table_exists($pdo, 'courts');
+        $columns['courts_name'] = $columns['courts_table'] && api_column_exists($pdo, 'courts', 'name');
+        $columns['time_slots_label'] = api_column_exists($pdo, 'time_slots', 'label');
+        $columns['time_slots_starts_at'] = api_column_exists($pdo, 'time_slots', 'starts_at');
+        $columns['time_slots_ends_at'] = api_column_exists($pdo, 'time_slots', 'ends_at');
+        $columns['time_slots_sort_order'] = api_column_exists($pdo, 'time_slots', 'sort_order');
+    } catch (Throwable) {
+        $columns['members_table'] = false;
+        $columns['members_nickname'] = false;
+        $columns['courts_table'] = false;
+        $columns['courts_name'] = false;
+        $columns['time_slots_label'] = true;
+        $columns['time_slots_starts_at'] = false;
+        $columns['time_slots_ends_at'] = false;
+        $columns['time_slots_sort_order'] = false;
+    }
+
+    return $columns;
+}
+
+function admin_booking_column_sql(array $columns, string $column, string $fallback, ?string $alias = null): string
+{
+    $alias = $alias ?? $column;
+    if (($columns[$column] ?? false) === true) {
+        return "cb.{$column} AS {$alias}";
+    }
+
+    return "{$fallback} AS {$alias}";
+}
+
+function admin_booking_time_sort_sql(array $columns): string
+{
+    return ($columns['time_slots_sort_order'] ?? false) ? 'ts.sort_order' : 'ts.id';
+}
+
+function admin_booking_time_label_sql(array $columns, string $alias = 'time'): string
+{
+    if ($columns['time_slots_label'] ?? false) {
+        return "ts.label AS {$alias}";
+    }
+    if (($columns['time_slots_starts_at'] ?? false) && ($columns['time_slots_ends_at'] ?? false)) {
+        return "CONCAT(TIME_FORMAT(ts.starts_at, '%h:%i %p'), ' - ', TIME_FORMAT(ts.ends_at, '%h:%i %p')) AS {$alias}";
+    }
+
+    return "CONCAT('Slot #', ts.id) AS {$alias}";
+}
+
+function admin_booking_group_key_sql(array $columns = []): string
+{
+    if (($columns['booking_reference'] ?? true) === false) {
+        return "CONCAT('id:', cb.id)";
+    }
+
+    return "COALESCE(NULLIF(cb.booking_reference, ''), CONCAT('id:', cb.id))";
+}
+
+function admin_booking_status_condition_sql(string $status): string
+{
+    return "CONVERT(cb.status USING utf8mb4) COLLATE utf8mb4_unicode_ci = '{$status}' COLLATE utf8mb4_unicode_ci";
+}
+
+function admin_booking_group_status_rank_sql(): string
+{
+    $held = admin_booking_status_condition_sql('Held');
+    $booked = admin_booking_status_condition_sql('Booked');
+
+    return "CASE
+        WHEN SUM(CASE WHEN {$held} THEN 1 ELSE 0 END) > 0 THEN 1
+        WHEN SUM(CASE WHEN {$booked} THEN 1 ELSE 0 END) > 0 THEN 2
+        ELSE 3
+    END";
+}
+
+function admin_booking_status_rank(string $status): int
+{
+    return match ($status) {
+        'Held' => 1,
+        'Booked' => 2,
+        'Cancelled' => 3,
+        default => 0,
+    };
+}
+
+function admin_booking_status_from_rank(int $rank): string
+{
+    return match ($rank) {
+        1 => 'Held',
+        2 => 'Booked',
+        default => 'Cancelled',
+    };
+}
+
+function admin_booking_group_where_sql(array $options, array &$params, array $columns): string
+{
+    $where = [];
+    if ($options['from'] !== '') {
+        $where[] = 'cb.booking_date >= ?';
+        $params[] = $options['from'];
+    }
+    if ($options['to'] !== '') {
+        $where[] = 'cb.booking_date <= ?';
+        $params[] = $options['to'];
+    }
+    if ($options['search'] !== '') {
+        $searchTerm = '%' . $options['search'] . '%';
+        if (($columns['booking_reference'] ?? false) === true) {
+            $where[] = '(cb.booking_reference LIKE ? OR cb.customer_name LIKE ?)';
+            $params[] = $searchTerm;
+            $params[] = $searchTerm;
+        } else {
+            $where[] = 'cb.customer_name LIKE ?';
+            $params[] = $searchTerm;
+        }
+    }
+
+    return $where === [] ? '' : 'WHERE ' . implode(' AND ', $where);
+}
+
+function admin_booking_group_sql(array $options, array &$params, array $columns): string
+{
+    $where = admin_booking_group_where_sql($options, $params, $columns);
+    $groupKey = admin_booking_group_key_sql($columns);
+    $groupStatusRank = admin_booking_group_status_rank_sql();
+    $timeSort = admin_booking_time_sort_sql($columns);
+
+    return "SELECT {$groupKey} AS group_key,
+                   {$groupStatusRank} AS group_status_rank,
+                   MIN(cb.created_at) AS group_created_at,
+                   MIN(CONCAT(cb.booking_date, ' ', LPAD({$timeSort}, 6, '0'), ' ', LPAD(cb.id, 10, '0'))) AS reservation_sort
+            FROM court_bookings cb
+            JOIN time_slots ts ON ts.id = cb.time_slot_id
+            {$where}
+            GROUP BY {$groupKey}";
+}
+
+function admin_booking_status_filter_sql(array $options, array &$params): string
+{
+    if ($options['status'] === 'All') {
+        return '';
+    }
+
+    $params[] = admin_booking_status_rank($options['status']);
+    return 'WHERE group_status_rank = ?';
+}
+
+function admin_booking_order_sql(string $sort): string
+{
+    if ($sort === 'reservation-asc') {
+        return 'ORDER BY reservation_sort ASC, group_created_at ASC, group_key ASC';
+    }
+    if ($sort === 'reservation-desc') {
+        return 'ORDER BY reservation_sort DESC, group_created_at DESC, group_key DESC';
+    }
+
+    return 'ORDER BY group_created_at DESC, group_key DESC';
+}
+
+function admin_court_reservation_payload(array $row): array
+{
+    return [
+        'id' => $row['id'],
+        'type' => 'court',
+        'bookingReference' => $row['booking_reference'] ?? '',
+        'memberId' => $row['member_id'] !== null ? (int) $row['member_id'] : null,
+        'date' => $row['date'],
+        'timeSlotId' => $row['time_slot_id'] !== null ? (int) $row['time_slot_id'] : null,
+        'time' => $row['time'],
+        'court' => $row['court'] !== null ? (int) $row['court'] : null,
+        'courtName' => $row['court'] !== null ? (trim((string) ($row['court_name'] ?? '')) ?: public_court_name((int) $row['court'], (string) $row['sport'])) : null,
+        'sport' => $row['sport'],
+        'sessionId' => null,
+        'sessionTitle' => null,
+        'status' => $row['status'],
+        'customerName' => $row['customer_name'],
+        'playerNickname' => display_player_nickname($row),
+        'customerEmail' => $row['customer_email'] ?? '',
+        'customerPhone' => $row['customer_phone'] ?? '',
+        'paymentMethod' => $row['payment_method'],
+        'receipt' => $row['receipt_path'],
+        'finalAmount' => (float) $row['final_amount'],
+        'memberName' => $row['member_name'],
+        'createdByType' => $row['created_by_type'],
+        'createdById' => $row['created_by_id'] !== null ? (int) $row['created_by_id'] : null,
+        'createdByName' => $row['created_by_type'] === 'admin'
+            ? ($row['creator_admin_name'] ?? '')
+            : ($row['creator_member_name'] ?? ''),
+        'createdByRole' => $row['created_by_type'] === 'admin' ? ($row['creator_admin_role'] ?? '') : 'member',
+        'cancelReason' => $row['cancel_reason'],
+        'reviewedByName' => $row['reviewed_by_name'],
+        'cancelledByName' => $row['cancelled_by_name'],
+        'createdAt' => db_datetime_to_ph_atom($row['created_at']),
+        'reviewedAt' => $row['reviewed_at'] ? date(DATE_ATOM, strtotime($row['reviewed_at'])) : null,
+        'cancelledAt' => $row['cancelled_at'] ? date(DATE_ATOM, strtotime($row['cancelled_at'])) : null,
+    ];
+}
+
+function admin_booking_rows_for_group_keys(PDO $pdo, array $groupKeys, array $columns): array
+{
+    if ($groupKeys === []) {
+        return [];
+    }
+
+    $placeholders = implode(',', array_fill(0, count($groupKeys), '?'));
+    $groupKey = admin_booking_group_key_sql($columns);
+    $timeSort = admin_booking_time_sort_sql($columns);
+    $timeLabelSql = admin_booking_time_label_sql($columns, 'time');
+    $courtJoin = ($columns['courts_table'] ?? false) ? 'LEFT JOIN courts c ON c.id = cb.court_id' : '';
+    $courtNameSql = ($columns['courts_name'] ?? false) ? 'c.name AS court_name' : 'NULL AS court_name';
+    $memberJoin = ($columns['member_id'] ?? false) && ($columns['members_table'] ?? false) ? 'LEFT JOIN members m ON m.id = cb.member_id' : '';
+    $hasCreatorColumns = ($columns['created_by_type'] ?? false) && ($columns['created_by_id'] ?? false);
+    $creatorAdminJoin = $hasCreatorColumns ? "LEFT JOIN admin_users creator_admin ON cb.created_by_type = 'admin' AND creator_admin.id = cb.created_by_id" : '';
+    $creatorMemberJoin = $hasCreatorColumns && ($columns['members_table'] ?? false) ? "LEFT JOIN members creator_member ON cb.created_by_type = 'member' AND creator_member.id = cb.created_by_id" : '';
+    $creatorJoins = trim($creatorAdminJoin . "\n         " . $creatorMemberJoin);
+    $reviewerJoin = ($columns['reviewed_by'] ?? false) ? 'LEFT JOIN admin_users reviewer ON reviewer.id = cb.reviewed_by' : '';
+    $cancellerJoin = ($columns['cancelled_by'] ?? false) ? 'LEFT JOIN admin_users canceller ON canceller.id = cb.cancelled_by' : '';
+    $createdByTypeSql = ($columns['created_by_type'] ?? false)
+        ? 'cb.created_by_type AS created_by_type'
+        : (($columns['member_id'] ?? false) ? "CASE WHEN cb.member_id IS NOT NULL THEN 'member' ELSE NULL END AS created_by_type" : 'NULL AS created_by_type');
+    $createdByIdSql = ($columns['created_by_id'] ?? false)
+        ? 'cb.created_by_id AS created_by_id'
+        : (($columns['member_id'] ?? false) ? 'cb.member_id AS created_by_id' : 'NULL AS created_by_id');
+    $creatorAdminNameSql = $hasCreatorColumns ? 'creator_admin.name AS creator_admin_name' : 'NULL AS creator_admin_name';
+    $creatorAdminRoleSql = $hasCreatorColumns ? 'creator_admin.role AS creator_admin_role' : 'NULL AS creator_admin_role';
+    $creatorMemberNameSql = $hasCreatorColumns && ($columns['members_table'] ?? false)
+        ? 'creator_member.name AS creator_member_name'
+        : (($columns['member_id'] ?? false) && ($columns['members_table'] ?? false) ? 'm.name AS creator_member_name' : 'NULL AS creator_member_name');
+    $memberNameSql = ($columns['member_id'] ?? false) && ($columns['members_table'] ?? false) ? 'm.name AS member_name' : 'NULL AS member_name';
+    $memberNicknameSql = ($columns['member_id'] ?? false) && ($columns['members_nickname'] ?? false) ? 'm.nickname AS member_nickname' : 'NULL AS member_nickname';
+    $reviewedByNameSql = ($columns['reviewed_by'] ?? false) ? 'reviewer.name AS reviewed_by_name' : 'NULL AS reviewed_by_name';
+    $cancelledByNameSql = ($columns['cancelled_by'] ?? false) ? 'canceller.name AS cancelled_by_name' : 'NULL AS cancelled_by_name';
+    $stmt = $pdo->prepare(
+        "SELECT CONCAT('court:', cb.id) AS id,
+                " . admin_booking_column_sql($columns, 'booking_reference', "''", 'booking_reference') . ",
+                " . admin_booking_column_sql($columns, 'member_id', 'NULL', 'member_id') . ",
+                cb.booking_date AS date, cb.time_slot_id,
+                {$timeLabelSql}, cb.court_id AS court, {$courtNameSql}, cb.sport,
+                cb.status, cb.customer_name,
+                " . admin_booking_column_sql($columns, 'player_nickname', 'NULL', 'player_nickname') . ",
+                " . admin_booking_column_sql($columns, 'customer_email', "''", 'customer_email') . ",
+                " . admin_booking_column_sql($columns, 'customer_phone', "''", 'customer_phone') . ",
+                " . admin_booking_column_sql($columns, 'payment_method', "''", 'payment_method') . ",
+                " . admin_booking_column_sql($columns, 'receipt_path', 'NULL', 'receipt_path') . ",
+                " . admin_booking_column_sql($columns, 'final_amount', '0', 'final_amount') . ",
+                {$memberNameSql}, {$memberNicknameSql},
+                {$createdByTypeSql}, {$createdByIdSql},
+                {$creatorAdminNameSql}, {$creatorAdminRoleSql}, {$creatorMemberNameSql},
+                " . admin_booking_column_sql($columns, 'cancel_reason', 'NULL', 'cancel_reason') . ",
+                cb.created_at,
+                " . admin_booking_column_sql($columns, 'reviewed_at', 'NULL', 'reviewed_at') . ",
+                " . admin_booking_column_sql($columns, 'cancelled_at', 'NULL', 'cancelled_at') . ",
+                {$reviewedByNameSql}, {$cancelledByNameSql}
+         FROM court_bookings cb
+         JOIN time_slots ts ON ts.id = cb.time_slot_id
+         {$courtJoin}
+         {$memberJoin}
+         {$creatorJoins}
+         {$reviewerJoin}
+         {$cancellerJoin}
+         WHERE {$groupKey} IN ({$placeholders})
+         ORDER BY cb.booking_date, cb.court_id, {$timeSort}, cb.id"
+    );
+    $stmt->execute($groupKeys);
+
+    return array_map('admin_court_reservation_payload', $stmt->fetchAll());
+}
+
+function admin_booking_page(PDO $pdo, array $options): array
+{
+    try {
+        ensure_booking_list_indexes($pdo);
+    } catch (Throwable) {
+        // Index creation is an optimization; the booking list should still load without ALTER privileges.
+    }
+    $columns = admin_booking_columns($pdo);
+
+    $baseParams = [];
+    $groupSql = admin_booking_group_sql($options, $baseParams, $columns);
+
+    $countParams = $baseParams;
+    $statusWhere = admin_booking_status_filter_sql($options, $countParams);
+    $countStmt = $pdo->prepare("SELECT COUNT(*) FROM ({$groupSql}) grouped {$statusWhere}");
+    $countStmt->execute($countParams);
+    $total = (int) $countStmt->fetchColumn();
+    $totalPages = max(1, (int) ceil($total / $options['pageSize']));
+    $page = min($options['page'], $totalPages);
+    $offset = ($page - 1) * $options['pageSize'];
+
+    $pageParams = $baseParams;
+    $pageStatusWhere = admin_booking_status_filter_sql($options, $pageParams);
+    $orderSql = admin_booking_order_sql($options['sort']);
+    $limit = (int) $options['pageSize'];
+    $pageStmt = $pdo->prepare(
+        "SELECT group_key
+         FROM ({$groupSql}) grouped
+         {$pageStatusWhere}
+         {$orderSql}
+         LIMIT {$limit} OFFSET {$offset}"
+    );
+    $pageStmt->execute($pageParams);
+    $groupKeys = array_map('strval', array_column($pageStmt->fetchAll(), 'group_key'));
+
+    $statusStmt = $pdo->prepare(
+        "SELECT group_status_rank, COUNT(*) AS total
+         FROM ({$groupSql}) grouped
+         GROUP BY group_status_rank"
+    );
+    $statusStmt->execute($baseParams);
+    $statusCounts = ['Held' => 0, 'Booked' => 0, 'Cancelled' => 0, 'All' => 0];
+    foreach ($statusStmt->fetchAll() as $row) {
+        $status = admin_booking_status_from_rank((int) $row['group_status_rank']);
+        $count = (int) $row['total'];
+        $statusCounts[$status] = $count;
+        $statusCounts['All'] += $count;
+    }
+
+    return [
+        'reservations' => admin_booking_rows_for_group_keys($pdo, $groupKeys, $columns),
+        'pagination' => [
+            'page' => $page,
+            'pageSize' => $options['pageSize'],
+            'total' => $total,
+            'totalPages' => $totalPages,
+            'from' => $total === 0 ? 0 : $offset + 1,
+            'to' => min($offset + $options['pageSize'], $total),
+        ],
+        'statusCounts' => $statusCounts,
+    ];
+}
+
 function booking_history_actor(?string $type, ?int $id, ?string $name, ?string $role): string
 {
     $type = trim((string) $type);
@@ -1722,15 +2595,60 @@ function booking_history_override_values(array $payload): array
     return $values;
 }
 
+function booking_history_time_range_labels(array $rows, bool $includeDate = false): array
+{
+    $byDate = [];
+    foreach ($rows as $row) {
+        $date = (string) ($row['booking_date'] ?? '');
+        $start = (string) ($row['starts_at'] ?? '');
+        $end = (string) ($row['ends_at'] ?? '');
+        if ($date === '' || !preg_match('/^\d{2}:\d{2}/', $start) || !preg_match('/^\d{2}:\d{2}/', $end)) {
+            continue;
+        }
+        $byDate[$date][] = [
+            'start' => time_minutes_for_range($start),
+            'end' => time_minutes_for_range($end, true),
+            'startsAt' => $start,
+            'endsAt' => $end,
+        ];
+    }
+
+    ksort($byDate);
+    $labels = [];
+    foreach ($byDate as $date => $slots) {
+        usort($slots, static fn (array $a, array $b): int => $a['start'] <=> $b['start']);
+        $ranges = [];
+        foreach ($slots as $slot) {
+            $lastIndex = count($ranges) - 1;
+            if ($lastIndex >= 0 && $ranges[$lastIndex]['end'] === $slot['start']) {
+                $ranges[$lastIndex]['end'] = $slot['end'];
+                $ranges[$lastIndex]['endsAt'] = $slot['endsAt'];
+                continue;
+            }
+            $ranges[] = $slot;
+        }
+
+        $rangeLabels = array_map(
+            static fn (array $range): string => display_time_label($range['startsAt']) . ' - ' . display_time_label($range['endsAt']),
+            $ranges
+        );
+        $labels[] = ($includeDate ? "{$date}: " : '') . implode(', ', $rangeLabels);
+    }
+
+    return $labels;
+}
+
 function admin_booking_logs(PDO $pdo, int $bookingId, string $bookingReference = ''): array
 {
     if ($bookingId <= 0 && $bookingReference === '') {
         json_response(['ok' => false, 'message' => 'Booking ID or reference is required.'], 422);
     }
 
-    $where = $bookingId > 0 ? 'cb.id = ?' : 'cb.booking_reference = ?';
+    $lookupByReference = $bookingReference !== '';
+    $where = $lookupByReference ? 'cb.booking_reference = ?' : 'cb.id = ?';
     $bookingStmt = $pdo->prepare(
-        "SELECT cb.id, cb.booking_reference, cb.booking_date, cb.time_slot_id, ts.label AS time_label,
+        "SELECT cb.id, cb.booking_reference, cb.booking_date, cb.time_slot_id,
+                ts.label AS time_label, ts.starts_at, ts.ends_at, ts.sort_order,
                 cb.court_id, c.name AS court_name, cb.sport, cb.status, cb.customer_name,
                 cb.payment_method, cb.final_amount, cb.created_by_type, cb.created_by_id,
                 creator_admin.name AS creator_admin_name, creator_admin.role AS creator_admin_role,
@@ -1746,19 +2664,36 @@ function admin_booking_logs(PDO $pdo, int $bookingId, string $bookingReference =
          LEFT JOIN admin_users reviewer ON reviewer.id = cb.reviewed_by
          LEFT JOIN admin_users canceller ON canceller.id = cb.cancelled_by
          WHERE {$where}
-         LIMIT 1"
+         ORDER BY cb.booking_date, cb.court_id, ts.sort_order, cb.id"
     );
-    $bookingStmt->execute([$bookingId > 0 ? $bookingId : $bookingReference]);
-    $booking = $bookingStmt->fetch();
-    if (!$booking) {
+    $bookingStmt->execute([$bookingReference !== '' ? $bookingReference : $bookingId]);
+    $bookings = $bookingStmt->fetchAll();
+    if ($bookings === []) {
         json_response(['ok' => false, 'message' => 'Booking not found.'], 404);
     }
 
-    $bookingId = (int) $booking['id'];
+    $booking = $bookings[0];
     $bookingReference = trim((string) ($booking['booking_reference'] ?? $bookingReference));
+    $bookingIds = array_map(static fn (array $row): int => (int) $row['id'], $bookings);
+    $bookingId = $bookingIds[0] ?? (int) $booking['id'];
+    $unique = static fn (array $values): array => array_values(array_unique(array_filter(array_map(
+        static fn ($value): string => trim((string) $value),
+        $values
+    ), static fn (string $value): bool => $value !== '')));
+    $courtNames = $unique(array_map(static fn (array $row): string => trim((string) ($row['court_name'] ?? '')) ?: public_court_name((int) $row['court_id'], (string) $row['sport']), $bookings));
+    $dates = $unique(array_column($bookings, 'booking_date'));
+    $timeRanges = booking_history_time_range_labels($bookings, count($dates) > 1);
+    $sports = $unique(array_column($bookings, 'sport'));
+    $statuses = $unique(array_column($bookings, 'status'));
+    $paymentMethods = $unique(array_column($bookings, 'payment_method'));
+    $totalAmount = array_reduce($bookings, static fn (float $sum, array $row): float => $sum + (float) $row['final_amount'], 0.0);
+    $createdAt = array_reduce($bookings, static function (?string $earliest, array $row): string {
+        $value = (string) $row['created_at'];
+        return $earliest === null || strcmp($value, $earliest) < 0 ? $value : $earliest;
+    }, null) ?? (string) $booking['created_at'];
     $entries = [];
     $entries[] = booking_history_entry(
-        db_datetime_to_ph_atom($booking['created_at']) ?? date(DATE_ATOM, strtotime($booking['created_at'])),
+        db_datetime_to_ph_atom($createdAt) ?? date(DATE_ATOM, strtotime($createdAt)),
         booking_history_actor(
             $booking['created_by_type'],
             $booking['created_by_id'] !== null ? (int) $booking['created_by_id'] : null,
@@ -1769,33 +2704,63 @@ function admin_booking_logs(PDO $pdo, int $bookingId, string $bookingReference =
         '',
         [
             ['label' => 'Reference', 'value' => $bookingReference ?: 'N/A'],
-            ['label' => 'Date', 'value' => $booking['booking_date']],
-            ['label' => 'Time', 'value' => $booking['time_label']],
-            ['label' => 'Court', 'value' => trim((string) ($booking['court_name'] ?? '')) ?: public_court_name((int) $booking['court_id'], (string) $booking['sport'])],
-            ['label' => 'Sport', 'value' => $booking['sport']],
-            ['label' => 'Status', 'value' => $booking['status']],
-            ['label' => 'Payment', 'value' => $booking['payment_method']],
-            ['label' => 'Amount', 'value' => (string) $booking['final_amount']],
+            ['label' => 'Date', 'value' => implode(', ', $dates)],
+            ['label' => 'Time', 'value' => implode('; ', $timeRanges)],
+            ['label' => 'Court', 'value' => implode(', ', $courtNames)],
+            ['label' => 'Sport', 'value' => implode(', ', $sports)],
+            ['label' => 'Status', 'value' => implode(', ', $statuses)],
+            ['label' => 'Payment', 'value' => implode(', ', $paymentMethods)],
+            ['label' => 'Amount', 'value' => number_format($totalAmount, 2, '.', '')],
         ]
     );
 
-    if (!empty($booking['reviewed_at'])) {
+    $reviewGroups = [];
+    foreach ($bookings as $row) {
+        if (empty($row['reviewed_at'])) {
+            continue;
+        }
+        $key = implode('|', [$row['reviewed_at'], $row['reviewed_by_name'] ?? '', $row['reviewed_by_role'] ?? '']);
+        if (!isset($reviewGroups[$key])) {
+            $reviewGroups[$key] = ['row' => $row, 'rows' => []];
+        }
+        $reviewGroups[$key]['rows'][] = $row;
+    }
+    foreach ($reviewGroups as $group) {
+        $row = $group['row'];
         $entries[] = booking_history_entry(
-            date(DATE_ATOM, strtotime($booking['reviewed_at'])),
-            booking_history_actor('admin', null, $booking['reviewed_by_name'] ?? '', $booking['reviewed_by_role'] ?? ''),
+            date(DATE_ATOM, strtotime($row['reviewed_at'])),
+            booking_history_actor('admin', null, $row['reviewed_by_name'] ?? '', $row['reviewed_by_role'] ?? ''),
             'Booking confirmed',
             '',
-            [['label' => 'Status', 'value' => 'Booked']]
+            [
+                ['label' => 'Status', 'value' => 'Booked'],
+                ['label' => 'Time', 'value' => implode('; ', booking_history_time_range_labels($group['rows'], count($unique(array_column($group['rows'], 'booking_date'))) > 1))],
+            ]
         );
     }
 
-    if (!empty($booking['cancelled_at'])) {
+    $cancelGroups = [];
+    foreach ($bookings as $row) {
+        if (empty($row['cancelled_at'])) {
+            continue;
+        }
+        $key = implode('|', [$row['cancelled_at'], $row['cancelled_by_name'] ?? '', $row['cancelled_by_role'] ?? '', $row['cancel_reason'] ?? '']);
+        if (!isset($cancelGroups[$key])) {
+            $cancelGroups[$key] = ['row' => $row, 'rows' => []];
+        }
+        $cancelGroups[$key]['rows'][] = $row;
+    }
+    foreach ($cancelGroups as $group) {
+        $row = $group['row'];
         $entries[] = booking_history_entry(
-            date(DATE_ATOM, strtotime($booking['cancelled_at'])),
-            booking_history_actor('admin', null, $booking['cancelled_by_name'] ?? '', $booking['cancelled_by_role'] ?? ''),
+            date(DATE_ATOM, strtotime($row['cancelled_at'])),
+            booking_history_actor('admin', null, $row['cancelled_by_name'] ?? '', $row['cancelled_by_role'] ?? ''),
             'Booking cancelled',
-            $booking['cancel_reason'] ?? '',
-            [['label' => 'Status', 'value' => 'Cancelled']]
+            $row['cancel_reason'] ?? '',
+            [
+                ['label' => 'Status', 'value' => 'Cancelled'],
+                ['label' => 'Time', 'value' => implode('; ', booking_history_time_range_labels($group['rows'], count($unique(array_column($group['rows'], 'booking_date'))) > 1))],
+            ]
         );
     }
 
@@ -1812,7 +2777,15 @@ function admin_booking_logs(PDO $pdo, int $bookingId, string $bookingReference =
         $targetIds = array_filter(array_map('trim', explode(',', (string) ($row['target_id'] ?? ''))));
         $payload = json_decode((string) ($row['payload'] ?? ''), true);
         $payload = is_array($payload) ? $payload : [];
-        if (!in_array((string) $bookingId, $targetIds, true) && !override_payload_matches_booking($payload, $bookingId, $bookingReference)) {
+        $matchesTarget = array_intersect(array_map('strval', $bookingIds), $targetIds) !== [];
+        $matchesPayload = false;
+        foreach ($bookingIds as $id) {
+            if (override_payload_matches_booking($payload, $id, $bookingReference)) {
+                $matchesPayload = true;
+                break;
+            }
+        }
+        if (!$matchesTarget && !$matchesPayload) {
             continue;
         }
 
@@ -1830,9 +2803,10 @@ function admin_booking_logs(PDO $pdo, int $bookingId, string $bookingReference =
     return [
         'booking' => [
             'id' => $bookingId,
+            'ids' => $bookingIds,
             'reference' => $bookingReference,
             'customerName' => $booking['customer_name'],
-            'status' => $booking['status'],
+            'status' => implode(', ', $statuses),
         ],
         'logs' => $entries,
     ];
@@ -1850,6 +2824,11 @@ if ($action === 'admin-booking-logs') {
     $id = (int) str_replace('court:', '', (string) ($_GET['id'] ?? ''));
     $reference = trim((string) ($_GET['reference'] ?? ''));
     json_response(['ok' => true] + admin_booking_logs($pdo, $id, $reference));
+}
+
+if ($action === 'admin-bookings') {
+    require_admin_json();
+    json_response(['ok' => true] + admin_booking_page($pdo, admin_booking_request_options()));
 }
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
@@ -2567,20 +3546,151 @@ if ($action === 'admin-booking-update') {
     ]);
 }
 
+if ($action === 'admin-holiday-schedule') {
+    $admin = function_exists('require_operations_admin_json') ? require_operations_admin_json() : require_admin_json();
+    ensure_rate_management_schema($pdo);
+
+    $id = (int) ($_POST['id'] ?? 0);
+    $date = (string) require_field('date');
+    $holidayName = trim((string) require_field('holidayName'));
+    $reason = trim((string) ($_POST['reason'] ?? 'Holiday schedule change'));
+    if ($reason === '') {
+        $reason = 'Holiday schedule change';
+    }
+
+    $parsedDate = DateTimeImmutable::createFromFormat('!Y-m-d', $date);
+    if (!$parsedDate || $parsedDate->format('Y-m-d') !== $date) {
+        json_response(['ok' => false, 'message' => 'Enter a valid holiday date.'], 422);
+    }
+    if ($holidayName === '' || strlen($holidayName) > 160) {
+        json_response(['ok' => false, 'message' => 'Enter a valid holiday name.'], 422);
+    }
+
+    if ($id > 0) {
+        $stmt = $pdo->prepare('SELECT * FROM holiday_schedules WHERE id = ?');
+        $stmt->execute([$id]);
+        $previous = $stmt->fetch();
+        if (!$previous) {
+            json_response(['ok' => false, 'message' => 'Holiday schedule not found.'], 404);
+        }
+
+        $duplicate = $pdo->prepare('SELECT id FROM holiday_schedules WHERE `date` = ? AND id <> ? LIMIT 1');
+        $duplicate->execute([$date, $id]);
+        if ($duplicate->fetch()) {
+            json_response(['ok' => false, 'message' => 'A holiday schedule already exists for this date.'], 409);
+        }
+
+        $pdo->beginTransaction();
+        try {
+            $stmt = $pdo->prepare('UPDATE holiday_schedules SET `date` = ?, holiday_name = ? WHERE id = ?');
+            $stmt->execute([$date, $holidayName, $id]);
+
+            $stmt = $pdo->prepare('SELECT * FROM holiday_schedules WHERE id = ?');
+            $stmt->execute([$id]);
+            $current = $stmt->fetch();
+            write_holiday_schedule_audit($pdo, $id, (int) $admin['id'], 'updated', $previous, $current ?: null, $reason);
+            $pdo->commit();
+        } catch (Throwable $exception) {
+            if ($pdo->inTransaction()) {
+                $pdo->rollBack();
+            }
+            if (is_database_write_conflict($exception)) {
+                json_response(['ok' => false, 'message' => 'A holiday schedule already exists for this date.'], 409);
+            }
+            throw $exception;
+        }
+    } else {
+        $duplicate = $pdo->prepare('SELECT id FROM holiday_schedules WHERE `date` = ? LIMIT 1');
+        $duplicate->execute([$date]);
+        if ($duplicate->fetch()) {
+            json_response(['ok' => false, 'message' => 'A holiday schedule already exists for this date.'], 409);
+        }
+
+        $pdo->beginTransaction();
+        try {
+            $stmt = $pdo->prepare('INSERT INTO holiday_schedules (`date`, holiday_name) VALUES (?, ?)');
+            $stmt->execute([$date, $holidayName]);
+            $id = (int) $pdo->lastInsertId();
+
+            $stmt = $pdo->prepare('SELECT * FROM holiday_schedules WHERE id = ?');
+            $stmt->execute([$id]);
+            $current = $stmt->fetch();
+            write_holiday_schedule_audit($pdo, $id, (int) $admin['id'], 'created', null, $current ?: null, $reason);
+            $pdo->commit();
+        } catch (Throwable $exception) {
+            if ($pdo->inTransaction()) {
+                $pdo->rollBack();
+            }
+            if (is_database_write_conflict($exception)) {
+                json_response(['ok' => false, 'message' => 'A holiday schedule already exists for this date.'], 409);
+            }
+            throw $exception;
+        }
+    }
+
+    json_response([
+        'ok' => true,
+        'message' => 'Holiday schedule saved.',
+        'state' => get_state($pdo, true),
+    ]);
+}
+
+if ($action === 'admin-holiday-delete') {
+    $admin = function_exists('require_operations_admin_json') ? require_operations_admin_json() : require_admin_json();
+    ensure_rate_management_schema($pdo);
+
+    $id = (int) require_field('id');
+    $stmt = $pdo->prepare('SELECT * FROM holiday_schedules WHERE id = ?');
+    $stmt->execute([$id]);
+    $previous = $stmt->fetch();
+    if (!$previous) {
+        json_response(['ok' => false, 'message' => 'Holiday schedule not found.'], 404);
+    }
+
+    $reason = trim((string) ($_POST['reason'] ?? 'Holiday schedule deleted'));
+    if ($reason === '') {
+        $reason = 'Holiday schedule deleted';
+    }
+
+    $pdo->beginTransaction();
+    try {
+        $delete = $pdo->prepare('DELETE FROM holiday_schedules WHERE id = ?');
+        $delete->execute([$id]);
+        write_holiday_schedule_audit($pdo, null, (int) $admin['id'], 'deleted', $previous, null, $reason);
+        $pdo->commit();
+    } catch (Throwable $exception) {
+        if ($pdo->inTransaction()) {
+            $pdo->rollBack();
+        }
+        throw $exception;
+    }
+
+    json_response([
+        'ok' => true,
+        'message' => 'Holiday schedule deleted.',
+        'state' => get_state($pdo, true),
+    ]);
+}
+
 if ($action === 'admin-rate-rule') {
     $admin = function_exists('require_operations_admin_json') ? require_operations_admin_json() : require_admin_json();
+    ensure_rate_management_schema($pdo);
 
     $id = (int) ($_POST['id'] ?? 0);
     $courtValue = (string) require_field('courtId');
     $sport = require_field('sport');
     $daySelection = (string) ($_POST['dayOfWeek'] ?? 'Any');
-    $rateMode = $id > 0 ? 'single' : (string) ($_POST['rateMode'] ?? 'single');
     $pricePerHour = (float) require_field('pricePerHour');
     $reason = trim((string) ($_POST['reason'] ?? 'Regular rate'));
+    $effectiveDate = trim((string) ($_POST['effectiveDate'] ?? date('Y-m-d')));
+    $advanceBookingChoice = trim((string) ($_POST['advanceBookingChoice'] ?? ''));
     if ($reason === '') {
         $reason = 'Regular rate';
     }
 
+    if (!valid_date_string($effectiveDate)) {
+        json_response(['ok' => false, 'message' => 'Use a valid effective date.'], 422);
+    }
     if (!in_array($sport, ['Pickleball', 'Basketball', 'Volleyball'], true)) {
         json_response(['ok' => false, 'message' => 'Invalid sport.'], 422);
     }
@@ -2621,6 +3731,14 @@ if ($action === 'admin-rate-rule') {
         $courtIds = [$courtId];
     }
 
+    if ($id > 0) {
+        $stmt = $pdo->prepare('SELECT COUNT(*) FROM rates WHERE id = ?');
+        $stmt->execute([$id]);
+        if ((int) $stmt->fetchColumn() === 0) {
+            json_response(['ok' => false, 'message' => 'Rate not found.'], 404);
+        }
+    }
+
     $slotIds = [];
     $normalizeTime = static function (string $value): ?string {
         $value = trim($value);
@@ -2631,203 +3749,182 @@ if ($action === 'admin-rate-rule') {
         return $matches[1] . ':' . $matches[2] . ':00';
     };
 
-    if ($id > 0) {
-        $courtId = $courtIds[0];
-        $dayOfWeek = $daySelections[0];
-        $timeSlotId = (int) require_field('timeSlotId');
-        $stmt = $pdo->prepare('SELECT COUNT(*) FROM time_slots WHERE id = ?');
-        $stmt->execute([$timeSlotId]);
-        if ((int) $stmt->fetchColumn() === 0) {
-            json_response(['ok' => false, 'message' => 'Invalid time slot.'], 422);
+    $rangeStart = $normalizeTime((string) ($_POST['rangeStart'] ?? ''));
+    $rangeEnd = $normalizeTime((string) ($_POST['rangeEnd'] ?? ''));
+    if ($rangeStart === null || $rangeEnd === null) {
+        json_response(['ok' => false, 'message' => 'Select a valid start and end time.'], 422);
+    }
+    $rangeStartMinutes = time_minutes_for_range($rangeStart);
+    $rangeEndMinutes = time_minutes_for_range($rangeEnd, true);
+    if ($rangeEndMinutes <= $rangeStartMinutes) {
+        json_response(['ok' => false, 'message' => 'End time must be after start time.'], 422);
+    }
+
+    $slotRows = $pdo->query('SELECT id, starts_at, ends_at FROM time_slots ORDER BY sort_order, id')->fetchAll();
+    foreach ($slotRows as $slotRow) {
+        $slotStart = time_minutes_for_range((string) $slotRow['starts_at']);
+        $slotEnd = time_minutes_for_range((string) $slotRow['ends_at'], true);
+        if ($slotStart >= $rangeStartMinutes && $slotEnd <= $rangeEndMinutes) {
+            $slotIds[] = (int) $slotRow['id'];
         }
+    }
+    if ($slotIds === []) {
+        json_response(['ok' => false, 'message' => 'No hourly slots exist inside the selected range.'], 422);
+    }
 
-        $duplicate = $pdo->prepare(
-            'SELECT id FROM rates
-             WHERE court_id = ?
-               AND sport = ?
-               AND day_of_week = ?
-               AND time_slot_id = ?
-               AND id <> ?
-             LIMIT 1'
-        );
-        $duplicate->execute([$courtId, $sport, $dayOfWeek, $timeSlotId, $id]);
-        if ($duplicate->fetch()) {
-            json_response(['ok' => false, 'message' => 'Duplicate rate found for the same court, sport, and time slot.'], 409);
-        }
-
-        $stmt = $pdo->prepare('SELECT * FROM rates WHERE id = ?');
-        $stmt->execute([$id]);
-        $previous = $stmt->fetch();
-        if (!$previous) {
-            json_response(['ok' => false, 'message' => 'Rate not found.'], 404);
-        }
-
-        $stmt = $pdo->prepare(
-            'UPDATE rates
-             SET court_id = ?, sport = ?, day_of_week = ?, time_slot_id = ?, rate_per_hour = ?
-             WHERE id = ?'
-        );
-        $stmt->execute([
-            $courtId, $sport, $dayOfWeek, $timeSlotId, $pricePerHour, $id,
-        ]);
-        $actionName = 'updated';
-
-        $stmt = $pdo->prepare('SELECT * FROM rates WHERE id = ?');
-        $stmt->execute([$id]);
-        $current = $stmt->fetch();
-
-        $audit = $pdo->prepare(
-            'INSERT INTO rate_audit_logs (rate_id, admin_id, action, previous_payload, new_payload, reason)
-             VALUES (?, ?, ?, ?, ?, ?)'
-        );
-        $audit->execute([
-            $id,
-            (int) $admin['id'],
-            $actionName,
-            json_encode($previous, JSON_THROW_ON_ERROR),
-            json_encode($current, JSON_THROW_ON_ERROR),
-            $reason,
-        ]);
-    } else {
-        if (!in_array($rateMode, ['single', 'range'], true)) {
-            json_response(['ok' => false, 'message' => 'Invalid rate mode.'], 422);
-        }
-
-        if ($rateMode === 'range') {
-            $rangeStart = $normalizeTime((string) ($_POST['rangeStart'] ?? ''));
-            $rangeEnd = $normalizeTime((string) ($_POST['rangeEnd'] ?? ''));
-            if ($rangeStart === null || $rangeEnd === null) {
-                json_response(['ok' => false, 'message' => 'Select a valid start and end time.'], 422);
-            }
-            $rangeStartMinutes = time_minutes_for_range($rangeStart);
-            $rangeEndMinutes = time_minutes_for_range($rangeEnd, true);
-            if ($rangeEndMinutes <= $rangeStartMinutes) {
-                json_response(['ok' => false, 'message' => 'End time must be after start time.'], 422);
-            }
-
-            $slotRows = $pdo->query('SELECT id, starts_at, ends_at FROM time_slots ORDER BY sort_order, id')->fetchAll();
-            $slotIds = [];
-            foreach ($slotRows as $slotRow) {
-                $slotStart = time_minutes_for_range((string) $slotRow['starts_at']);
-                $slotEnd = time_minutes_for_range((string) $slotRow['ends_at'], true);
-                if ($slotStart >= $rangeStartMinutes && $slotEnd <= $rangeEndMinutes) {
-                    $slotIds[] = (int) $slotRow['id'];
+    $sameVersionCheck = $pdo->prepare(
+        'SELECT COUNT(*) FROM rates
+         WHERE court_id = ? AND sport = ? AND day_of_week = ? AND time_slot_id = ? AND effective_date = ?'
+    );
+    foreach ($courtIds as $courtId) {
+        foreach ($daySelections as $dayOfWeek) {
+            foreach ($slotIds as $slotId) {
+                $sameVersionCheck->execute([$courtId, $sport, $dayOfWeek, $slotId, $effectiveDate]);
+                if ((int) $sameVersionCheck->fetchColumn() > 0) {
+                    json_response(['ok' => false, 'message' => 'A rate already exists for the same court, sport, day, time slot, and effective date. Choose a different effective date or delete the existing rate version first.'], 409);
                 }
             }
-            if ($slotIds === []) {
-                json_response(['ok' => false, 'message' => 'No hourly slots exist inside the selected range.'], 422);
-            }
-        } else {
-            $timeSlotId = (int) require_field('timeSlotId');
-            $stmt = $pdo->prepare('SELECT COUNT(*) FROM time_slots WHERE id = ?');
-            $stmt->execute([$timeSlotId]);
-            if ((int) $stmt->fetchColumn() === 0) {
-                json_response(['ok' => false, 'message' => 'Invalid time slot.'], 422);
-            }
-            $slotIds = [$timeSlotId];
         }
+    }
 
-        $lookup = $pdo->prepare(
-            'SELECT * FROM rates
-             WHERE court_id = ? AND sport = ? AND day_of_week = ? AND time_slot_id = ?
-             LIMIT 1'
-        );
-        $update = $pdo->prepare(
-            'UPDATE rates
-             SET rate_per_hour = ?
-             WHERE id = ?'
-        );
-        $insert = $pdo->prepare(
-            'INSERT INTO rates
-             (court_id, sport, day_of_week, time_slot_id, rate_per_hour)
-             VALUES (?, ?, ?, ?, ?)'
-        );
-        $selectCurrent = $pdo->prepare('SELECT * FROM rates WHERE id = ?');
-        $audit = $pdo->prepare(
-            'INSERT INTO rate_audit_logs (rate_id, admin_id, action, previous_payload, new_payload, reason)
-             VALUES (?, ?, ?, ?, ?, ?)'
-        );
+    $affectedBookings = advance_bookings_for_rate_change($pdo, $courtIds, $sport, $daySelections, $slotIds, $effectiveDate);
+    if ($affectedBookings !== [] && !in_array($advanceBookingChoice, ['update', 'keep'], true)) {
+        json_response([
+            'ok' => false,
+            'requiresAdvanceRateChoice' => true,
+            'message' => 'There are existing advance bookings affected by this rate change. Do you want to update them to the new rate or keep their current rates?',
+            'affectedBookings' => $affectedBookings,
+        ], 409);
+    }
 
-        $created = 0;
-        $updated = 0;
-        $pdo->beginTransaction();
-        try {
-            foreach ($courtIds as $courtId) {
-                foreach ($daySelections as $dayOfWeek) {
-                    foreach ($slotIds as $slotId) {
-                        $lookup->execute([$courtId, $sport, $dayOfWeek, $slotId]);
-                        $previous = $lookup->fetch();
-                        if ($previous) {
-                            $currentId = (int) $previous['id'];
-                            $update->execute([$pricePerHour, $currentId]);
-                            $actionName = 'updated';
-                            $updated++;
-                        } else {
-                            $insert->execute([$courtId, $sport, $dayOfWeek, $slotId, $pricePerHour]);
-                            $currentId = (int) $pdo->lastInsertId();
-                            $actionName = 'created';
-                            $created++;
-                        }
+    $insert = $pdo->prepare(
+        'INSERT INTO rates
+         (court_id, sport, day_of_week, time_slot_id, rate_per_hour, effective_date)
+         VALUES (?, ?, ?, ?, ?, ?)'
+    );
+    $selectPrevious = $pdo->prepare(
+        'SELECT * FROM rates
+         WHERE court_id = ? AND sport = ? AND day_of_week = ? AND time_slot_id = ? AND effective_date < ?
+         ORDER BY effective_date DESC, id DESC
+         LIMIT 1'
+    );
+    $selectCurrent = $pdo->prepare('SELECT * FROM rates WHERE id = ?');
+    $audit = $pdo->prepare(
+        'INSERT INTO rate_audit_logs (rate_id, admin_id, action, previous_payload, new_payload, reason)
+         VALUES (?, ?, ?, ?, ?, ?)'
+    );
 
-                        $selectCurrent->execute([$currentId]);
-                        $current = $selectCurrent->fetch();
-                        $audit->execute([
-                            $currentId,
-                            (int) $admin['id'],
-                            $actionName,
-                            $previous ? json_encode($previous, JSON_THROW_ON_ERROR) : null,
-                            json_encode($current, JSON_THROW_ON_ERROR),
-                            $reason,
-                        ]);
-                    }
+    $created = 0;
+    $updatedBookings = 0;
+    $pdo->beginTransaction();
+    try {
+        foreach ($courtIds as $courtId) {
+            foreach ($daySelections as $dayOfWeek) {
+                foreach ($slotIds as $slotId) {
+                    $selectPrevious->execute([$courtId, $sport, $dayOfWeek, $slotId, $effectiveDate]);
+                    $previous = $selectPrevious->fetch() ?: null;
+                    $insert->execute([$courtId, $sport, $dayOfWeek, $slotId, $pricePerHour, $effectiveDate]);
+                    $currentId = (int) $pdo->lastInsertId();
+                    $selectCurrent->execute([$currentId]);
+                    $current = $selectCurrent->fetch();
+                    $created++;
+
+                    $audit->execute([
+                        $currentId,
+                        (int) $admin['id'],
+                        $previous ? 'scheduled_adjustment' : 'created',
+                        $previous ? json_encode($previous, JSON_THROW_ON_ERROR) : null,
+                        json_encode($current, JSON_THROW_ON_ERROR),
+                        $reason,
+                    ]);
                 }
             }
-            $pdo->commit();
-        } catch (Throwable $exception) {
-            if ($pdo->inTransaction()) {
-                $pdo->rollBack();
-            }
-            throw $exception;
         }
+        if ($advanceBookingChoice === 'update' && $affectedBookings !== []) {
+            $affectedBookingIds = array_values(array_unique(array_map('intval', array_column($affectedBookings, 'id'))));
+            $updatedBookings = update_advance_bookings_for_rate_change($pdo, $affectedBookingIds);
+            write_override_log(
+                $pdo,
+                (int) $admin['id'],
+                'rate-adjustment-advance-bookings',
+                'court_booking',
+                implode(',', $affectedBookingIds),
+                'Advance booking rates updated after rate adjustment.',
+                [
+                    'bookingIds' => $affectedBookingIds,
+                    'effectiveDate' => $effectiveDate,
+                    'courtIds' => $courtIds,
+                    'sport' => $sport,
+                    'daySelections' => $daySelections,
+                    'timeSlotIds' => $slotIds,
+                    'ratePerHour' => $pricePerHour,
+                ]
+            );
+        }
+        $pdo->commit();
+    } catch (Throwable $exception) {
+        if ($pdo->inTransaction()) {
+            $pdo->rollBack();
+        }
+        throw $exception;
     }
 
     json_response([
         'ok' => true,
-        'message' => $id > 0
-            ? 'Rate saved.'
-            : sprintf('Rate saved for %d court%s, %d day%s, and %d slot%s%s.', count($courtIds), count($courtIds) === 1 ? '' : 's', count($daySelections), count($daySelections) === 1 ? '' : 's', count($slotIds), count($slotIds) === 1 ? '' : 's', isset($updated, $created) ? " ({$updated} updated, {$created} created)" : ''),
+        'message' => sprintf('Rate adjustment saved for %d court%s, %d day%s, and %d slot%s (%d new version%s, %d advance booking%s updated).', count($courtIds), count($courtIds) === 1 ? '' : 's', count($daySelections), count($daySelections) === 1 ? '' : 's', count($slotIds), count($slotIds) === 1 ? '' : 's', $created, $created === 1 ? '' : 's', $updatedBookings, $updatedBookings === 1 ? '' : 's'),
         'state' => get_state($pdo, true),
     ]);
 }
 
 if ($action === 'admin-rate-delete') {
-    $admin = require_admin_json();
-    $id = (int) require_field('id');
+    $admin = function_exists('require_operations_admin_json') ? require_operations_admin_json() : require_admin_json();
+    ensure_rate_management_schema($pdo);
 
-    $stmt = $pdo->prepare('SELECT * FROM rates WHERE id = ?');
-    $stmt->execute([$id]);
-    $previous = $stmt->fetch();
-    if (!$previous) {
+    $rawIds = trim((string) ($_POST['ids'] ?? ''));
+    $ids = [];
+    if ($rawIds !== '') {
+        foreach (explode(',', $rawIds) as $rawId) {
+            $id = (int) trim($rawId);
+            if ($id > 0 && !in_array($id, $ids, true)) {
+                $ids[] = $id;
+            }
+        }
+    }
+    if ($ids === []) {
+        $ids[] = (int) require_field('id');
+    }
+    $ids = array_values(array_filter(array_unique($ids), static fn (int $id): bool => $id > 0));
+    if ($ids === []) {
         json_response(['ok' => false, 'message' => 'Rate not found.'], 404);
     }
 
-    $delete = $pdo->prepare('DELETE FROM rates WHERE id = ?');
-    $delete->execute([$id]);
+    $placeholders = implode(',', array_fill(0, count($ids), '?'));
+    $stmt = $pdo->prepare("SELECT * FROM rates WHERE id IN ({$placeholders}) ORDER BY id");
+    $stmt->execute($ids);
+    $previousRows = $stmt->fetchAll();
+    if ($previousRows === []) {
+        json_response(['ok' => false, 'message' => 'Rate not found.'], 404);
+    }
+
+    $delete = $pdo->prepare("DELETE FROM rates WHERE id IN ({$placeholders})");
+    $delete->execute($ids);
 
     $audit = $pdo->prepare(
         'INSERT INTO rate_audit_logs (rate_id, admin_id, action, previous_payload, new_payload, reason)
          VALUES (NULL, ?, ?, ?, NULL, ?)'
     );
-    $audit->execute([
-        (int) $admin['id'],
-        'deleted',
-        json_encode($previous, JSON_THROW_ON_ERROR),
-        'Rate deleted from admin rate management.',
-    ]);
+    foreach ($previousRows as $previous) {
+        $audit->execute([
+            (int) $admin['id'],
+            'deleted',
+            json_encode($previous, JSON_THROW_ON_ERROR),
+            'Rate deleted from admin rate management.',
+        ]);
+    }
 
     json_response([
         'ok' => true,
-        'message' => 'Rate deleted.',
+        'message' => count($previousRows) === 1 ? 'Rate deleted.' : count($previousRows) . ' rate slots deleted.',
         'state' => get_state($pdo, true),
     ]);
 }
@@ -2968,7 +4065,7 @@ if ($action === 'admin-court-block') {
     $reason = require_field('reason');
     $notes = trim((string) ($_POST['notes'] ?? ''));
     $isActive = isset($_POST['isActive']) && $_POST['isActive'] === '1';
-    $overrideConfirm = isset($_POST['overrideConfirm']) && $_POST['overrideConfirm'] === '1';
+    $proceedAvailableOnly = isset($_POST['proceedAvailableOnly']) && $_POST['proceedAvailableOnly'] === '1';
     $allowedReasons = ['Maintenance', 'Private event', 'Tournament', 'Cleaning', 'Construction', 'Club activity'];
 
     if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $blockDate)) {
@@ -3011,13 +4108,24 @@ if ($action === 'admin-court-block') {
             $conflicts = array_merge($conflicts, active_bookings_for_block($pdo, $blockDate, $slotId, $courtId, $sport));
         }
     }
-    if ($conflicts !== [] && !$overrideConfirm) {
+    if ($conflicts !== [] && !$proceedAvailableOnly) {
+        $conflictSlotIds = array_values(array_unique(array_map('intval', array_column($conflicts, 'timeSlotId'))));
+        $availableSlotIds = array_values(array_diff($timeSlotIds, $conflictSlotIds));
         json_response([
             'ok' => false,
-            'requiresOverride' => true,
-            'message' => 'This block overlaps active reservations: ' . implode('; ', array_column($conflicts, 'summary')),
+            'requiresAvailabilityConfirm' => true,
+            'message' => 'Some selected slots already have bookings. Only available/unbooked slots will be blocked if you proceed.',
             'conflicts' => $conflicts,
+            'availableSlotCount' => count($availableSlotIds),
+            'bookedSlotCount' => count($conflictSlotIds),
         ], 409);
+    }
+    if ($conflicts !== [] && $proceedAvailableOnly) {
+        $conflictSlotIds = array_values(array_unique(array_map('intval', array_column($conflicts, 'timeSlotId'))));
+        $timeSlotIds = array_values(array_diff($timeSlotIds, $conflictSlotIds));
+        if ($timeSlotIds === []) {
+            json_response(['ok' => false, 'message' => 'All selected slots already have bookings. No court blocks were created.'], 422);
+        }
     }
 
     $status = $isActive ? 'Active' : 'Cancelled';
@@ -3025,75 +4133,98 @@ if ($action === 'admin-court-block') {
     $cancelledAt = $isActive ? null : date('Y-m-d H:i:s');
 
     $savedIds = [];
-    if ($id > 0) {
-        $stmt = $pdo->prepare('SELECT COUNT(*) FROM court_blocks WHERE id = ?');
-        $stmt->execute([$id]);
-        if ((int) $stmt->fetchColumn() === 0) {
-            json_response(['ok' => false, 'message' => 'Court block not found.'], 404);
+    $replacedIds = [];
+    $deleteBlocksForDateCourt = static function (string $date, ?int $courtId) use ($pdo): array {
+        if ($courtId === null) {
+            $select = $pdo->prepare('SELECT id FROM court_blocks WHERE block_date = ? AND court_id IS NULL');
+            $select->execute([$date]);
+            $ids = array_map('intval', array_column($select->fetchAll(), 'id'));
+            $delete = $pdo->prepare('DELETE FROM court_blocks WHERE block_date = ? AND court_id IS NULL');
+            $delete->execute([$date]);
+        } else {
+            $select = $pdo->prepare('SELECT id FROM court_blocks WHERE block_date = ? AND court_id = ?');
+            $select->execute([$date, $courtId]);
+            $ids = array_map('intval', array_column($select->fetchAll(), 'id'));
+            $delete = $pdo->prepare('DELETE FROM court_blocks WHERE block_date = ? AND court_id = ?');
+            $delete->execute([$date, $courtId]);
         }
 
-        $stmt = $pdo->prepare(
-            'UPDATE court_blocks
-             SET block_date = ?, time_slot_id = ?, court_id = ?, sport = ?, reason = ?, notes = ?,
-                 status = ?, cancelled_by = ?, cancelled_at = ?
-             WHERE id = ?'
-        );
-        $stmt->execute([$blockDate, $timeSlotId, $courtId, $sport, $reason, $notes, $status, $cancelledBy, $cancelledAt, $id]);
-        $savedIds[] = $id;
-        $remainingSlotIds = array_slice($timeSlotIds, 1);
-        if ($isActive && $remainingSlotIds !== []) {
-            $insert = $pdo->prepare(
-                'INSERT INTO court_blocks
-                 (block_date, time_slot_id, court_id, sport, reason, notes, status, created_by, cancelled_by, cancelled_at)
-                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
-            );
-            foreach ($remainingSlotIds as $slotId) {
-                $insert->execute([$blockDate, $slotId, $courtId, $sport, $reason, $notes, $status, (int) $admin['id'], $cancelledBy, $cancelledAt]);
+        return $ids;
+    };
+    $insertBlock = $pdo->prepare(
+        'INSERT INTO court_blocks
+         (block_date, time_slot_id, court_id, sport, reason, notes, status, created_by, cancelled_by, cancelled_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+    );
+
+    $pdo->beginTransaction();
+    try {
+        if ($id > 0) {
+            $stmt = $pdo->prepare('SELECT block_date, court_id FROM court_blocks WHERE id = ?');
+            $stmt->execute([$id]);
+            $existingBlock = $stmt->fetch();
+            if (!$existingBlock) {
+                $pdo->rollBack();
+                json_response(['ok' => false, 'message' => 'Court block not found.'], 404);
+            }
+
+            $oldDate = (string) $existingBlock['block_date'];
+            $oldCourtId = $existingBlock['court_id'] !== null ? (int) $existingBlock['court_id'] : null;
+            $replacedIds = array_merge($replacedIds, $deleteBlocksForDateCourt($oldDate, $oldCourtId));
+            if ($oldDate !== $blockDate || $oldCourtId !== $courtId) {
+                $replacedIds = array_merge($replacedIds, $deleteBlocksForDateCourt($blockDate, $courtId));
+            }
+
+            foreach ($timeSlotIds as $slotId) {
+                $insertBlock->execute([$blockDate, $slotId, $courtId, $sport, $reason, $notes, $status, (int) $admin['id'], $cancelledBy, $cancelledAt]);
                 $savedIds[] = (int) $pdo->lastInsertId();
             }
+            $message = count($savedIds) > 1
+                ? 'Court block range updated.'
+                : ($isActive ? 'Court block updated.' : 'Court block cancelled.');
+        } else {
+            $replacedIds = array_merge($replacedIds, $deleteBlocksForDateCourt($blockDate, $courtId));
+            foreach ($timeSlotIds as $slotId) {
+                $insertBlock->execute([$blockDate, $slotId, $courtId, $sport, $reason, $notes, $status, (int) $admin['id'], $cancelledBy, $cancelledAt]);
+                $savedIds[] = (int) $pdo->lastInsertId();
+            }
+            $id = $savedIds[0] ?? 0;
+            $message = $isActive
+                ? (count($savedIds) > 1 ? 'Court block range created.' : 'Court block created.')
+                : 'Cancelled block record saved.';
         }
-        $message = count($savedIds) > 1
-            ? 'Court block range updated.'
-            : ($isActive ? 'Court block updated.' : 'Court block cancelled.');
-    } else {
-        $stmt = $pdo->prepare(
-            'INSERT INTO court_blocks
-             (block_date, time_slot_id, court_id, sport, reason, notes, status, created_by, cancelled_by, cancelled_at)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
-        );
-        foreach ($timeSlotIds as $slotId) {
-            $stmt->execute([$blockDate, $slotId, $courtId, $sport, $reason, $notes, $status, (int) $admin['id'], $cancelledBy, $cancelledAt]);
-            $savedIds[] = (int) $pdo->lastInsertId();
-        }
-        $id = $savedIds[0] ?? 0;
-        $message = $isActive
-            ? (count($savedIds) > 1 ? 'Court block range created.' : 'Court block created.')
-            : 'Cancelled block record saved.';
-    }
 
-    write_override_log(
-        $pdo,
-        (int) $admin['id'],
-        'court-block-override',
-        'court_block',
-        implode(',', $savedIds),
-        implode('; ', array_column($conflicts, 'summary')),
-        [
-            'blockIds' => $savedIds,
-            'status' => $status,
-            'isActive' => $isActive,
-            'overrideConfirmed' => $overrideConfirm,
-            'block' => [
-                'blockDate' => $blockDate,
-                'timeSlotIds' => $timeSlotIds,
-                'courtId' => $courtId,
-                'sport' => $sport,
-                'reason' => $reason,
-                'notes' => $notes,
-            ],
-            'conflicts' => $conflicts,
-        ]
-    );
+        write_override_log(
+            $pdo,
+            (int) $admin['id'],
+            'court-block-override',
+            'court_block',
+            implode(',', $savedIds),
+            implode('; ', array_column($conflicts, 'summary')),
+            [
+                'blockIds' => $savedIds,
+                'replacedBlockIds' => array_values(array_unique($replacedIds)),
+                'status' => $status,
+                'isActive' => $isActive,
+                'proceededWithAvailableSlotsOnly' => $proceedAvailableOnly,
+                'block' => [
+                    'blockDate' => $blockDate,
+                    'timeSlotIds' => $timeSlotIds,
+                    'courtId' => $courtId,
+                    'sport' => $sport,
+                    'reason' => $reason,
+                    'notes' => $notes,
+                ],
+                'conflicts' => $conflicts,
+            ]
+        );
+        $pdo->commit();
+    } catch (Throwable $exception) {
+        if ($pdo->inTransaction()) {
+            $pdo->rollBack();
+        }
+        json_response(['ok' => false, 'message' => 'Could not save court blocking.'], 500);
+    }
 
     json_response([
         'ok' => true,
@@ -3147,15 +4278,40 @@ if ($action === 'admin-court-block-status') {
                 'conflicts' => $conflicts,
             ], 409);
         }
+
+        $seenDateCourts = [];
+        foreach ($rows as $row) {
+            $dateCourtKey = $row['block_date'] . '|' . ($row['court_id'] ?? 'null');
+            if (isset($seenDateCourts[$dateCourtKey])) {
+                continue;
+            }
+            $seenDateCourts[$dateCourtKey] = true;
+
+            if ($row['court_id'] === null) {
+                $duplicateStmt = $pdo->prepare(
+                    "SELECT COUNT(*) FROM court_blocks
+                     WHERE block_date = ? AND court_id IS NULL AND id NOT IN ({$placeholders})"
+                );
+                $duplicateStmt->execute(array_merge([(string) $row['block_date']], $ids));
+            } else {
+                $duplicateStmt = $pdo->prepare(
+                    "SELECT COUNT(*) FROM court_blocks
+                     WHERE block_date = ? AND court_id = ? AND id NOT IN ({$placeholders})"
+                );
+                $duplicateStmt->execute(array_merge([(string) $row['block_date'], (int) $row['court_id']], $ids));
+            }
+
+            if ((int) $duplicateStmt->fetchColumn() > 0) {
+                json_response(['ok' => false, 'message' => 'Another court blocking record already exists for the same date and court. Edit the block details to replace it.'], 409);
+            }
+        }
     }
 
     $status = $isActive ? 'Active' : 'Cancelled';
-    $cancelledBy = $isActive ? null : (int) $admin['id'];
-    $cancelledAt = $isActive ? null : date('Y-m-d H:i:s');
-    $params = array_merge([$status, $cancelledBy, $cancelledAt], $ids);
+    $params = array_merge([$status], $ids);
     $stmt = $pdo->prepare(
         "UPDATE court_blocks
-         SET status = ?, cancelled_by = ?, cancelled_at = ?
+         SET status = ?
          WHERE id IN ({$placeholders})"
     );
     $stmt->execute($params);
@@ -3440,24 +4596,65 @@ if ($action === 'admin-receipt-upload') {
 
 if ($action === 'admin-entrance-fee') {
     $admin = require_members_admin_json();
+    ensure_entrance_fee_activity_columns($pdo);
 
     $memberId = (int) require_field('memberId');
-    $amount = (float) ($_POST['amount'] ?? 50);
-    $paymentDate = trim((string) ($_POST['paymentDate'] ?? date('Y-m-d')));
-    $paymentTime = trim((string) ($_POST['paymentTime'] ?? date('H:i')));
+    $entryType = ($_POST['entryType'] ?? '') === 'op' ? 'op' : 'entrance_fee';
+    $amount = 50.00;
+    $paymentTimezone = new DateTimeZone('Asia/Manila');
+    $paymentNow = new DateTimeImmutable('now', $paymentTimezone);
+    $paymentDate = $paymentNow->format('Y-m-d');
+    $paymentTime = $paymentNow->format('H:i');
+    $playDate = trim((string) ($_POST['playDate'] ?? ($_POST['paymentDate'] ?? '')));
+    $playStartTime = trim((string) ($_POST['playStartTime'] ?? ($_POST['paymentTime'] ?? '')));
+    $playEndTime = trim((string) ($_POST['playEndTime'] ?? ''));
+    $isHourlyTime = static function (string $value, bool $allowEndOfDay = false): bool {
+        if ($allowEndOfDay && $value === '24:00') {
+            return true;
+        }
+        return (bool) preg_match('/^(?:[01]\d|2[0-3]):00$/', $value);
+    };
+    $playedHours = 0.00;
     $bookingId = (int) ($_POST['bookingId'] ?? 0);
     $referenceNumber = trim((string) ($_POST['referenceNumber'] ?? ''));
-    $paymentMethod = trim((string) ($_POST['paymentMethod'] ?? 'Cash'));
+    $paymentMethod = null;
+    if ($entryType === 'entrance_fee') {
+        $paymentMethod = require_field('paymentMethod');
+        if (strcasecmp($paymentMethod, 'Cash') !== 0) {
+            require_active_payment_channel($pdo, $paymentMethod);
+        } else {
+            $paymentMethod = 'Cash';
+        }
+    }
     $notes = trim((string) ($_POST['notes'] ?? ''));
 
-    if ($amount <= 0) {
+    if ($entryType === 'entrance_fee' && $amount <= 0) {
         json_response(['ok' => false, 'message' => 'Entrance fee amount must be greater than zero.'], 422);
     }
-    if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $paymentDate)) {
-        json_response(['ok' => false, 'message' => 'Use a valid payment date.'], 422);
+    if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $playDate)) {
+        json_response(['ok' => false, 'message' => 'Use a valid date of play.'], 422);
     }
-    if (!preg_match('/^\d{2}:\d{2}$/', $paymentTime)) {
-        json_response(['ok' => false, 'message' => 'Use a valid payment time.'], 422);
+    if ($entryType === 'entrance_fee' && !$isHourlyTime($playStartTime)) {
+        json_response(['ok' => false, 'message' => 'Use a valid hourly start time of play.'], 422);
+    }
+
+    if (!$isHourlyTime($playStartTime) || !$isHourlyTime($playEndTime, true)) {
+        json_response(['ok' => false, 'message' => 'Use a valid hourly time of play range.'], 422);
+    }
+    $startMinutes = ((int) substr($playStartTime, 0, 2) * 60) + (int) substr($playStartTime, 3, 2);
+    $endMinutes = ((int) substr($playEndTime, 0, 2) * 60) + (int) substr($playEndTime, 3, 2);
+    if ($endMinutes <= $startMinutes) {
+        json_response(['ok' => false, 'message' => 'End time of play must be later than start time.'], 422);
+    }
+    $playedHours = round(($endMinutes - $startMinutes) / 60, 2);
+
+    $playAt = DateTimeImmutable::createFromFormat('!Y-m-d H:i', "{$playDate} {$playStartTime}", $paymentTimezone);
+    if (!$playAt) {
+        json_response(['ok' => false, 'message' => 'Use a valid date and time of play.'], 422);
+    }
+    $nowMinute = $paymentNow->setTime((int) $paymentNow->format('H'), (int) $paymentNow->format('i'), 0);
+    if ($playAt < $nowMinute) {
+        json_response(['ok' => false, 'message' => 'Date and time of play cannot be in the past.'], 422);
     }
 
     $stmt = $pdo->prepare('SELECT COUNT(*) FROM members WHERE id = ?');
@@ -3466,17 +4663,32 @@ if ($action === 'admin-entrance-fee') {
         json_response(['ok' => false, 'message' => 'Member not found.'], 404);
     }
 
-    $receipt = save_receipt($receiptUploadDir);
     $stmt = $pdo->prepare(
         'INSERT INTO member_entrance_fee_payments
-         (member_id, amount, payment_date, payment_time, booking_id, reference_number, payment_method, receipt_path, recorded_by, notes)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+         (member_id, entry_type, amount, payment_date, payment_time, play_date, play_start_time, play_end_time, played_hours, booking_id, reference_number, payment_method, receipt_path, recorded_by, notes)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
     );
-    $stmt->execute([$memberId, $amount, $paymentDate, $paymentTime . ':00', $bookingId > 0 ? $bookingId : null, $referenceNumber, $paymentMethod, $receipt, (int) $admin['id'], $notes]);
+    $stmt->execute([
+        $memberId,
+        $entryType,
+        $amount,
+        $paymentDate,
+        $paymentTime . ':00',
+        $playDate,
+        $playStartTime . ':00',
+        $playEndTime . ':00',
+        $playedHours,
+        $bookingId > 0 ? $bookingId : null,
+        $entryType === 'op' ? '' : $referenceNumber,
+        $paymentMethod,
+        null,
+        (int) $admin['id'],
+        $notes,
+    ]);
 
     json_response([
         'ok' => true,
-        'message' => 'Entrance fee recorded.',
+        'message' => $entryType === 'op' ? 'OP hours recorded.' : 'Entrance fee recorded.',
         'state' => get_state($pdo, true),
     ]);
 }

@@ -5,12 +5,22 @@ $admin = require_admin_menu('admin-reports');
 $pageTitle = 'Reports';
 $active = 'admin-reports';
 $pdo = db();
-$today = date('Y-m-d');
-$startDate = $_GET['start'] ?? date('Y-m-d', strtotime('-13 days'));
+$reportTimezone = new DateTimeZone('Asia/Manila');
+$todayDate = new DateTimeImmutable('now', $reportTimezone);
+$today = $todayDate->format('Y-m-d');
+$defaultStartDate = $todayDate->modify('-13 days')->format('Y-m-d');
+$startDate = $_GET['start'] ?? $defaultStartDate;
 $endDate = $_GET['end'] ?? $today;
+$breakdown = strtolower((string) ($_GET['breakdown'] ?? 'daily'));
+$breakdownOptions = [
+    'hourly' => 'Hourly',
+    'daily' => 'Daily',
+    'weekly' => 'Weekly',
+    'monthly' => 'Monthly',
+];
 
 if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', (string) $startDate)) {
-    $startDate = date('Y-m-d', strtotime('-13 days'));
+    $startDate = $defaultStartDate;
 }
 if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', (string) $endDate)) {
     $endDate = $today;
@@ -18,101 +28,93 @@ if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', (string) $endDate)) {
 if ($startDate > $endDate) {
     [$startDate, $endDate] = [$endDate, $startDate];
 }
+if (!array_key_exists($breakdown, $breakdownOptions)) {
+    $breakdown = 'daily';
+}
 
-$memberStats = $pdo->query(
-    'SELECT COUNT(*) AS total_members,
-            SUM(CASE WHEN is_active = 1 THEN 1 ELSE 0 END) AS active_members
-     FROM members'
-)->fetch() ?: ['total_members' => 0, 'active_members' => 0];
+$periodExpressions = [
+    'hourly' => [
+        'select' => "STR_TO_DATE(CONCAT(ef.payment_date, ' ', LPAD(HOUR(ef.payment_time), 2, '0'), ':00:00'), '%Y-%m-%d %H:%i:%s')",
+        'order' => "STR_TO_DATE(CONCAT(ef.payment_date, ' ', LPAD(HOUR(ef.payment_time), 2, '0'), ':00:00'), '%Y-%m-%d %H:%i:%s')",
+    ],
+    'daily' => [
+        'select' => 'ef.payment_date',
+        'order' => 'ef.payment_date',
+    ],
+    'weekly' => [
+        'select' => 'DATE_SUB(ef.payment_date, INTERVAL WEEKDAY(ef.payment_date) DAY)',
+        'order' => 'DATE_SUB(ef.payment_date, INTERVAL WEEKDAY(ef.payment_date) DAY)',
+    ],
+    'monthly' => [
+        'select' => "DATE_FORMAT(ef.payment_date, '%Y-%m-01')",
+        'order' => "DATE_FORMAT(ef.payment_date, '%Y-%m-01')",
+    ],
+];
+$periodSelect = $periodExpressions[$breakdown]['select'];
+$periodOrder = $periodExpressions[$breakdown]['order'];
 
-$todayBookingsStmt = $pdo->prepare(
+$totalBookingsStmt = $pdo->prepare(
     "SELECT COUNT(*) FROM (
-        SELECT id FROM court_bookings WHERE booking_date = ? AND status IN ('Held','Booked')
+        SELECT id FROM court_bookings
+        WHERE booking_date BETWEEN ? AND ? AND status IN ('Held','Booked')
         UNION ALL
         SELECT opr.id FROM open_play_reservations opr
         JOIN open_play_sessions ops ON ops.id = opr.session_id
-        WHERE ops.session_date = ? AND opr.status IN ('Held','Booked')
-    ) daily_bookings"
+        WHERE ops.session_date BETWEEN ? AND ? AND opr.status IN ('Held','Booked')
+    ) range_bookings"
 );
-$todayBookingsStmt->execute([$today, $today]);
-$todayBookings = (int) $todayBookingsStmt->fetchColumn();
+$totalBookingsStmt->execute([$startDate, $endDate, $startDate, $endDate]);
+$totalBookings = (int) $totalBookingsStmt->fetchColumn();
 
-$todayFeesStmt = $pdo->prepare('SELECT COALESCE(SUM(amount), 0) FROM member_entrance_fee_payments WHERE payment_date = ?');
-$todayFeesStmt->execute([$today]);
-$todayFees = (float) $todayFeesStmt->fetchColumn();
-
-$rangeFeesStmt = $pdo->prepare('SELECT COALESCE(SUM(amount), 0) FROM member_entrance_fee_payments WHERE payment_date BETWEEN ? AND ?');
-$rangeFeesStmt->execute([$startDate, $endDate]);
-$rangeFees = (float) $rangeFeesStmt->fetchColumn();
-
-$bookingRowsStmt = $pdo->prepare(
-    "SELECT report_date,
-            SUM(bookings_count) AS bookings_count,
-            SUM(held_count) AS held_count,
-            SUM(booked_count) AS booked_count,
-            SUM(cancelled_count) AS cancelled_count
-     FROM (
-        SELECT booking_date AS report_date,
-               COUNT(*) AS bookings_count,
-               SUM(CASE WHEN status = 'Held' THEN 1 ELSE 0 END) AS held_count,
-               SUM(CASE WHEN status = 'Booked' THEN 1 ELSE 0 END) AS booked_count,
-               SUM(CASE WHEN status = 'Cancelled' THEN 1 ELSE 0 END) AS cancelled_count
-        FROM court_bookings
-        WHERE booking_date BETWEEN ? AND ?
-        GROUP BY booking_date
-        UNION ALL
-        SELECT ops.session_date AS report_date,
-               COUNT(*) AS bookings_count,
-               SUM(CASE WHEN opr.status = 'Held' THEN 1 ELSE 0 END) AS held_count,
-               SUM(CASE WHEN opr.status = 'Booked' THEN 1 ELSE 0 END) AS booked_count,
-               SUM(CASE WHEN opr.status = 'Cancelled' THEN 1 ELSE 0 END) AS cancelled_count
-        FROM open_play_reservations opr
-        JOIN open_play_sessions ops ON ops.id = opr.session_id
-        WHERE ops.session_date BETWEEN ? AND ?
-        GROUP BY ops.session_date
-     ) daily
-     GROUP BY report_date
-     ORDER BY report_date DESC"
-);
-$bookingRowsStmt->execute([$startDate, $endDate, $startDate, $endDate]);
-$bookingRows = $bookingRowsStmt->fetchAll();
-
-$feeRowsStmt = $pdo->prepare(
-    'SELECT payment_date, COUNT(*) AS fee_count, COALESCE(SUM(amount), 0) AS fee_total
+$paymentSummaryStmt = $pdo->prepare(
+    "SELECT COUNT(DISTINCT member_id) AS total_players,
+            COALESCE(SUM(amount), 0) AS total_cash_payment
      FROM member_entrance_fee_payments
-     WHERE payment_date BETWEEN ? AND ?
-     GROUP BY payment_date'
+     WHERE payment_date BETWEEN ? AND ?"
 );
-$feeRowsStmt->execute([$startDate, $endDate]);
-$feeRows = [];
-foreach ($feeRowsStmt->fetchAll() as $row) {
-    $feeRows[(string) $row['payment_date']] = $row;
-}
+$paymentSummaryStmt->execute([$startDate, $endDate]);
+$paymentSummary = $paymentSummaryStmt->fetch() ?: ['total_players' => 0, 'total_cash_payment' => 0];
 
-$dailyRows = [];
-$cursor = new DateTimeImmutable($endDate);
-$stop = new DateTimeImmutable($startDate);
-$bookingByDate = [];
-foreach ($bookingRows as $row) {
-    $bookingByDate[(string) $row['report_date']] = $row;
-}
-while ($cursor >= $stop) {
-    $date = $cursor->format('Y-m-d');
-    $dailyRows[] = [
-        'date' => $date,
-        'bookings' => (int) ($bookingByDate[$date]['bookings_count'] ?? 0),
-        'held' => (int) ($bookingByDate[$date]['held_count'] ?? 0),
-        'booked' => (int) ($bookingByDate[$date]['booked_count'] ?? 0),
-        'cancelled' => (int) ($bookingByDate[$date]['cancelled_count'] ?? 0),
-        'feeCount' => (int) ($feeRows[$date]['fee_count'] ?? 0),
-        'feeTotal' => (float) ($feeRows[$date]['fee_total'] ?? 0),
-    ];
-    $cursor = $cursor->modify('-1 day');
-}
+$playerPaymentsStmt = $pdo->prepare(
+    "SELECT {$periodSelect} AS period_key,
+            m.name AS player_name,
+            COALESCE(SUM(ef.amount), 0) AS total_payment
+     FROM member_entrance_fee_payments ef
+     JOIN members m ON m.id = ef.member_id
+     WHERE ef.payment_date BETWEEN ? AND ?
+     GROUP BY period_key, ef.member_id, m.name
+     ORDER BY {$periodOrder} DESC, total_payment DESC, m.name ASC"
+);
+$playerPaymentsStmt->execute([$startDate, $endDate]);
+$playerPayments = $playerPaymentsStmt->fetchAll();
 
 function report_money(float $amount): string
 {
     return 'PHP ' . number_format($amount, 2);
+}
+
+function report_period_label(string $value, string $breakdown): string
+{
+    if ($value === '') {
+        return 'N/A';
+    }
+
+    $timestamp = strtotime($value);
+    if ($timestamp === false) {
+        return $value;
+    }
+
+    if ($breakdown === 'hourly') {
+        return date('M j, Y g:00 A', $timestamp);
+    }
+    if ($breakdown === 'weekly') {
+        return date('M j', $timestamp) . ' - ' . date('M j, Y', strtotime('+6 days', $timestamp));
+    }
+    if ($breakdown === 'monthly') {
+        return date('F Y', $timestamp);
+    }
+
+    return date('M j, Y', $timestamp);
 }
 
 include __DIR__ . '/../includes/header.php';
@@ -123,9 +125,18 @@ include __DIR__ . '/../includes/header.php';
             <div>
                 <span class="section-kicker">Reports</span>
                 <h2 class="mt-1 mb-1 fw-black">Executive summary</h2>
-                <p class="mb-0 small text-secondary fw-semibold">Daily booking counts, entrance-fee collection, and member totals.</p>
+                <p class="mb-0 small text-secondary fw-semibold">Booking count, player count, and cash collection for the selected range.</p>
             </div>
             <form class="d-flex flex-wrap align-items-end gap-2" method="get">
+                <label class="small fw-bold">Breakdown
+                    <select name="breakdown" class="form-select form-select-sm mt-1">
+                        <?php foreach ($breakdownOptions as $value => $label): ?>
+                            <option value="<?php echo htmlspecialchars($value); ?>" <?php echo $breakdown === $value ? 'selected' : ''; ?>>
+                                <?php echo htmlspecialchars($label); ?>
+                            </option>
+                        <?php endforeach; ?>
+                    </select>
+                </label>
                 <label class="small fw-bold">Start
                     <input type="date" name="start" class="form-input form-input-sm mt-1" value="<?php echo htmlspecialchars($startDate); ?>">
                 </label>
@@ -140,21 +151,20 @@ include __DIR__ . '/../includes/header.php';
     <section class="row g-3 mb-3">
         <div class="col-md-4">
             <div class="stat-card h-100">
-                <p class="mb-1 small text-secondary fw-bold text-uppercase">Bookings Today</p>
-                <p class="mb-0 stat-number"><?php echo number_format($todayBookings); ?></p>
+                <p class="mb-1 small text-secondary fw-bold text-uppercase">Total Bookings</p>
+                <p class="mb-0 stat-number"><?php echo number_format($totalBookings); ?></p>
             </div>
         </div>
         <div class="col-md-4">
             <div class="stat-card h-100">
-                <p class="mb-1 small text-secondary fw-bold text-uppercase">Entrance Fees Today</p>
-                <p class="mb-0 stat-number"><?php echo htmlspecialchars(report_money($todayFees)); ?></p>
+                <p class="mb-1 small text-secondary fw-bold text-uppercase">Total Players</p>
+                <p class="mb-0 stat-number"><?php echo number_format((int) $paymentSummary['total_players']); ?></p>
             </div>
         </div>
         <div class="col-md-4">
             <div class="stat-card h-100">
-                <p class="mb-1 small text-secondary fw-bold text-uppercase">Members</p>
-                <p class="mb-0 stat-number"><?php echo number_format((int) $memberStats['active_members']); ?></p>
-                <p class="mb-0 small text-secondary fw-semibold"><?php echo number_format((int) $memberStats['total_members']); ?> total records</p>
+                <p class="mb-1 small text-secondary fw-bold text-uppercase">Total Cash Payment</p>
+                <p class="mb-0 stat-number"><?php echo htmlspecialchars(report_money((float) $paymentSummary['total_cash_payment'])); ?></p>
             </div>
         </div>
     </section>
@@ -163,8 +173,8 @@ include __DIR__ . '/../includes/header.php';
         <div class="card-header bg-white border-bottom p-3">
             <div class="d-flex flex-wrap align-items-center justify-content-between gap-3">
                 <div>
-                    <span class="section-kicker">Daily Report</span>
-                    <h2 class="mt-1 mb-0 fw-black">Bookings and entrance fees</h2>
+                    <span class="section-kicker">Players</span>
+                    <h2 class="mt-1 mb-0 fw-black"><?php echo htmlspecialchars($breakdownOptions[$breakdown]); ?> player payment totals</h2>
                 </div>
                 <span class="badge text-bg-primary"><?php echo htmlspecialchars($startDate); ?> to <?php echo htmlspecialchars($endDate); ?></span>
             </div>
@@ -173,34 +183,26 @@ include __DIR__ . '/../includes/header.php';
             <table class="table table-sm align-middle mb-0 admin-bookings-table">
                 <thead>
                     <tr class="small text-secondary">
-                        <th>Date</th>
-                        <th class="text-center">Bookings</th>
-                        <th class="text-center">Held</th>
-                        <th class="text-center">Booked</th>
-                        <th class="text-center">Cancelled</th>
-                        <th class="text-center">Entrance Fee Count</th>
-                        <th class="text-end">Entrance Fees Collected</th>
+                        <th>Period</th>
+                        <th>Player Name</th>
+                        <th class="text-end">Total Payment</th>
                     </tr>
                 </thead>
                 <tbody class="small fw-semibold">
-                    <?php foreach ($dailyRows as $row): ?>
+                    <?php if ($playerPayments === []): ?>
                         <tr>
-                            <td class="fw-black text-ink"><?php echo htmlspecialchars(date('D, M j, Y', strtotime($row['date']))); ?></td>
-                            <td class="text-center"><?php echo number_format($row['bookings']); ?></td>
-                            <td class="text-center"><?php echo number_format($row['held']); ?></td>
-                            <td class="text-center"><?php echo number_format($row['booked']); ?></td>
-                            <td class="text-center"><?php echo number_format($row['cancelled']); ?></td>
-                            <td class="text-center"><?php echo number_format($row['feeCount']); ?></td>
-                            <td class="text-end fw-black"><?php echo htmlspecialchars(report_money($row['feeTotal'])); ?></td>
+                            <td colspan="3" class="text-center text-secondary py-4">No player payments found for the selected date range.</td>
                         </tr>
-                    <?php endforeach; ?>
+                    <?php else: ?>
+                        <?php foreach ($playerPayments as $row): ?>
+                            <tr>
+                                <td class="fw-semibold text-secondary"><?php echo htmlspecialchars(report_period_label((string) $row['period_key'], $breakdown)); ?></td>
+                                <td class="fw-black text-ink"><?php echo htmlspecialchars((string) $row['player_name']); ?></td>
+                                <td class="text-end fw-black"><?php echo htmlspecialchars(report_money((float) $row['total_payment'])); ?></td>
+                            </tr>
+                        <?php endforeach; ?>
+                    <?php endif; ?>
                 </tbody>
-                <tfoot>
-                    <tr class="fw-black">
-                        <td colspan="6" class="text-end">Range entrance-fee total</td>
-                        <td class="text-end"><?php echo htmlspecialchars(report_money($rangeFees)); ?></td>
-                    </tr>
-                </tfoot>
             </table>
         </div>
     </section>

@@ -176,6 +176,11 @@ function expire_access_session_if_needed(string $accountType): bool
         return false;
     }
 
+    if (($_SESSION['auth_type'] ?? null) !== $accountType || empty($_SESSION['auth_login_at'])) {
+        start_access_session($accountType, $accountId, access_log_account_role($accountType, $accountId), 'existing_session');
+        return false;
+    }
+
     $now = time();
     $lastActivity = (int) ($_SESSION['auth_last_activity_at'] ?? 0);
     if ($lastActivity <= 0) {

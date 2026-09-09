@@ -70,8 +70,8 @@ include __DIR__ . '/../includes/header.php';
                         </select>
                     </label>
                     <label class="mb-0 small fw-bold">
-                        <span class="visually-hidden">Search by Reference Number</span>
-                        <input id="adminReferenceSearch" class="form-input form-input-sm" placeholder="Search by Reference Number">
+                        <span class="visually-hidden">Search by customer name or reference number</span>
+                        <input id="adminReferenceSearch" class="form-input form-input-sm" placeholder="Search customer or reference">
                     </label>
                     <div class="btn-group flex-wrap admin-filter-group" role="group" aria-label="Reservation filter">
                         <button class="btn btn-primary btn-sm" data-admin-filter="Held">Held</button>
@@ -102,6 +102,42 @@ include __DIR__ . '/../includes/header.php';
                     </tr>
                 </tbody>
             </table>
+        </div>
+        <div id="adminBookingPagination" class="admin-rate-pagination border-top" hidden>
+            <div class="admin-rate-pagination-inner">
+                <div id="adminBookingPageInfo" class="admin-rate-pagination-meta">
+                    Showing bookings...
+                </div>
+
+                <div class="admin-rate-pagination-actions">
+                    <select
+                        id="adminBookingPageSize"
+                        class="admin-rate-page-size"
+                        aria-label="Bookings per page"
+                    >
+                        <option value="10">10 per page</option>
+                        <option value="20" selected>20 per page</option>
+                        <option value="50">50 per page</option>
+                        <option value="100">100 per page</option>
+                    </select>
+
+                    <button
+                        id="adminBookingPrev"
+                        class="btn btn-outline-secondary btn-sm"
+                        type="button"
+                    >
+                        Previous
+                    </button>
+
+                    <button
+                        id="adminBookingNext"
+                        class="btn btn-primary btn-sm"
+                        type="button"
+                    >
+                        Next
+                    </button>
+                </div>
+            </div>
         </div>
     </section>
 

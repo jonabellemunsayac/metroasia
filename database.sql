@@ -104,15 +104,37 @@ CREATE TABLE IF NOT EXISTS rates (
     id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     court_id INT UNSIGNED NOT NULL,
     sport ENUM('Pickleball','Basketball','Volleyball') NOT NULL,
-    day_of_week ENUM('Any','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday') NOT NULL DEFAULT 'Any',
+    day_of_week ENUM('Any','Holiday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday') NOT NULL DEFAULT 'Any',
     time_slot_id INT UNSIGNED NOT NULL,
     rate_per_hour DECIMAL(10,2) NOT NULL,
+    effective_date DATE NOT NULL DEFAULT '1970-01-01',
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    UNIQUE KEY uniq_rate_lookup (court_id, sport, day_of_week, time_slot_id),
-    INDEX idx_rates_lookup (court_id, sport, day_of_week, time_slot_id),
+    UNIQUE KEY uniq_rate_lookup (court_id, sport, day_of_week, time_slot_id, effective_date),
+    INDEX idx_rates_lookup (court_id, sport, day_of_week, time_slot_id, effective_date),
     CONSTRAINT fk_rate_court FOREIGN KEY (court_id) REFERENCES courts(id),
     CONSTRAINT fk_rate_time_slot FOREIGN KEY (time_slot_id) REFERENCES time_slots(id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS holiday_schedules (
+    id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    `date` DATE NOT NULL,
+    holiday_name VARCHAR(160) NOT NULL,
+    UNIQUE KEY uniq_holiday_schedule_date (`date`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS holiday_schedule_audit_logs (
+    id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    holiday_schedule_id INT UNSIGNED NULL,
+    admin_id INT UNSIGNED NULL,
+    action VARCHAR(40) NOT NULL,
+    previous_payload JSON NULL,
+    new_payload JSON NULL,
+    reason VARCHAR(255) NULL,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_holiday_schedule_audit (holiday_schedule_id, created_at),
+    CONSTRAINT fk_holiday_schedule_audit_holiday FOREIGN KEY (holiday_schedule_id) REFERENCES holiday_schedules(id) ON DELETE SET NULL,
+    CONSTRAINT fk_holiday_schedule_audit_admin FOREIGN KEY (admin_id) REFERENCES admin_users(id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS rate_audit_logs (
@@ -251,6 +273,10 @@ CREATE TABLE IF NOT EXISTS court_bookings (
     INDEX idx_booking_reference (booking_reference),
     INDEX idx_court_lookup (booking_date, time_slot_id, court_id, status),
     INDEX idx_court_member (member_id, booking_date),
+    INDEX idx_booking_admin_status_created (status, created_at, id),
+    INDEX idx_booking_admin_date_status (booking_date, status, created_at),
+    INDEX idx_booking_admin_reference_status (booking_reference, status, booking_date),
+    INDEX idx_booking_admin_created_by (created_by_type, created_by_id),
     CONSTRAINT fk_court_booking_member FOREIGN KEY (member_id) REFERENCES members(id),
     CONSTRAINT fk_court_booking_slot FOREIGN KEY (time_slot_id) REFERENCES time_slots(id),
     CONSTRAINT fk_court_booking_court FOREIGN KEY (court_id) REFERENCES courts(id),
@@ -260,10 +286,15 @@ CREATE TABLE IF NOT EXISTS court_bookings (
 
 CREATE TABLE IF NOT EXISTS member_entrance_fee_payments (
     id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    entry_type VARCHAR(20) NOT NULL DEFAULT 'entrance_fee',
     member_id INT UNSIGNED NOT NULL,
     amount DECIMAL(10,2) NOT NULL DEFAULT 50.00,
     payment_date DATE NOT NULL,
     payment_time TIME NOT NULL,
+    play_date DATE NULL,
+    play_start_time TIME NULL,
+    play_end_time TIME NULL,
+    played_hours DECIMAL(6,2) NOT NULL DEFAULT 0,
     booking_id INT UNSIGNED NULL,
     reference_number VARCHAR(80) NULL,
     payment_method VARCHAR(80) NULL,

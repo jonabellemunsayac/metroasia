@@ -1,6 +1,8 @@
 <?php
 $useAdminShell = $useAdminShell ?? false;
-$assetVersion = $assetVersion ?? '3.0.20';
+$assetVersion = $assetVersion ?? '3.0.21';
+$appJsPath = dirname(__DIR__) . '/assets/js/app.js';
+$appJsVersion = $assetVersion . (is_file($appJsPath) ? '.' . filemtime($appJsPath) : '');
 
 if ($useAdminShell):
 ?>
@@ -121,7 +123,7 @@ if ($useAdminShell):
 
 <!-- Existing application JavaScript retained. -->
 <script
-    src="<?php echo htmlspecialchars(app_url('assets/js/app.js')); ?>?v=<?php echo htmlspecialchars($assetVersion); ?>"
+    src="<?php echo htmlspecialchars(app_url('assets/js/app.js')); ?>?v=<?php echo htmlspecialchars($appJsVersion); ?>"
 ></script>
 
 <?php if (($active ?? '') === 'admin-rates'): ?>

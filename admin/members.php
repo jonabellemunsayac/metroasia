@@ -441,33 +441,47 @@ include __DIR__ . '/../includes/header.php';
                 <form id="adminEntranceFeeForm">
                     <div class="modal-header">
                         <div>
-                            <span class="section-kicker">Entrance Fee</span>
+                            <span id="adminEntranceFeeKicker" class="section-kicker">Entrance Fee</span>
                             <h2 id="adminEntranceFeeTitle" class="modal-title fw-black">Pay Entrance Fee</h2>
                         </div>
                         <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                     </div>
                     <div class="modal-body">
                         <input type="hidden" name="memberId" id="adminEntranceMemberId">
+                        <input type="hidden" name="entryType" id="adminEntranceEntryType" value="entrance_fee">
+                        <input type="hidden" name="amount" id="adminEntranceAmount" value="50.00">
+                        <input type="hidden" name="playedHours" id="adminEntrancePlayedHours" value="0">
                         <p id="adminEntranceMemberSummary" class="small fw-semibold text-secondary"></p>
                         <div class="row g-3">
-                            <label class="col-md-6 small fw-bold">Amount
-                                <input required type="number" min="1" step="0.01" name="amount" id="adminEntranceAmount" class="form-input mt-1" value="50.00">
+                            <label id="adminEntrancePaymentDateField" class="col-md-4 small fw-bold"><span id="adminEntrancePaymentDateLabel">Date of Play</span>
+                                <input required type="date" name="playDate" id="adminEntrancePaymentDate" class="form-input mt-1">
                             </label>
-                            <label class="col-md-6 small fw-bold">Payment Method
-                                <input name="paymentMethod" id="adminEntrancePaymentMethod" class="form-input mt-1" value="Cash">
+                            <label id="adminEntrancePaymentTimeField" class="col-md-4 small fw-bold"><span id="adminEntrancePaymentTimeLabel">Start Time of Play</span>
+                                <select required name="playStartTime" id="adminEntrancePaymentTime" class="form-select mt-1"></select>
                             </label>
-                            <label class="col-md-6 small fw-bold">Date
-                                <input required type="date" name="paymentDate" id="adminEntrancePaymentDate" class="form-input mt-1">
+                            <label id="adminEntrancePlayStartField" class="col-md-4 small fw-bold d-none"><span id="adminEntrancePlayStartLabel">Start Time of Play</span>
+                                <select name="playStartTime" id="adminEntrancePlayStartTime" class="form-select mt-1" disabled></select>
                             </label>
-                            <label class="col-md-6 small fw-bold">Time
-                                <input required type="time" name="paymentTime" id="adminEntrancePaymentTime" class="form-input mt-1">
+                            <label id="adminEntrancePlayEndField" class="col-md-4 small fw-bold d-none"><span id="adminEntrancePlayEndLabel">End Time of Play</span>
+                                <select name="playEndTime" id="adminEntrancePlayEndTime" class="form-select mt-1" disabled></select>
                             </label>
-                            <label class="col-12 small fw-bold">Reference Number
-                                <input name="referenceNumber" id="adminEntranceReference" class="form-input mt-1" placeholder="Optional booking reference">
-                            </label>
-                            <label class="col-12 small fw-bold">Receipt
-                                <input type="file" name="receipt" accept=".jpg,.jpeg,.png,.webp,.pdf" class="form-input mt-1">
-                            </label>
+                            <div id="adminEntrancePaymentFields" class="col-12">
+                                <div class="row g-3">
+                                    <label class="col-md-6 small fw-bold">Payment Channel
+                                        <select required name="paymentMethod" id="adminEntrancePaymentMethod" class="form-select mt-1">
+                                            <option value="">Select payment channel</option>
+                                        </select>
+                                    </label>
+                                    <label class="col-md-6 small fw-bold">Payment Reference Number
+                                        <input name="referenceNumber" id="adminEntranceReference" class="form-input mt-1" placeholder="Optional payment reference">
+                                    </label>
+                                </div>
+                            </div>
+                            <div id="adminEntranceOpHoursWrap" class="col-12 d-none">
+                                <div id="adminEntranceOpHoursSummary" class="rounded-md border border-line bg-light p-3 small fw-bold text-secondary">
+                                    Total hours: 0
+                                </div>
+                            </div>
                             <label class="col-12 small fw-bold">Notes
                                 <input name="notes" id="adminEntranceNotes" class="form-input mt-1" placeholder="Optional notes">
                             </label>
@@ -476,7 +490,7 @@ include __DIR__ . '/../includes/header.php';
                     </div>
                     <div class="modal-footer">
                         <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">Close</button>
-                        <button type="submit" class="btn btn-primary btn-sm">Record Payment</button>
+                        <button type="submit" id="adminEntranceSubmit" class="btn btn-primary btn-sm">Record Payment</button>
                     </div>
                 </form>
             </div>

@@ -145,6 +145,7 @@ function migrate_columns(PDO $pdo): void
          SET cb.base_rate = ts.price, cb.final_amount = ts.price
          WHERE cb.final_amount = 0'
     );
+    ensure_booking_list_indexes($pdo);
     if (!column_exists($pdo, 'open_play_reservations', 'member_id')) {
         $pdo->exec('ALTER TABLE open_play_reservations ADD member_id INT UNSIGNED NULL AFTER id');
         $pdo->exec('ALTER TABLE open_play_reservations ADD INDEX idx_open_play_member (member_id)');
@@ -327,6 +328,22 @@ function normalize_booking_reference_index(PDO $pdo): void
     }
 }
 
+function ensure_booking_list_indexes(PDO $pdo): void
+{
+    $indexes = [
+        'idx_booking_admin_status_created' => 'ALTER TABLE court_bookings ADD INDEX idx_booking_admin_status_created (status, created_at, id)',
+        'idx_booking_admin_date_status' => 'ALTER TABLE court_bookings ADD INDEX idx_booking_admin_date_status (booking_date, status, created_at)',
+        'idx_booking_admin_reference_status' => 'ALTER TABLE court_bookings ADD INDEX idx_booking_admin_reference_status (booking_reference, status, booking_date)',
+        'idx_booking_admin_created_by' => 'ALTER TABLE court_bookings ADD INDEX idx_booking_admin_created_by (created_by_type, created_by_id)',
+    ];
+
+    foreach ($indexes as $index => $statement) {
+        if (!index_exists($pdo, 'court_bookings', $index)) {
+            $pdo->exec($statement);
+        }
+    }
+}
+
 function ensure_member_profile_columns(PDO $pdo): void
 {
     $columns = [
@@ -365,16 +382,22 @@ function member_lookup_token(): string
 function ensure_entrance_fee_table(PDO $pdo): void
 {
     if (table_exists($pdo, 'member_entrance_fee_payments')) {
+        ensure_entrance_fee_activity_columns($pdo);
         return;
     }
 
     $pdo->exec(
         "CREATE TABLE member_entrance_fee_payments (
             id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+            entry_type VARCHAR(20) NOT NULL DEFAULT 'entrance_fee',
             member_id INT UNSIGNED NOT NULL,
             amount DECIMAL(10,2) NOT NULL DEFAULT 50.00,
             payment_date DATE NOT NULL,
             payment_time TIME NOT NULL,
+            play_date DATE NULL,
+            play_start_time TIME NULL,
+            play_end_time TIME NULL,
+            played_hours DECIMAL(6,2) NOT NULL DEFAULT 0,
             booking_id INT UNSIGNED NULL,
             reference_number VARCHAR(80) NULL,
             payment_method VARCHAR(80) NULL,
@@ -390,6 +413,26 @@ function ensure_entrance_fee_table(PDO $pdo): void
     );
 }
 
+function ensure_entrance_fee_activity_columns(PDO $pdo): void
+{
+    if (!column_exists($pdo, 'member_entrance_fee_payments', 'entry_type')) {
+        $pdo->exec("ALTER TABLE member_entrance_fee_payments ADD entry_type VARCHAR(20) NOT NULL DEFAULT 'entrance_fee' AFTER id");
+    }
+    if (!column_exists($pdo, 'member_entrance_fee_payments', 'play_start_time')) {
+        $pdo->exec('ALTER TABLE member_entrance_fee_payments ADD play_start_time TIME NULL AFTER payment_time');
+    }
+    if (!column_exists($pdo, 'member_entrance_fee_payments', 'play_date')) {
+        $pdo->exec('ALTER TABLE member_entrance_fee_payments ADD play_date DATE NULL AFTER payment_time');
+        $pdo->exec('UPDATE member_entrance_fee_payments SET play_date = payment_date WHERE play_date IS NULL');
+    }
+    if (!column_exists($pdo, 'member_entrance_fee_payments', 'play_end_time')) {
+        $pdo->exec('ALTER TABLE member_entrance_fee_payments ADD play_end_time TIME NULL AFTER play_start_time');
+    }
+    if (!column_exists($pdo, 'member_entrance_fee_payments', 'played_hours')) {
+        $pdo->exec('ALTER TABLE member_entrance_fee_payments ADD played_hours DECIMAL(6,2) NOT NULL DEFAULT 0 AFTER play_end_time');
+    }
+}
+
 function ensure_core_booking_time_slots(PDO $pdo): void
 {
     if (!table_exists($pdo, 'time_slots')) {
@@ -397,17 +440,27 @@ function ensure_core_booking_time_slots(PDO $pdo): void
     }
 
     $fallbackPrice = (float) ($pdo->query('SELECT price FROM time_slots ORDER BY sort_order, id LIMIT 1')->fetchColumn() ?: 265);
-    $slots = [
-        ['Early morning', '05:00 AM - 06:00 AM', '05:00:00', '06:00:00', -2],
-        ['Early morning', '06:00 AM - 07:00 AM', '06:00:00', '07:00:00', -1],
-        ['Early morning', '07:00 AM - 08:00 AM', '07:00:00', '08:00:00', 0],
-    ];
-    $stmt = $pdo->prepare(
-        'INSERT IGNORE INTO time_slots (period, label, starts_at, ends_at, price, sort_order)
+    $timeLabel = static function (string $time): string {
+        $time = substr($time, 0, 5);
+        return $time === '00:00' ? '12 MN' : date('g A', strtotime('2000-01-01 ' . $time));
+    };
+    $exists = $pdo->prepare('SELECT id FROM time_slots WHERE starts_at = ? AND ends_at = ? LIMIT 1');
+    $insert = $pdo->prepare(
+        'INSERT INTO time_slots (period, label, starts_at, ends_at, price, sort_order)
          VALUES (?, ?, ?, ?, ?, ?)'
     );
-    foreach ($slots as $slot) {
-        $stmt->execute([$slot[0], $slot[1], $slot[2], $slot[3], $fallbackPrice, $slot[4]]);
+    for ($hour = 5; $hour < 24; $hour++) {
+        $nextHour = ($hour + 1) % 24;
+        $startsAt = sprintf('%02d:00:00', $hour);
+        $endsAt = sprintf('%02d:00:00', $nextHour);
+        $exists->execute([$startsAt, $endsAt]);
+        if ($exists->fetchColumn()) {
+            continue;
+        }
+
+        $period = $hour < 8 ? 'Early morning' : ($hour < 12 ? 'Morning' : ($hour < 18 ? 'Afternoon' : 'Evening'));
+        $label = $timeLabel($startsAt) . ' - ' . $timeLabel($endsAt);
+        $insert->execute([$period, $label, $startsAt, $endsAt, $fallbackPrice, $hour - 7]);
     }
 }
 
@@ -477,13 +530,14 @@ function ensure_rate_tables(PDO $pdo): void
                 id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
                 court_id INT UNSIGNED NOT NULL,
                 sport ENUM('Pickleball','Basketball','Volleyball') NOT NULL,
-                day_of_week ENUM('Any','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday') NOT NULL DEFAULT 'Any',
+                day_of_week ENUM('Any','Holiday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday') NOT NULL DEFAULT 'Any',
                 time_slot_id INT UNSIGNED NOT NULL,
                 rate_per_hour DECIMAL(10,2) NOT NULL,
+                effective_date DATE NOT NULL DEFAULT '1970-01-01',
                 created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
                 updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-                UNIQUE KEY uniq_rate_lookup (court_id, sport, day_of_week, time_slot_id),
-                INDEX idx_rates_lookup (court_id, sport, day_of_week, time_slot_id),
+                UNIQUE KEY uniq_rate_lookup (court_id, sport, day_of_week, time_slot_id, effective_date),
+                INDEX idx_rates_lookup (court_id, sport, day_of_week, time_slot_id, effective_date),
                 CONSTRAINT fk_rate_court FOREIGN KEY (court_id) REFERENCES courts(id),
                 CONSTRAINT fk_rate_time_slot FOREIGN KEY (time_slot_id) REFERENCES time_slots(id)
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci"
@@ -498,23 +552,60 @@ function ensure_rate_tables(PDO $pdo): void
     if (!column_exists($pdo, 'rates', 'day_of_week')) {
         $pdo->exec(
             "ALTER TABLE rates
-             ADD day_of_week ENUM('Any','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday') NOT NULL DEFAULT 'Any'
+             ADD day_of_week ENUM('Any','Holiday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday') NOT NULL DEFAULT 'Any'
              AFTER sport"
         );
     }
+    $pdo->exec(
+        "ALTER TABLE rates
+         MODIFY day_of_week ENUM('Any','Holiday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday') NOT NULL DEFAULT 'Any'"
+    );
+    if (!column_exists($pdo, 'rates', 'effective_date')) {
+        $pdo->exec("ALTER TABLE rates ADD effective_date DATE NOT NULL DEFAULT '1970-01-01' AFTER rate_per_hour");
+    }
+    if (table_exists($pdo, 'rate_audit_logs') && column_exists($pdo, 'rate_audit_logs', 'rate_id')) {
+        $pdo->exec(
+            'UPDATE rate_audit_logs ral
+             JOIN (
+                SELECT duplicate_rate.id AS duplicate_id, MIN(kept_rate.id) AS kept_id
+                FROM rates duplicate_rate
+                JOIN rates kept_rate
+                  ON duplicate_rate.court_id = kept_rate.court_id
+                 AND duplicate_rate.sport = kept_rate.sport
+                 AND duplicate_rate.day_of_week = kept_rate.day_of_week
+                 AND duplicate_rate.time_slot_id = kept_rate.time_slot_id
+                 AND duplicate_rate.effective_date = kept_rate.effective_date
+                 AND duplicate_rate.id > kept_rate.id
+                GROUP BY duplicate_rate.id
+             ) duplicates ON duplicates.duplicate_id = ral.rate_id
+             SET ral.rate_id = duplicates.kept_id'
+        );
+    }
+    $pdo->exec(
+        'DELETE duplicate_rate
+         FROM rates kept_rate
+         JOIN rates duplicate_rate
+           ON duplicate_rate.court_id = kept_rate.court_id
+          AND duplicate_rate.sport = kept_rate.sport
+          AND duplicate_rate.day_of_week = kept_rate.day_of_week
+          AND duplicate_rate.time_slot_id = kept_rate.time_slot_id
+          AND duplicate_rate.effective_date = kept_rate.effective_date
+          AND duplicate_rate.id > kept_rate.id'
+    );
+    $rateLookupKeyColumns = ['court_id', 'sport', 'day_of_week', 'time_slot_id', 'effective_date'];
     $rateUniqueColumns = index_columns($pdo, 'rates', 'uniq_rate_lookup');
-    if ($rateUniqueColumns !== ['court_id', 'sport', 'day_of_week', 'time_slot_id']) {
+    if ($rateUniqueColumns !== $rateLookupKeyColumns) {
         if (index_exists($pdo, 'rates', 'uniq_rate_lookup')) {
             $pdo->exec('ALTER TABLE rates DROP INDEX uniq_rate_lookup');
         }
-        $pdo->exec('ALTER TABLE rates ADD UNIQUE KEY uniq_rate_lookup (court_id, sport, day_of_week, time_slot_id)');
+        $pdo->exec('ALTER TABLE rates ADD UNIQUE KEY uniq_rate_lookup (court_id, sport, day_of_week, time_slot_id, effective_date)');
     }
     $rateLookupColumns = index_columns($pdo, 'rates', 'idx_rates_lookup');
-    if ($rateLookupColumns !== ['court_id', 'sport', 'day_of_week', 'time_slot_id']) {
+    if ($rateLookupColumns !== $rateLookupKeyColumns) {
         if (index_exists($pdo, 'rates', 'idx_rates_lookup')) {
             $pdo->exec('ALTER TABLE rates DROP INDEX idx_rates_lookup');
         }
-        $pdo->exec('ALTER TABLE rates ADD INDEX idx_rates_lookup (court_id, sport, day_of_week, time_slot_id)');
+        $pdo->exec('ALTER TABLE rates ADD INDEX idx_rates_lookup (court_id, sport, day_of_week, time_slot_id, effective_date)');
     }
     if (column_exists($pdo, 'rates', 'senior_discount')) {
         $pdo->exec('ALTER TABLE rates DROP COLUMN senior_discount');
@@ -543,6 +634,30 @@ function ensure_rate_tables(PDO $pdo): void
     if (table_exists($pdo, 'rate_audit_logs') && !column_exists($pdo, 'rate_audit_logs', 'rate_id')) {
         $pdo->exec('ALTER TABLE rate_audit_logs ADD rate_id INT UNSIGNED NULL AFTER id');
     }
+
+    $pdo->exec(
+        "CREATE TABLE IF NOT EXISTS holiday_schedules (
+            id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+            `date` DATE NOT NULL,
+            holiday_name VARCHAR(160) NOT NULL,
+            UNIQUE KEY uniq_holiday_schedule_date (`date`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci"
+    );
+    $pdo->exec(
+        "CREATE TABLE IF NOT EXISTS holiday_schedule_audit_logs (
+            id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+            holiday_schedule_id INT UNSIGNED NULL,
+            admin_id INT UNSIGNED NULL,
+            action VARCHAR(40) NOT NULL,
+            previous_payload JSON NULL,
+            new_payload JSON NULL,
+            reason VARCHAR(255) NULL,
+            created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            INDEX idx_holiday_schedule_audit (holiday_schedule_id, created_at),
+            CONSTRAINT fk_holiday_schedule_audit_holiday FOREIGN KEY (holiday_schedule_id) REFERENCES holiday_schedules(id) ON DELETE SET NULL,
+            CONSTRAINT fk_holiday_schedule_audit_admin FOREIGN KEY (admin_id) REFERENCES admin_users(id)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci"
+    );
 }
 
 try {

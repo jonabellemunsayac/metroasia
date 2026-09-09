@@ -16,14 +16,21 @@ const pageParams = new URLSearchParams(window.location.search);
 const todayIso = isoDate(new Date());
 let adminFilter = normalizeAdminFilter(pageParams.get('status'));
 let adminReferenceSearch = '';
-let adminBookingStartDate = pageParams.has('from') ? pageParams.get('from') : todayIso;
-let adminBookingEndDate = pageParams.has('to') ? pageParams.get('to') : todayIso;
+let adminBookingStartDate = pageParams.has('from') ? pageParams.get('from') : '';
+let adminBookingEndDate = pageParams.has('to') ? pageParams.get('to') : '';
 let adminBookingSort = pageParams.get('sort') || 'created-desc';
+let adminBookingPage = Math.max(1, Number(pageParams.get('page')) || 1);
+let adminBookingPageSize = [10, 20, 50, 100].includes(Number(pageParams.get('pageSize'))) ? Number(pageParams.get('pageSize')) : 20;
+let adminBookingsLoading = false;
+let adminBookingSearchTimer = null;
+let pendingCourtBlockConflictForm = null;
+let pendingRateAdjustmentForm = null;
 let adminScheduleCalendarMonth = new Date(adminScheduleDate.getFullYear(), adminScheduleDate.getMonth(), 1);
 let adminMemberSearch = '';
 let adminAccessLogSearch = '';
 let adminRateSportFilter = '';
 let adminRateCourtFilter = '';
+let adminRateDisplayRules = [];
 let adminQrStream = null;
 const supportedBookingSports = ['Pickleball', 'Basketball', 'Volleyball'];
 function normalizeBookingSport(value) {
@@ -100,7 +107,20 @@ const els = {
     adminRateActive: document.getElementById('adminRateActive'),
     adminRateEffectiveFrom: document.getElementById('adminRateEffectiveFrom'),
     adminRateEffectiveTo: document.getElementById('adminRateEffectiveTo'),
+    adminRateAdvanceBookingModal: document.getElementById('adminRateAdvanceBookingModal'),
+    adminRateAdvanceBookingSummary: document.getElementById('adminRateAdvanceBookingSummary'),
+    adminRateAdvanceBookingRows: document.getElementById('adminRateAdvanceBookingRows'),
+    adminRateAdvanceKeep: document.getElementById('adminRateAdvanceKeep'),
+    adminRateAdvanceUpdate: document.getElementById('adminRateAdvanceUpdate'),
     adminRateAudit: document.getElementById('adminRateAudit'),
+    adminAddHolidaySchedule: document.getElementById('adminAddHolidaySchedule'),
+    adminHolidayScheduleRows: document.getElementById('adminHolidayScheduleRows'),
+    adminHolidayScheduleModal: document.getElementById('adminHolidayScheduleModal'),
+    adminHolidayScheduleForm: document.getElementById('adminHolidayScheduleForm'),
+    adminHolidayScheduleModalTitle: document.getElementById('adminHolidayScheduleModalTitle'),
+    adminHolidayScheduleId: document.getElementById('adminHolidayScheduleId'),
+    adminHolidayScheduleDate: document.getElementById('adminHolidayScheduleDate'),
+    adminHolidayScheduleName: document.getElementById('adminHolidayScheduleName'),
     adminCourtManagement: document.getElementById('adminCourtManagement'),
     adminAddCourt: document.getElementById('adminAddCourt'),
     adminCourtModal: document.getElementById('adminCourtModal'),
@@ -116,6 +136,10 @@ const els = {
     adminSportSlotForm: document.getElementById('adminSportSlotForm'),
     adminSportSlotMessage: document.getElementById('adminSportSlotMessage'),
     adminCourtBlocks: document.getElementById('adminCourtBlocks'),
+    adminCourtBlockConflictModal: document.getElementById('adminCourtBlockConflictModal'),
+    adminCourtBlockConflictSummary: document.getElementById('adminCourtBlockConflictSummary'),
+    adminCourtBlockConflictRows: document.getElementById('adminCourtBlockConflictRows'),
+    adminCourtBlockConflictProceed: document.getElementById('adminCourtBlockConflictProceed'),
     adminOverrideLogs: document.getElementById('adminOverrideLogs'),
     adminMembers: document.getElementById('adminMembers'),
     adminUsers: document.getElementById('adminUsers'),
@@ -160,6 +184,11 @@ const els = {
     adminBookingEndDate: document.getElementById('adminBookingEndDate'),
     adminBookingDateClear: document.getElementById('adminBookingDateClear'),
     adminBookingSort: document.getElementById('adminBookingSort'),
+    adminBookingPagination: document.getElementById('adminBookingPagination'),
+    adminBookingPageInfo: document.getElementById('adminBookingPageInfo'),
+    adminBookingPageSize: document.getElementById('adminBookingPageSize'),
+    adminBookingPrev: document.getElementById('adminBookingPrev'),
+    adminBookingNext: document.getElementById('adminBookingNext'),
     adminCancelReservationModal: document.getElementById('adminCancelReservationModal'),
     adminCancelReservationForm: document.getElementById('adminCancelReservationForm'),
     adminCancelReservationId: document.getElementById('adminCancelReservationId'),
@@ -192,6 +221,28 @@ const els = {
     adminStartQrCamera: document.getElementById('adminStartQrCamera'),
     adminEntranceFeeModal: document.getElementById('adminEntranceFeeModal'),
     adminEntranceFeeForm: document.getElementById('adminEntranceFeeForm'),
+    adminEntranceFeeKicker: document.getElementById('adminEntranceFeeKicker'),
+    adminEntranceFeeTitle: document.getElementById('adminEntranceFeeTitle'),
+    adminEntranceSubmit: document.getElementById('adminEntranceSubmit'),
+    adminEntranceEntryType: document.getElementById('adminEntranceEntryType'),
+    adminEntranceAmount: document.getElementById('adminEntranceAmount'),
+    adminEntrancePlayedHours: document.getElementById('adminEntrancePlayedHours'),
+    adminEntrancePaymentFields: document.getElementById('adminEntrancePaymentFields'),
+    adminEntrancePaymentDateField: document.getElementById('adminEntrancePaymentDateField'),
+    adminEntrancePaymentTimeField: document.getElementById('adminEntrancePaymentTimeField'),
+    adminEntrancePaymentDateLabel: document.getElementById('adminEntrancePaymentDateLabel'),
+    adminEntrancePaymentTimeLabel: document.getElementById('adminEntrancePaymentTimeLabel'),
+    adminEntrancePaymentMethod: document.getElementById('adminEntrancePaymentMethod'),
+    adminEntrancePaymentDate: document.getElementById('adminEntrancePaymentDate'),
+    adminEntrancePaymentTime: document.getElementById('adminEntrancePaymentTime'),
+    adminEntrancePlayStartField: document.getElementById('adminEntrancePlayStartField'),
+    adminEntrancePlayEndField: document.getElementById('adminEntrancePlayEndField'),
+    adminEntrancePlayStartLabel: document.getElementById('adminEntrancePlayStartLabel'),
+    adminEntrancePlayEndLabel: document.getElementById('adminEntrancePlayEndLabel'),
+    adminEntrancePlayStartTime: document.getElementById('adminEntrancePlayStartTime'),
+    adminEntrancePlayEndTime: document.getElementById('adminEntrancePlayEndTime'),
+    adminEntranceOpHoursWrap: document.getElementById('adminEntranceOpHoursWrap'),
+    adminEntranceOpHoursSummary: document.getElementById('adminEntranceOpHoursSummary'),
     adminEntranceMemberId: document.getElementById('adminEntranceMemberId'),
     adminEntranceMemberSummary: document.getElementById('adminEntranceMemberSummary'),
     adminEntranceFeeMessage: document.getElementById('adminEntranceFeeMessage')
@@ -434,6 +485,7 @@ function renderAll() {
         ['Payment page', renderPaymentPage],
         ['Admin payment channels', renderAdminPaymentChannels],
         ['Admin rate summary', renderAdminRateSummary],
+        ['Admin holiday schedules', renderAdminHolidaySchedules],
         ['Admin rate audit', renderAdminRateAudit],
         ['Admin courts', renderAdminCourts],
         ['Admin sport slot availability', renderAdminSportSlotAvailability],
@@ -467,6 +519,7 @@ function renderAdminPermissionsUI() {
     });
     if (els.adminAddMember) els.adminAddMember.hidden = !canManageMembers;
     if (els.adminAddCourt) els.adminAddCourt.hidden = !canManage;
+    if (els.adminAddHolidaySchedule) els.adminAddHolidaySchedule.hidden = !canManage;
     const scanButton = document.getElementById('adminScanMemberQr');
     if (scanButton) scanButton.hidden = !canManageMembers;
     if (els.adminOverrideBookingForm) {
@@ -479,6 +532,7 @@ function renderAdminPermissionsUI() {
 function defaultRateRule() {
     const firstCourtInfo = state?.courts?.[0] || null;
     const firstSlot = Object.values(state?.slotDetails || {})[0]?.id || '';
+    const slots = sortedRateSlots();
     return {
         id: '',
         name: '',
@@ -486,6 +540,8 @@ function defaultRateRule() {
         sport: firstCourtInfo?.sports?.[0] || 'Pickleball',
         dayOfWeek: 'Any',
         timeSlotId: firstSlot,
+        startsAt: slots[0]?.startsAt || '08:00',
+        endsAt: slots[slots.length - 1]?.endsAt || '17:00',
         pricePerHour: 400,
         memberPricePerHour: '',
         isActive: true,
@@ -552,10 +608,10 @@ function populateAdminRateRangeOptions(rule) {
 }
 
 function setAdminRateMode(mode, editing = false) {
-    const isRange = mode === 'range' && !editing;
+    const isRange = true;
     if (els.adminRateMode) {
-        els.adminRateMode.value = isRange ? 'range' : 'single';
-        els.adminRateMode.disabled = editing;
+        els.adminRateMode.value = 'range';
+        els.adminRateMode.disabled = false;
     }
     if (els.adminRateTimeSlotWrap) els.adminRateTimeSlotWrap.hidden = isRange;
     if (els.adminRateRangeWrap) els.adminRateRangeWrap.hidden = !isRange;
@@ -583,6 +639,7 @@ function populateAdminRateOptions(rule) {
     ], rule.sport ?? '');
     setSelectOptions(els.adminRateDayOfWeek, [
         ['Any', 'Any day'],
+        ['Holiday', 'Holiday'],
         ['Weekday', 'Weekday'],
         ['Weekend', 'Weekend'],
         ['Monday', 'Monday'],
@@ -605,13 +662,9 @@ function currentRateRuleName() {
     const court = els.adminRateCourt?.selectedOptions?.[0]?.textContent || 'All courts';
     const sport = els.adminRateSport?.value || 'All sports';
     const day = els.adminRateDayOfWeek?.selectedOptions?.[0]?.textContent || 'Any day';
-    if (els.adminRateMode?.value === 'range') {
-        const start = els.adminRateRangeStart?.selectedOptions?.[0]?.textContent || '';
-        const end = els.adminRateRangeEnd?.selectedOptions?.[0]?.textContent || '';
-        return `${court} ${sport} ${day} ${start}-${end}`.trim();
-    }
-    const slot = els.adminRateTimeSlot?.selectedOptions?.[0]?.textContent || '';
-    return `${court} ${sport} ${day} ${slot}`.trim();
+    const start = els.adminRateRangeStart?.selectedOptions?.[0]?.textContent || '';
+    const end = els.adminRateRangeEnd?.selectedOptions?.[0]?.textContent || '';
+    return `${court} ${sport} ${day} ${start}-${end}`.trim();
 }
 
 function simpleRateDay(value) {
@@ -619,11 +672,11 @@ function simpleRateDay(value) {
     if (day === 'Monday-Friday') return 'Monday - Friday';
     if (day === 'Saturday-Sunday') return 'Saturday - Sunday';
     if (day === 'Any') return 'All days';
-    return ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'].includes(day) ? day : 'All days';
+    return ['Holiday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'].includes(day) ? day : 'All days';
 }
 
 function rateDaySortValue(value) {
-    return ['Any', 'Weekday', 'Weekend', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'].indexOf(value || 'Any');
+    return ['Any', 'Holiday', 'Weekday', 'Weekend', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'].indexOf(value || 'Any');
 }
 
 function expandedRateDays(selection) {
@@ -649,12 +702,15 @@ function matchingRateRuleId(formData, day, fallbackId = '') {
 
 function openAdminRateModal(ruleId = '') {
     if (!els.adminRateForm || !state) return;
-    const existing = ruleId ? (state.adminRateRules || []).find(rule => String(rule.id) === String(ruleId)) : null;
+    const existing = ruleId
+        ? (adminRateDisplayRules || []).find(rule => String(rule.id) === String(ruleId))
+            || (state.adminRateRules || []).find(rule => String(rule.id) === String(ruleId))
+        : null;
     const rule = { ...defaultRateRule(), ...(existing || {}) };
 
     populateAdminRateOptions(rule);
     if (els.adminRateModalTitle) els.adminRateModalTitle.textContent = existing ? 'Edit Rate' : 'Add Rate';
-    setAdminRateMode(existing ? 'single' : (els.adminRateMode?.value || 'single'), Boolean(existing));
+    setAdminRateMode('range', Boolean(existing));
     if (els.adminRateId) els.adminRateId.value = rule.id || '';
     if (els.adminRateDayOfWeek) els.adminRateDayOfWeek.value = rule.dayOfWeek || rule.dayPattern || 'Any';
     if (els.adminRateName) els.adminRateName.value = rule.name || '';
@@ -666,7 +722,7 @@ function openAdminRateModal(ruleId = '') {
     if (els.adminRateMemberPrice) els.adminRateMemberPrice.value = rule.memberPricePerHour || '';
     if (els.adminRatePriority) els.adminRatePriority.value = rule.priority || 0;
     if (els.adminRateActive) els.adminRateActive.checked = Boolean(rule.isActive);
-    if (els.adminRateEffectiveFrom) els.adminRateEffectiveFrom.value = rule.effectiveFrom || '';
+    if (els.adminRateEffectiveFrom) els.adminRateEffectiveFrom.value = existing ? todayIso : (rule.effectiveFrom || rule.effectiveDate || todayIso);
     if (els.adminRateEffectiveTo) els.adminRateEffectiveTo.value = rule.effectiveTo || '';
 
     const message = els.adminRateForm.querySelector('[data-rate-rule-message]');
@@ -904,7 +960,7 @@ function renderRates() {
     els.rates.innerHTML = rates.map(rate => `
         <div class="metro-rate-card">
             <strong>${peso.format(Number(rate.price))}<span>/hr</span></strong>
-            <small>${escapeHtml(rate.time)}</small>
+            <small>${escapeHtml(rate.courtName ? `${rate.courtName} | ${rate.time}` : rate.time)}</small>
         </div>
     `).join('') || '<div class="metro-rate-card"><strong>Rates<span>/hr</span></strong><small>Select a date</small></div>';
 }
@@ -913,23 +969,26 @@ function bookingRateCardsForDate(date) {
     const rules = (state?.rateRules || [])
         .filter(rule =>
             rule.sport === selectedSport &&
-            dayPatternMatches(rule.dayPattern || rule.dayOfWeek || 'Any', date)
+            dayPatternMatches(rule.dayPattern || rule.dayOfWeek || 'Any', date) &&
+            rateEffectiveOnOrBefore(rule, date)
         );
 
     if (rules.length === 0) {
-        return state.rates || [];
+        return (state.rates || []).filter(rate => rate.sport === selectedSport);
     }
 
     const uniqueSegments = new Map();
-    rules.forEach(rule => {
+    applicableRateRulesForDate(rules, date).forEach(rule => {
         const price = Number(rule.pricePerHour || 0);
         if (!price) return;
         const start = rule.startsAt || '';
         const end = rule.endsAt || '';
         if (!start || !end) return;
-        const key = `${price}|${start}|${end}`;
+        const key = `${rule.courtId}|${price}|${start}|${end}`;
         if (!uniqueSegments.has(key)) {
             uniqueSegments.set(key, {
+                courtId: rule.courtId,
+                courtName: rule.courtName || `Court ${rule.courtId}`,
                 price,
                 start,
                 end,
@@ -940,13 +999,14 @@ function bookingRateCardsForDate(date) {
 
     const merged = [];
     [...uniqueSegments.values()]
-        .sort((a, b) => a.sort - b.sort || timeToMinutes(a.end) - timeToMinutes(b.end) || a.price - b.price)
+        .sort((a, b) => String(a.courtName || '').localeCompare(String(b.courtName || '')) || a.sort - b.sort || timeToMinutes(a.end) - timeToMinutes(b.end) || a.price - b.price)
         .forEach(segment => {
             const previous = [...merged].reverse().find(item =>
+                String(item.courtId) === String(segment.courtId) &&
                 item.price === segment.price &&
                 timeToMinutes(item.end) === timeToMinutes(segment.start)
             );
-            if (previous && previous.price === segment.price && timeToMinutes(previous.end) === timeToMinutes(segment.start)) {
+            if (previous && String(previous.courtId) === String(segment.courtId) && previous.price === segment.price && timeToMinutes(previous.end) === timeToMinutes(segment.start)) {
                 previous.end = segment.end;
                 return;
             }
@@ -954,11 +1014,44 @@ function bookingRateCardsForDate(date) {
         });
 
     return merged
-        .sort((a, b) => timeToMinutes(a.start) - timeToMinutes(b.start) || a.price - b.price)
+        .sort((a, b) => String(a.courtName || '').localeCompare(String(b.courtName || '')) || timeToMinutes(a.start) - timeToMinutes(b.start) || a.price - b.price)
         .map(group => ({
+            courtId: group.courtId,
+            courtName: group.courtName,
             price: group.price,
             time: `${formatRuleTime(group.start)} - ${formatRuleTime(group.end)}`
         }));
+}
+
+function rateEffectiveDate(rule) {
+    return rule?.effectiveDate || rule?.effectiveFrom || '1970-01-01';
+}
+
+function rateEffectiveOnOrBefore(rule, date) {
+    return rateEffectiveDate(rule) <= date;
+}
+
+function rateRuleSpecificity(rule, date) {
+    const value = rule.dayOfWeek || rule.dayPattern || 'Any';
+    if (holidayForDate(date) && value === 'Holiday') return 3;
+    if (value === dayNameForDate(date)) return 2;
+    if (value !== 'Any') return 1;
+    return 0;
+}
+
+function applicableRateRulesForDate(rules, date) {
+    const best = new Map();
+    [...rules]
+        .sort((a, b) =>
+            rateRuleSpecificity(b, date) - rateRuleSpecificity(a, date)
+            || String(rateEffectiveDate(b)).localeCompare(String(rateEffectiveDate(a)))
+            || Number(b.id || 0) - Number(a.id || 0)
+        )
+        .forEach(rule => {
+            const key = `${rule.courtId}|${rule.timeSlotId}`;
+            if (!best.has(key)) best.set(key, rule);
+        });
+    return [...best.values()];
 }
 
 function bookingFor(date, time, court) {
@@ -1685,9 +1778,16 @@ function dayNameForDate(date) {
     return new Date(`${date}T00:00:00`).toLocaleDateString('en-US', { weekday: 'long' });
 }
 
+function holidayForDate(date) {
+    return (state?.holidaySchedules || []).find(holiday => String(holiday.date) === String(date)) || null;
+}
+
 function dayPatternMatches(pattern, date) {
     const value = String(pattern || 'Any').trim();
     if (!value || value === 'Any') return true;
+    const isHoliday = Boolean(holidayForDate(date));
+    if (value === 'Holiday') return isHoliday;
+    if (isHoliday) return false;
     const dayName = dayNameForDate(date);
     const dayType = dayTypeForDate(date);
     if (value === dayType || value === dayName) return true;
@@ -1731,21 +1831,19 @@ function rateForSlot(time, courtId = null, sport = selectedSport, date = isoDate
     const selectedCourtId = Number(courtId || courtsForSelectedSport()[0]?.id || 0);
     const duration = slotDuration(slot);
     const dayName = dayNameForDate(date);
+    const isHoliday = Boolean(holidayForDate(date));
     const rule = rules
         .filter(item =>
             Number(item.courtId) === selectedCourtId &&
             item.sport === sport &&
             Number(item.timeSlotId) === Number(slot?.id) &&
-            dayPatternMatches(item.dayPattern || item.dayOfWeek || 'Any', date)
+            dayPatternMatches(item.dayPattern || item.dayOfWeek || 'Any', date) &&
+            rateEffectiveOnOrBefore(item, date)
         )
         .sort((a, b) => {
-            const aDay = a.dayOfWeek || a.dayPattern || 'Any';
-            const bDay = b.dayOfWeek || b.dayPattern || 'Any';
-            if (aDay === dayName && bDay !== dayName) return -1;
-            if (bDay === dayName && aDay !== dayName) return 1;
-            if (aDay !== 'Any' && bDay === 'Any') return -1;
-            if (bDay !== 'Any' && aDay === 'Any') return 1;
-            return 0;
+            return rateRuleSpecificity(b, date) - rateRuleSpecificity(a, date)
+                || String(rateEffectiveDate(b)).localeCompare(String(rateEffectiveDate(a)))
+                || Number(b.id || 0) - Number(a.id || 0);
         })[0];
     if (rule) {
         const hourly = Number(rule.pricePerHour);
@@ -2481,11 +2579,69 @@ function setAdminBookingDateRange(start, end = start) {
     adminBookingStartDate = start || '';
     adminBookingEndDate = end || '';
     syncAdminBookingDateInputs();
-    renderAdmin();
+    requestAdminBookings(true);
 }
 
 function syncAdminBookingSortInput() {
     if (els.adminBookingSort) els.adminBookingSort.value = adminBookingSort;
+}
+
+function syncAdminBookingPageSizeInput() {
+    if (els.adminBookingPageSize) els.adminBookingPageSize.value = String(adminBookingPageSize);
+}
+
+function adminBookingQueryParams() {
+    const { start, end } = adminBookingDateRange();
+    return new URLSearchParams({
+        action: 'admin-bookings',
+        status: adminFilter,
+        from: start || '',
+        to: end || '',
+        search: adminReferenceSearch.trim(),
+        sort: adminBookingSort,
+        page: String(adminBookingPage),
+        pageSize: String(adminBookingPageSize)
+    });
+}
+
+function adminBookingQueryKey() {
+    return adminBookingQueryParams().toString();
+}
+
+function requestAdminBookings(resetPage = false) {
+    if (resetPage) adminBookingPage = 1;
+    if (state) state.adminBookingQueryKey = '';
+    renderAdmin();
+}
+
+async function loadAdminBookings(queryKey) {
+    if (!state || adminBookingsLoading) return;
+    adminBookingsLoading = true;
+    try {
+        const response = await fetch(`${api}?${queryKey}`);
+        const payload = await response.json();
+        if (!payload.ok) {
+            if (els.admin) {
+                els.admin.innerHTML = `<tr><td colspan="8" class="text-danger fw-bold">${escapeHtml(payload.message || 'Could not load bookings.')}</td></tr>`;
+            }
+            return;
+        }
+
+        state.adminReservations = payload.reservations || [];
+        state.adminBookingPagination = payload.pagination || null;
+        state.adminBookingStatusCounts = payload.statusCounts || null;
+        state.adminBookingQueryKey = queryKey;
+        adminBookingPage = Number(state.adminBookingPagination?.page || adminBookingPage);
+        adminBookingsLoading = false;
+        renderAdmin();
+    } catch (error) {
+        console.error('Could not load admin bookings.', error);
+        if (els.admin) {
+            els.admin.innerHTML = '<tr><td colspan="8" class="text-danger fw-bold">Could not load bookings. Please refresh the page.</td></tr>';
+        }
+    } finally {
+        adminBookingsLoading = false;
+    }
 }
 
 function sortAdminReservations(rows) {
@@ -2565,19 +2721,26 @@ function renderAdminScheduleCalendar() {
 }
 
 function renderAdmin() {
-    if (!state) return;
+    if (!state || !els.admin) return;
+    syncAdminBookingPageSizeInput();
+    const queryKey = adminBookingQueryKey();
+    if (state.adminBookingQueryKey !== queryKey) {
+        renderAdminFilterButtons();
+        renderAdminStats(state.adminBookingStatusCounts || {});
+        renderAdminPagination();
+        if (!adminBookingsLoading) {
+            els.admin.innerHTML = '<tr><td colspan="8" class="text-secondary">Loading reservations...</td></tr>';
+            loadAdminBookings(queryKey);
+        }
+        return;
+    }
+
     const allRows = groupAdminReservations((state.adminReservations || []).filter(item => item.type === 'court'));
     state.adminGroupedReservations = allRows;
-    renderAdminStats(allRows);
+    renderAdminStats(state.adminBookingStatusCounts || allRows);
+    renderAdminPagination();
     renderAdminFilterButtons();
-    if (!els.admin) return;
-    const referenceNeedle = adminReferenceSearch.trim().toLowerCase();
-    const rows = allRows.filter(item => {
-        const matchesStatus = adminFilter === 'All' || item.status === adminFilter;
-        const matchesReference = referenceNeedle === '' || String(item.bookingReference || '').toLowerCase().includes(referenceNeedle);
-        const matchesDateRange = adminReservationMatchesDateRange(item);
-        return matchesStatus && matchesReference && matchesDateRange;
-    });
+    const rows = allRows;
 
     if (rows.length === 0) {
         els.admin.innerHTML = '<tr><td colspan="8" class="text-secondary">No reservations match the current filter.</td></tr>';
@@ -2692,16 +2855,35 @@ function adminStatusClass(status) {
 }
 
 function renderAdminStats(rows) {
-    const counts = rows.reduce((memo, item) => {
-        memo[item.status] = (memo[item.status] || 0) + 1;
-        return memo;
-    }, {});
+    const counts = Array.isArray(rows)
+        ? rows.reduce((memo, item) => {
+            memo[item.status] = (memo[item.status] || 0) + 1;
+            return memo;
+        }, {})
+        : rows;
     const pending = document.getElementById('adminPendingCount');
     const booked = document.getElementById('adminBookedCount');
     const cancelled = document.getElementById('adminCancelledCount');
     if (pending) pending.textContent = counts.Held || 0;
     if (booked) booked.textContent = counts.Booked || 0;
     if (cancelled) cancelled.textContent = counts.Cancelled || 0;
+}
+
+function renderAdminPagination() {
+    if (!els.adminBookingPagination || !els.adminBookingPageInfo || !els.adminBookingPrev || !els.adminBookingNext) return;
+    const pagination = state?.adminBookingPagination || {};
+    const total = Number(pagination.total || 0);
+    const page = Number(pagination.page || adminBookingPage || 1);
+    const totalPages = Math.max(1, Number(pagination.totalPages || 1));
+    const from = Number(pagination.from || 0);
+    const to = Number(pagination.to || 0);
+
+    els.adminBookingPagination.hidden = total === 0;
+    els.adminBookingPageInfo.textContent = total === 0
+        ? 'No bookings found'
+        : `Showing ${from}-${to} of ${total} bookings | Page ${page} of ${totalPages}`;
+    els.adminBookingPrev.disabled = page <= 1 || adminBookingsLoading;
+    els.adminBookingNext.disabled = page >= totalPages || adminBookingsLoading;
 }
 
 function renderAdminPaymentChannels() {
@@ -2778,6 +2960,7 @@ function renderAdminPaymentChannels() {
 
 function formatRuleTime(value) {
     if (String(value || '').startsWith('00:00')) return '12 MN';
+    if (String(value || '').startsWith('24:00')) return '12 MN';
     const [hourRaw, minuteRaw = '00'] = String(value || '00:00').split(':');
     let hour = Number(hourRaw);
     const minute = Number(minuteRaw);
@@ -2818,12 +3001,46 @@ function populateAdminRateFilters(rules) {
     }
 }
 
+function mergeConsecutiveRateRules(rules) {
+    return rules.reduce((merged, rule) => {
+        const day = rule.dayOfWeek || rule.dayPattern || 'Any';
+        const rateKey = Number(rule.pricePerHour || 0).toFixed(2);
+        const effectiveDate = rateEffectiveDate(rule);
+        const last = merged[merged.length - 1];
+        const canMerge = last
+            && String(last.courtId) === String(rule.courtId)
+            && String(last.sport || '') === String(rule.sport || '')
+            && String(last.dayOfWeek || last.dayPattern || 'Any') === String(day)
+            && Number(last.pricePerHour || 0).toFixed(2) === rateKey
+            && String(rateEffectiveDate(last)) === String(effectiveDate)
+            && timeToMinutes(last.endsAt) === timeToMinutes(rule.startsAt);
+
+        if (canMerge) {
+            last.endsAt = rule.endsAt;
+            last.ids.push(rule.id);
+            last.timeSlotIds.push(rule.timeSlotId);
+            return merged;
+        }
+
+        merged.push({
+            ...rule,
+            dayOfWeek: day,
+            dayPattern: day,
+            effectiveDate,
+            effectiveFrom: effectiveDate,
+            ids: [rule.id],
+            timeSlotIds: [rule.timeSlotId],
+        });
+        return merged;
+    }, []);
+}
+
 function renderAdminRateSummary() {
     if (!els.adminRateSummary || !state) return;
     bindAdminRateForm();
     const allRules = state.adminRateRules || [];
     populateAdminRateFilters(allRules);
-    const rows = allRules
+    const filteredRows = allRules
         .filter(rule =>
             (!adminRateSportFilter || rule.sport === adminRateSportFilter) &&
             (!adminRateCourtFilter || String(rule.courtId) === String(adminRateCourtFilter))
@@ -2835,11 +3052,15 @@ function renderAdminRateSummary() {
             if (sportCompare) return sportCompare;
             const dayCompare = rateDaySortValue(a.dayOfWeek || a.dayPattern || 'Any') - rateDaySortValue(b.dayOfWeek || b.dayPattern || 'Any');
             if (dayCompare) return dayCompare;
+            const effectiveCompare = String(rateEffectiveDate(b)).localeCompare(String(rateEffectiveDate(a)));
+            if (effectiveCompare) return effectiveCompare;
             return timeToMinutes(a.startsAt) - timeToMinutes(b.startsAt);
         });
+    const rows = mergeConsecutiveRateRules(filteredRows);
+    adminRateDisplayRules = rows;
 
     if (rows.length === 0) {
-        els.adminRateSummary.innerHTML = `<tr><td colspan="6" class="text-secondary">${allRules.length === 0 ? 'No rates configured.' : 'No rates match the selected filters.'}</td></tr>`;
+        els.adminRateSummary.innerHTML = `<tr><td colspan="7" class="text-secondary">${allRules.length === 0 ? 'No rates configured.' : 'No rates match the selected filters.'}</td></tr>`;
         return;
     }
 
@@ -2849,13 +3070,14 @@ function renderAdminRateSummary() {
             <td>${escapeHtml(rule.sport || 'All sports')}</td>
             <td>${escapeHtml(rule.dayOfWeek === 'Any' || !rule.dayOfWeek ? 'Any day' : rule.dayOfWeek)}</td>
             <td>${formatRuleTime(rule.startsAt)}-${formatRuleTime(rule.endsAt)}</td>
+            <td>${escapeHtml(formatAdminHolidayDate(rateEffectiveDate(rule)))}</td>
             <td class="text-end">${peso.format(Number(rule.pricePerHour || 0))}</td>
             <td class="text-end">
                 <div class="d-inline-flex gap-1">
                     <button type="button" class="btn btn-outline-primary btn-sm" data-admin-rate-edit="${rule.id}">
                         Edit
                     </button>
-                    <button type="button" class="btn btn-outline-danger btn-sm" data-admin-rate-delete="${rule.id}" data-admin-rate-label="${escapeHtml(`${rule.courtName || 'All courts'} ${rule.sport || 'All sports'} ${rule.dayOfWeek || 'Any'} ${formatRuleTime(rule.startsAt)}-${formatRuleTime(rule.endsAt)}`)}">
+                    <button type="button" class="btn btn-outline-danger btn-sm" data-admin-rate-delete="${rule.id}" data-admin-rate-delete-ids="${escapeHtml((rule.ids || [rule.id]).join(','))}" data-admin-rate-label="${escapeHtml(`${rule.courtName || 'All courts'} ${rule.sport || 'All sports'} ${rule.dayOfWeek || 'Any'} ${formatRuleTime(rule.startsAt)}-${formatRuleTime(rule.endsAt)} effective ${rateEffectiveDate(rule)}`)}">
                         Delete
                     </button>
                 </div>
@@ -2869,25 +3091,127 @@ function renderAdminRateSummary() {
     els.adminRateSummary.querySelectorAll('[data-admin-rate-delete]').forEach(button => {
         button.addEventListener('click', () => deleteRateRule(button));
     });
+    document.dispatchEvent(new CustomEvent('admin-rates-filtered'));
+}
+
+function formatAdminHolidayDate(date) {
+    if (!date) return '';
+    return new Date(`${date}T00:00:00`).toLocaleDateString('en-US', {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric'
+    });
+}
+
+function findHolidaySchedule(id) {
+    return (state?.holidaySchedules || []).find(holiday => Number(holiday.id) === Number(id)) || null;
+}
+
+function renderAdminHolidaySchedules() {
+    if (!els.adminHolidayScheduleRows || !state) return;
+    const rows = [...(state.holidaySchedules || [])].sort((a, b) =>
+        String(b.date || '').localeCompare(String(a.date || ''))
+    );
+    const canManage = adminCanManageOperations();
+
+    if (rows.length === 0) {
+        els.adminHolidayScheduleRows.innerHTML = '<tr><td colspan="3" class="text-secondary">No holiday schedules configured.</td></tr>';
+        return;
+    }
+
+    els.adminHolidayScheduleRows.innerHTML = rows.map(row => `
+        <tr>
+            <td>${escapeHtml(formatAdminHolidayDate(row.date))}</td>
+            <td class="fw-black text-primary">${escapeHtml(row.holidayName || '')}</td>
+            <td class="text-end">
+                ${canManage ? `
+                    <div class="d-inline-flex gap-1">
+                        <button type="button" class="btn btn-outline-primary btn-sm" data-admin-holiday-edit="${row.id}">Edit</button>
+                        <button type="button" class="btn btn-outline-danger btn-sm" data-admin-holiday-delete="${row.id}" data-admin-holiday-label="${escapeHtml(`${row.holidayName || 'holiday'} on ${formatAdminHolidayDate(row.date)}`)}">Delete</button>
+                    </div>
+                ` : '<span class="text-xs fw-bold text-muted">View only</span>'}
+            </td>
+        </tr>
+    `).join('');
+
+    els.adminHolidayScheduleRows.querySelectorAll('[data-admin-holiday-edit]').forEach(button => {
+        button.addEventListener('click', () => openHolidayScheduleModal(button.dataset.adminHolidayEdit));
+    });
+    els.adminHolidayScheduleRows.querySelectorAll('[data-admin-holiday-delete]').forEach(button => {
+        button.addEventListener('click', () => deleteHolidaySchedule(button));
+    });
+}
+
+function openHolidayScheduleModal(id = '') {
+    if (!els.adminHolidayScheduleForm) return;
+    const existing = id ? findHolidaySchedule(id) : null;
+    els.adminHolidayScheduleForm.reset();
+    if (els.adminHolidayScheduleModalTitle) {
+        els.adminHolidayScheduleModalTitle.textContent = existing ? 'Edit Holiday' : 'Add Holiday';
+    }
+    if (els.adminHolidayScheduleId) els.adminHolidayScheduleId.value = existing?.id || '';
+    if (els.adminHolidayScheduleDate) els.adminHolidayScheduleDate.value = existing?.date || '';
+    if (els.adminHolidayScheduleName) els.adminHolidayScheduleName.value = existing?.holidayName || '';
+
+    const message = els.adminHolidayScheduleForm.querySelector('[data-holiday-schedule-message]');
+    if (message) {
+        message.textContent = '';
+        message.className = 'hidden rounded-md p-2 text-xs font-bold mt-3';
+    }
+
+    if (window.bootstrap && els.adminHolidayScheduleModal) {
+        bootstrap.Modal.getOrCreateInstance(els.adminHolidayScheduleModal).show();
+    }
 }
 
 function renderAdminRateAudit() {
     if (!els.adminRateAudit || !state) return;
-    const rows = state.adminRateAudit || [];
+    const rows = [
+        ...(state.adminRateAudit || []).map(row => ({
+            ...row,
+            source: 'Rate',
+            title: row.ruleName || 'Rate configuration',
+        })),
+        ...(state.adminHolidayScheduleAudit || []).map(row => ({
+            ...row,
+            source: 'Holiday Schedule',
+            title: `${row.holidayName || 'Holiday'}${row.holidayDate ? ` (${formatAdminHolidayDate(row.holidayDate)})` : ''}`,
+        })),
+    ].sort((a, b) => String(b.createdAt || '').localeCompare(String(a.createdAt || '')));
+
     if (rows.length === 0) {
-        els.adminRateAudit.innerHTML = '<p class="text-sm font-bold text-muted">No rate changes logged yet.</p>';
+        els.adminRateAudit.innerHTML = '<div class="table-responsive"><table class="table table-sm align-middle mb-0"><tbody><tr><td class="text-secondary">No rate or holiday changes logged yet.</td></tr></tbody></table></div>';
         return;
     }
 
-    els.adminRateAudit.innerHTML = rows.map(row => `
-        <div class="flex flex-wrap items-center justify-between gap-3 rounded-lg bg-white px-3 py-2 text-sm">
-            <div>
-                <p class="font-black">${escapeHtml(row.ruleName)} <span class="text-muted">was ${escapeHtml(row.action)}</span></p>
-                <p class="text-xs font-semibold text-muted">${escapeHtml(row.reason || 'No reason provided')}</p>
-            </div>
-            <p class="text-xs font-bold text-muted">${new Date(row.createdAt).toLocaleString()} by ${escapeHtml(row.adminName)}</p>
+    els.adminRateAudit.innerHTML = `
+        <div class="table-responsive">
+            <table class="table table-sm align-middle mb-0">
+                <thead>
+                    <tr class="small text-secondary">
+                        <th>Date / Time</th>
+                        <th>Type</th>
+                        <th>Action</th>
+                        <th>Details</th>
+                        <th>Reason</th>
+                        <th>Admin</th>
+                    </tr>
+                </thead>
+                <tbody class="small fw-semibold">
+                    ${rows.map(row => `
+                        <tr>
+                            <td class="text-nowrap">${escapeHtml(new Date(row.createdAt).toLocaleString())}</td>
+                            <td><span class="status-badge bg-slate-100 text-primary">${escapeHtml(row.source)}</span></td>
+                            <td class="text-capitalize">${escapeHtml(row.action || '')}</td>
+                            <td>${escapeHtml(row.title || '')}</td>
+                            <td>${escapeHtml(row.reason || 'No reason provided')}</td>
+                            <td>${escapeHtml(row.adminName || 'System')}</td>
+                        </tr>
+                    `).join('')}
+                </tbody>
+            </table>
         </div>
-    `).join('');
+    `;
 }
 
 function findAdminCourt(id) {
@@ -3535,6 +3859,7 @@ function renderAdminMembers() {
                                     ${canManage ? `
                                         <button type="button" data-admin-member-edit="${member.id}" class="btn btn-outline-primary btn-sm">Edit</button>
                                         <button type="button" data-admin-member-qr="${member.id}" class="btn btn-outline-secondary btn-sm">QR</button>
+                                        <button type="button" data-admin-member-op="${member.id}" class="btn btn-outline-secondary btn-sm">OP</button>
                                         <button type="button" data-admin-member-fee="${member.id}" class="btn btn-primary btn-sm">Pay Entrance Fee</button>
                                         <button type="button" data-admin-member-id="${member.id}" data-is-active="${member.isActive ? '0' : '1'}" class="btn ${member.isActive ? 'btn-outline-danger' : 'btn-success'} btn-sm">
                                             ${member.isActive ? 'Deactivate' : 'Activate'}
@@ -3558,8 +3883,11 @@ function renderAdminMembers() {
     els.adminMembers.querySelectorAll('[data-admin-member-qr]').forEach(button => {
         button.addEventListener('click', () => openAdminMemberQr(button.dataset.adminMemberQr));
     });
+    els.adminMembers.querySelectorAll('[data-admin-member-op]').forEach(button => {
+        button.addEventListener('click', () => openEntranceFeeModal(button.dataset.adminMemberOp, 'op'));
+    });
     els.adminMembers.querySelectorAll('[data-admin-member-fee]').forEach(button => {
-        button.addEventListener('click', () => openEntranceFeeModal(button.dataset.adminMemberFee));
+        button.addEventListener('click', () => openEntranceFeeModal(button.dataset.adminMemberFee, 'entrance_fee'));
     });
 }
 
@@ -3679,20 +4007,24 @@ function openAdminMemberQr(id) {
     }
 }
 
-function openEntranceFeeModal(id) {
+function openEntranceFeeModal(id, mode = 'entrance_fee') {
     const member = findAdminMember(id);
     if (!member || !els.adminEntranceFeeForm) return;
     els.adminEntranceFeeForm.reset();
+    renderEntranceFeePaymentOptions();
+    setEntranceFeeMode(mode);
     if (els.adminEntranceMemberId) els.adminEntranceMemberId.value = member.id;
     if (els.adminEntranceMemberSummary) {
         els.adminEntranceMemberSummary.textContent = `${member.name} | ${member.phone || member.email}`;
     }
-    const now = new Date();
-    const date = isoDate(now);
-    const time = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
-    els.adminEntranceFeeForm.querySelector('[name="amount"]').value = '50.00';
-    els.adminEntranceFeeForm.querySelector('[name="paymentDate"]').value = date;
-    els.adminEntranceFeeForm.querySelector('[name="paymentTime"]').value = time;
+    const now = metroDateTimeInputParts();
+    const nextHour = metroDateTimeInputParts(new Date(Date.now() + 60 * 60 * 1000));
+    if (els.adminEntranceAmount) els.adminEntranceAmount.value = '50.00';
+    if (els.adminEntrancePaymentDate) els.adminEntrancePaymentDate.value = now.date;
+    if (els.adminEntrancePaymentTime) els.adminEntrancePaymentTime.value = now.time;
+    if (els.adminEntrancePlayStartTime) els.adminEntrancePlayStartTime.value = now.time;
+    if (els.adminEntrancePlayEndTime) els.adminEntrancePlayEndTime.value = nextHour.date === now.date ? nextHour.time : '23:59';
+    syncEntranceFeeDateTimeLimits();
     const message = els.adminEntranceFeeMessage;
     if (message) {
         message.textContent = '';
@@ -3703,11 +4035,223 @@ function openEntranceFeeModal(id) {
     }
 }
 
+function setEntranceFeeMode(mode) {
+    const isOp = mode === 'op';
+    if (els.adminEntranceEntryType) els.adminEntranceEntryType.value = isOp ? 'op' : 'entrance_fee';
+    if (els.adminEntranceFeeKicker) els.adminEntranceFeeKicker.textContent = isOp ? 'Open Play' : 'Entrance Fee';
+    if (els.adminEntranceFeeTitle) els.adminEntranceFeeTitle.textContent = isOp ? 'Record OP Hours' : 'Pay Entrance Fee';
+    if (els.adminEntranceSubmit) els.adminEntranceSubmit.textContent = isOp ? 'Record OP' : 'Record Payment';
+    if (els.adminEntranceAmount) els.adminEntranceAmount.value = '50.00';
+    if (els.adminEntrancePlayedHours) els.adminEntrancePlayedHours.value = '0';
+    if (els.adminEntrancePaymentDateLabel) els.adminEntrancePaymentDateLabel.textContent = 'Date of Play';
+    if (els.adminEntrancePaymentTimeLabel) els.adminEntrancePaymentTimeLabel.textContent = 'Start Time of Play';
+    if (els.adminEntrancePlayStartLabel) els.adminEntrancePlayStartLabel.textContent = 'Start Time of Play';
+    if (els.adminEntrancePlayEndLabel) els.adminEntrancePlayEndLabel.textContent = 'End Time of Play';
+
+    els.adminEntrancePaymentDateField?.classList.remove('col-md-6');
+    els.adminEntrancePaymentDateField?.classList.add('col-md-4');
+    els.adminEntrancePaymentTimeField?.classList.remove('col-md-6');
+    els.adminEntrancePaymentTimeField?.classList.add('col-md-4');
+    els.adminEntrancePaymentTimeField?.classList.toggle('d-none', isOp);
+    els.adminEntrancePlayStartField?.classList.toggle('d-none', !isOp);
+    els.adminEntrancePlayEndField?.classList.remove('d-none');
+    els.adminEntrancePaymentFields?.classList.toggle('d-none', isOp);
+    els.adminEntranceOpHoursWrap?.classList.remove('d-none');
+
+    if (els.adminEntrancePaymentTime) {
+        els.adminEntrancePaymentTime.disabled = isOp;
+        els.adminEntrancePaymentTime.required = !isOp;
+    }
+    if (els.adminEntrancePaymentMethod) {
+        els.adminEntrancePaymentMethod.disabled = isOp;
+        els.adminEntrancePaymentMethod.required = !isOp;
+    }
+    const reference = document.getElementById('adminEntranceReference');
+    if (reference) reference.disabled = isOp;
+    if (els.adminEntrancePlayStartTime) {
+        els.adminEntrancePlayStartTime.disabled = !isOp;
+        els.adminEntrancePlayStartTime.required = isOp;
+    }
+    if (els.adminEntrancePlayEndTime) {
+        els.adminEntrancePlayEndTime.disabled = false;
+        els.adminEntrancePlayEndTime.required = true;
+    }
+}
+
+function metroDateTimeInputParts(date = new Date()) {
+    const parts = Object.fromEntries(new Intl.DateTimeFormat('en-US', {
+        timeZone: metroTimeZone,
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        hourCycle: 'h23'
+    }).formatToParts(date).map(part => [part.type, part.value]));
+    const inputDate = `${parts.year}-${parts.month}-${parts.day}`;
+    const inputTime = `${parts.hour}:${parts.minute}`;
+    return {
+        date: inputDate,
+        time: inputTime,
+        value: `${inputDate}T${inputTime}`
+    };
+}
+
+function syncEntranceFeeDateTimeLimits() {
+    if (!els.adminEntrancePaymentDate) return;
+    const now = metroDateTimeInputParts();
+    const isOp = els.adminEntranceEntryType?.value === 'op';
+
+    els.adminEntrancePaymentDate.min = now.date;
+    if (!els.adminEntrancePaymentDate.value || els.adminEntrancePaymentDate.value < now.date) {
+        els.adminEntrancePaymentDate.value = now.date;
+    }
+
+    syncEntranceTimeOptions();
+    const startTime = selectedEntranceStartTime();
+    if (els.adminEntrancePlayEndTime && startTime && (!els.adminEntrancePlayEndTime.value || els.adminEntrancePlayEndTime.value <= startTime)) {
+        const start = timeInputToMinutes(startTime || '00:00');
+        const end = Math.min(start + 60, 1440);
+        els.adminEntrancePlayEndTime.value = minutesToTimeInput(end);
+    }
+    updateEntrancePlayedHours();
+}
+
+function entranceFeeDateTimeIsPast() {
+    if (!els.adminEntrancePaymentDate) return false;
+    const isOp = els.adminEntranceEntryType?.value === 'op';
+    const time = isOp ? els.adminEntrancePlayStartTime?.value : els.adminEntrancePaymentTime?.value;
+    if (!els.adminEntrancePaymentDate.value || !time) return false;
+    return `${els.adminEntrancePaymentDate.value}T${time}` < metroDateTimeInputParts().value;
+}
+
+function timeInputToMinutes(value) {
+    const [hours = '0', minutes = '0'] = String(value || '').split(':');
+    return (Number(hours) * 60) + Number(minutes);
+}
+
+function minutesToTimeInput(value) {
+    const bounded = Math.max(0, Math.min(1440, Number(value) || 0));
+    const hours = Math.floor(bounded / 60);
+    const minutes = bounded % 60;
+    return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
+}
+
+function entranceHourlyStartTimes() {
+    return Array.from({ length: 24 }, (_, index) => minutesToTimeInput(index * 60));
+}
+
+function entranceHourlyEndTimes() {
+    return Array.from({ length: 24 }, (_, index) => minutesToTimeInput((index + 1) * 60));
+}
+
+function setEntranceTimeOptions(select, values, preferredValue, disabledPredicate = () => false) {
+    if (!select) return '';
+    const preferred = values.includes(preferredValue) ? preferredValue : '';
+    select.innerHTML = values.map(value => {
+        const disabled = disabledPredicate(value);
+        return `<option value="${escapeHtml(value)}" ${disabled ? 'disabled' : ''}>${escapeHtml(formatRuleTime(value))}</option>`;
+    }).join('');
+
+    const usablePreferred = preferred && !disabledPredicate(preferred) ? preferred : '';
+    select.value = usablePreferred || values.find(value => !disabledPredicate(value)) || values[values.length - 1] || '';
+    return select.value;
+}
+
+function selectedEntranceStartTime() {
+    const isOp = els.adminEntranceEntryType?.value === 'op';
+    return isOp ? els.adminEntrancePlayStartTime?.value : els.adminEntrancePaymentTime?.value;
+}
+
+function setEntranceEndOneHourAfterStart() {
+    const start = timeInputToMinutes(selectedEntranceStartTime());
+    if (!Number.isFinite(start)) return;
+    if (els.adminEntrancePlayEndTime) {
+        els.adminEntrancePlayEndTime.value = minutesToTimeInput(start + 60);
+    }
+}
+
+function syncEntranceTimeOptions() {
+    const isToday = els.adminEntrancePaymentDate?.value === metroDateTimeInputParts().date;
+    const nowMinutes = timeInputToMinutes(metroDateTimeInputParts().time);
+    const startDisabled = value => isToday && timeInputToMinutes(value) < nowMinutes;
+    setEntranceTimeOptions(els.adminEntrancePaymentTime, entranceHourlyStartTimes(), els.adminEntrancePaymentTime?.value || '', startDisabled);
+    setEntranceTimeOptions(els.adminEntrancePlayStartTime, entranceHourlyStartTimes(), els.adminEntrancePlayStartTime?.value || '', startDisabled);
+
+    const startMinutes = timeInputToMinutes(selectedEntranceStartTime());
+    const endDisabled = value => Number.isFinite(startMinutes) && timeInputToMinutes(value) <= startMinutes;
+    const preferredEnd = els.adminEntrancePlayEndTime?.value || minutesToTimeInput(startMinutes + 60);
+    setEntranceTimeOptions(els.adminEntrancePlayEndTime, entranceHourlyEndTimes(), preferredEnd, endDisabled);
+}
+
+function entrancePlayedHours() {
+    const start = timeInputToMinutes(selectedEntranceStartTime() || '');
+    const end = timeInputToMinutes(els.adminEntrancePlayEndTime?.value || '');
+    if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start) return 0;
+    return (end - start) / 60;
+}
+
+function entrancePlayRangeIsInvalid() {
+    const isOp = els.adminEntranceEntryType?.value === 'op';
+    const start = timeInputToMinutes(isOp ? els.adminEntrancePlayStartTime?.value : els.adminEntrancePaymentTime?.value);
+    const end = timeInputToMinutes(els.adminEntrancePlayEndTime?.value);
+    return !Number.isFinite(start) || !Number.isFinite(end) || end <= start;
+}
+
+function updateEntrancePlayedHours() {
+    const hours = entrancePlayedHours();
+    if (els.adminEntrancePlayedHours) els.adminEntrancePlayedHours.value = hours > 0 ? hours.toFixed(2) : '0';
+    if (els.adminEntranceOpHoursSummary) {
+        els.adminEntranceOpHoursSummary.textContent = hours > 0
+            ? `Total played hours: ${hours.toFixed(2)}`
+            : 'Select a valid time range to calculate hours.';
+    }
+}
+
+function renderEntranceFeePaymentOptions() {
+    if (!els.adminEntrancePaymentMethod) return;
+    const channels = [
+        { code: 'Cash', name: 'Cash' },
+        ...(state?.paymentChannels || []),
+    ];
+
+    if (channels.length === 0) {
+        els.adminEntrancePaymentMethod.innerHTML = '<option value="">No active payment channels</option>';
+        return;
+    }
+
+    els.adminEntrancePaymentMethod.innerHTML = '<option value="">Select payment channel</option>' + channels.map(channel => (
+        `<option value="${escapeHtml(channel.code)}">${escapeHtml(channel.name)}</option>`
+    )).join('');
+}
+
 async function submitEntranceFee(event) {
     event.preventDefault();
     const form = event.currentTarget;
+    syncEntranceFeeDateTimeLimits();
+    if (entranceFeeDateTimeIsPast()) {
+        if (els.adminEntranceFeeMessage) {
+            els.adminEntranceFeeMessage.textContent = 'Date and time of play cannot be in the past.';
+            els.adminEntranceFeeMessage.className = 'rounded-md p-2 text-xs font-bold mt-3 bg-rose-50 text-rose-700';
+        }
+        return;
+    }
+    const isOp = els.adminEntranceEntryType?.value === 'op';
+    if (entrancePlayRangeIsInvalid()) {
+        if (els.adminEntranceFeeMessage) {
+            els.adminEntranceFeeMessage.textContent = 'Choose an end time of play later than the start time.';
+            els.adminEntranceFeeMessage.className = 'rounded-md p-2 text-xs font-bold mt-3 bg-rose-50 text-rose-700';
+        }
+        return;
+    }
     if (!form.reportValidity()) return;
-    const response = await fetch(`${api}?action=admin-entrance-fee`, { method: 'POST', body: new FormData(form) });
+    const formData = new FormData(form);
+    formData.set('amount', '50.00');
+    formData.set('playedHours', entrancePlayedHours().toFixed(2));
+    if (!isOp && els.adminEntrancePaymentTime) {
+        formData.set('playStartTime', els.adminEntrancePaymentTime.value);
+    }
+    const response = await fetch(`${api}?action=admin-entrance-fee`, { method: 'POST', body: formData });
     const payload = await response.json();
     if (els.adminEntranceFeeMessage) {
         els.adminEntranceFeeMessage.textContent = payload.message || 'Saved.';
@@ -4333,16 +4877,76 @@ async function submitPaymentChannel(event) {
     }
 }
 
+function showRateAdvanceBookingModal(form, payload) {
+    const bookings = Array.isArray(payload.affectedBookings) ? payload.affectedBookings : [];
+    pendingRateAdjustmentForm = form;
+    if (els.adminRateAdvanceBookingSummary) {
+        els.adminRateAdvanceBookingSummary.textContent = payload.message || 'There are existing advance bookings affected by this rate change. Do you want to update them to the new rate or keep their current rates?';
+    }
+    if (els.adminRateAdvanceBookingRows) {
+        els.adminRateAdvanceBookingRows.innerHTML = bookings.length === 0
+            ? '<p class="mb-0 small fw-semibold text-secondary">No booking details were returned.</p>'
+            : `
+                <table class="table table-sm align-middle mb-0">
+                    <thead>
+                        <tr class="small text-secondary">
+                            <th>Date</th>
+                            <th>Time</th>
+                            <th>Court</th>
+                            <th>Customer</th>
+                            <th>Reference</th>
+                            <th class="text-end">Current Rate</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${bookings.map(booking => `
+                            <tr>
+                                <td class="fw-bold">${escapeHtml(booking.date ? niceDate(booking.date) : '-')}</td>
+                                <td>${escapeHtml(booking.time || '-')}</td>
+                                <td>${escapeHtml(booking.courtName || `Court ${booking.courtId || ''}`)}</td>
+                                <td>${escapeHtml(booking.customerName || '-')}</td>
+                                <td>${escapeHtml(booking.reference || '-')}</td>
+                                <td class="text-end">${peso.format(Number(booking.currentFinalAmount || 0))}</td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+            `;
+    }
+    if (window.bootstrap && els.adminRateModal) {
+        bootstrap.Modal.getInstance(els.adminRateModal)?.hide();
+    }
+    if (window.bootstrap && els.adminRateAdvanceBookingModal) {
+        bootstrap.Modal.getOrCreateInstance(els.adminRateAdvanceBookingModal).show();
+    }
+}
+
 async function submitRateRule(event) {
     event.preventDefault();
-    const form = event.currentTarget;
+    await saveRateRule(event.currentTarget);
+}
+
+async function saveRateRule(form, advanceBookingChoice = '') {
     const message = form.querySelector('[data-rate-rule-message]');
     const formData = new FormData(form);
     formData.set('reason', formData.get('reason') || 'Regular rate');
     formData.set('name', currentRateRuleName());
+    if (advanceBookingChoice) formData.set('advanceBookingChoice', advanceBookingChoice);
 
     const response = await fetch(`${api}?action=admin-rate-rule`, { method: 'POST', body: formData });
     const payload = await response.json();
+
+    if (response.status === 409 && payload?.requiresAdvanceRateChoice) {
+        showRateAdvanceBookingModal(form, payload);
+        return;
+    }
+
+    if (!payload?.ok && advanceBookingChoice && els.adminRateAdvanceBookingModal?.classList.contains('show')) {
+        if (els.adminRateAdvanceBookingSummary) {
+            els.adminRateAdvanceBookingSummary.textContent = payload?.message || 'Could not save rate adjustment.';
+        }
+        return;
+    }
 
     message.textContent = payload?.ok ? 'Rate saved.' : (payload?.message || 'Could not save rate.');
     message.className = `rounded-md p-3 text-sm font-bold ${payload?.ok ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-700'}`;
@@ -4354,7 +4958,58 @@ async function submitRateRule(event) {
         if (window.bootstrap && els.adminRateModal) {
             bootstrap.Modal.getInstance(els.adminRateModal)?.hide();
         }
+        if (window.bootstrap && els.adminRateAdvanceBookingModal) {
+            bootstrap.Modal.getInstance(els.adminRateAdvanceBookingModal)?.hide();
+        }
+        pendingRateAdjustmentForm = null;
     }
+}
+
+async function submitHolidaySchedule(event) {
+    event.preventDefault();
+    const form = event.currentTarget;
+    const message = form.querySelector('[data-holiday-schedule-message]');
+    const formData = new FormData(form);
+    formData.set('reason', formData.get('reason') || 'Holiday schedule change');
+
+    const response = await fetch(`${api}?action=admin-holiday-schedule`, { method: 'POST', body: formData });
+    const payload = await response.json();
+
+    if (message) {
+        message.textContent = payload?.message || (payload?.ok ? 'Holiday schedule saved.' : 'Could not save holiday schedule.');
+        message.className = `rounded-md p-3 text-sm font-bold ${payload?.ok ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-700'}`;
+    }
+
+    if (payload?.ok) {
+        state = payload.state;
+        renderAll();
+        showAdminToast(payload.message || 'Holiday schedule saved successfully.');
+        if (window.bootstrap && els.adminHolidayScheduleModal) {
+            bootstrap.Modal.getInstance(els.adminHolidayScheduleModal)?.hide();
+        }
+    }
+}
+
+async function deleteHolidaySchedule(button) {
+    const id = button.dataset.adminHolidayDelete;
+    const label = button.dataset.adminHolidayLabel || 'this holiday schedule';
+    if (!id) return;
+    if (!window.confirm(`Delete ${label}? This cannot be undone.`)) return;
+
+    const formData = new FormData();
+    formData.set('id', id);
+    formData.set('reason', 'Holiday schedule deleted');
+    const response = await fetch(`${api}?action=admin-holiday-delete`, { method: 'POST', body: formData });
+    const payload = await response.json();
+
+    if (!payload.ok) {
+        window.alert(payload.message || 'Could not delete holiday schedule.');
+        return;
+    }
+
+    state = payload.state;
+    renderAll();
+    showAdminToast(payload.message || 'Holiday schedule deleted successfully.');
 }
 
 async function deleteRateRule(button) {
@@ -4365,6 +5020,7 @@ async function deleteRateRule(button) {
 
     const formData = new FormData();
     formData.set('id', id);
+    formData.set('ids', button.dataset.adminRateDeleteIds || id);
     const response = await fetch(`${api}?action=admin-rate-delete`, { method: 'POST', body: formData });
     const payload = await response.json();
 
@@ -4381,6 +5037,57 @@ async function deleteRateRule(button) {
 async function submitCourtBlock(event) {
     event.preventDefault();
     await saveCourtBlock(event.currentTarget, false);
+}
+
+function showCourtBlockConflictModal(form, payload) {
+    const conflicts = Array.isArray(payload.conflicts) ? payload.conflicts : [];
+    pendingCourtBlockConflictForm = form;
+    if (els.adminCourtBlockConflictSummary) {
+        const availableCount = Number(payload.availableSlotCount || 0);
+        const bookedCount = Number(payload.bookedSlotCount || conflicts.length || 0);
+        els.adminCourtBlockConflictSummary.textContent = `${bookedCount} booked slot${bookedCount === 1 ? '' : 's'} found. ${availableCount} available slot${availableCount === 1 ? '' : 's'} can still be blocked.`;
+    }
+    if (els.adminCourtBlockConflictRows) {
+        els.adminCourtBlockConflictRows.innerHTML = conflicts.length === 0
+            ? '<p class="mb-0 small fw-semibold text-secondary">No booked slot details were returned.</p>'
+            : `
+                <table class="table table-sm align-middle mb-0">
+                    <thead>
+                        <tr class="small text-secondary">
+                            <th>Date</th>
+                            <th>Time</th>
+                            <th>Court</th>
+                            <th>Sport</th>
+                            <th>Customer</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${conflicts.map(slot => `
+                            <tr>
+                                <td class="fw-bold">${escapeHtml(slot.date ? niceDate(slot.date) : '-')}</td>
+                                <td>${escapeHtml(slot.time || '-')}</td>
+                                <td>${escapeHtml(slot.courtName || `Court ${slot.courtId || ''}`)}</td>
+                                <td>${escapeHtml(slot.sport || '-')}</td>
+                                <td>${escapeHtml(slot.customerName || '-')}</td>
+                                <td><span class="status-badge ${adminStatusClass(slot.status)}">${escapeHtml(slot.status || 'Booked')}</span></td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+            `;
+    }
+
+    if (window.bootstrap && els.adminCourtBlockConflictModal) {
+        bootstrap.Modal.getOrCreateInstance(els.adminCourtBlockConflictModal).show();
+        return;
+    }
+
+    if (window.confirm(`${payload.message || 'Booked slots found.'}\n\nOnly available/unbooked slots will be blocked. Proceed?`)) {
+        saveCourtBlock(form, true);
+    } else {
+        pendingCourtBlockConflictForm = null;
+    }
 }
 
 async function submitCourtBlockStatus(button) {
@@ -4409,7 +5116,7 @@ async function submitCourtBlockStatus(button) {
     }
 }
 
-async function saveCourtBlock(form, confirmedOverride = false) {
+async function saveCourtBlock(form, proceedAvailableOnly = false) {
     const message = form.querySelector('[data-court-block-message]');
     const formData = new FormData(form);
     const [courtId, sport = ''] = String(formData.get('blockScope') || '2|').split('|');
@@ -4417,15 +5124,19 @@ async function saveCourtBlock(form, confirmedOverride = false) {
     formData.set('sport', sport);
     formData.set('isActive', form.querySelector('[name="isActive"]').checked ? '1' : '0');
     formData.delete('blockScope');
-    if (confirmedOverride) formData.set('overrideConfirm', '1');
+    if (proceedAvailableOnly) formData.set('proceedAvailableOnly', '1');
 
     const response = await fetch(`${api}?action=admin-court-block`, { method: 'POST', body: formData });
     const payload = await response.json();
 
-    if (response.status === 409 && payload.requiresOverride) {
-        const confirmed = window.confirm(`${payload.message || 'This block overlaps active reservations.'}\n\nCreate the block and log an admin override?`);
-        if (confirmed) {
-            await saveCourtBlock(form, true);
+    if (response.status === 409 && payload.requiresAvailabilityConfirm) {
+        showCourtBlockConflictModal(form, payload);
+        return;
+    }
+
+    if (!payload.ok && proceedAvailableOnly && els.adminCourtBlockConflictModal?.classList.contains('show')) {
+        if (els.adminCourtBlockConflictSummary) {
+            els.adminCourtBlockConflictSummary.textContent = payload.message || 'Could not save court blocking.';
         }
         return;
     }
@@ -4437,6 +5148,10 @@ async function saveCourtBlock(form, confirmedOverride = false) {
         state = payload.state;
         renderAll();
         showAdminToast(payload.message || 'Court block saved successfully.');
+        if (window.bootstrap && els.adminCourtBlockConflictModal) {
+            bootstrap.Modal.getInstance(els.adminCourtBlockConflictModal)?.hide();
+        }
+        pendingCourtBlockConflictForm = null;
     }
 }
 
@@ -4588,6 +5303,52 @@ els.adminReceiptUploadForm?.addEventListener('submit', submitReceiptUpload);
 els.adminCourtForm?.addEventListener('submit', submitAdminCourtForm);
 els.adminMemberForm?.addEventListener('submit', submitAdminMemberForm);
 els.adminEntranceFeeForm?.addEventListener('submit', submitEntranceFee);
+els.adminAddHolidaySchedule?.addEventListener('click', () => openHolidayScheduleModal());
+els.adminHolidayScheduleForm?.addEventListener('submit', submitHolidaySchedule);
+els.adminRateAdvanceKeep?.addEventListener('click', async () => {
+    if (!pendingRateAdjustmentForm) return;
+    els.adminRateAdvanceKeep.disabled = true;
+    els.adminRateAdvanceUpdate.disabled = true;
+    await saveRateRule(pendingRateAdjustmentForm, 'keep');
+    els.adminRateAdvanceKeep.disabled = false;
+    els.adminRateAdvanceUpdate.disabled = false;
+});
+els.adminRateAdvanceUpdate?.addEventListener('click', async () => {
+    if (!pendingRateAdjustmentForm) return;
+    els.adminRateAdvanceKeep.disabled = true;
+    els.adminRateAdvanceUpdate.disabled = true;
+    await saveRateRule(pendingRateAdjustmentForm, 'update');
+    els.adminRateAdvanceKeep.disabled = false;
+    els.adminRateAdvanceUpdate.disabled = false;
+});
+els.adminRateAdvanceBookingModal?.addEventListener('hidden.bs.modal', () => {
+    pendingRateAdjustmentForm = null;
+    if (els.adminRateAdvanceKeep) els.adminRateAdvanceKeep.disabled = false;
+    if (els.adminRateAdvanceUpdate) els.adminRateAdvanceUpdate.disabled = false;
+});
+els.adminEntrancePaymentDate?.addEventListener('change', syncEntranceFeeDateTimeLimits);
+els.adminEntrancePaymentTime?.addEventListener('change', () => {
+    setEntranceEndOneHourAfterStart();
+    syncEntranceFeeDateTimeLimits();
+});
+els.adminEntrancePlayStartTime?.addEventListener('change', () => {
+    setEntranceEndOneHourAfterStart();
+    syncEntranceFeeDateTimeLimits();
+});
+els.adminEntrancePlayEndTime?.addEventListener('change', syncEntranceFeeDateTimeLimits);
+els.adminCourtBlockConflictProceed?.addEventListener('click', async () => {
+    const form = pendingCourtBlockConflictForm;
+    if (!form) return;
+    els.adminCourtBlockConflictProceed.disabled = true;
+    await saveCourtBlock(form, true);
+    els.adminCourtBlockConflictProceed.disabled = false;
+});
+els.adminCourtBlockConflictModal?.addEventListener('hidden.bs.modal', () => {
+    pendingCourtBlockConflictForm = null;
+    if (els.adminCourtBlockConflictProceed) {
+        els.adminCourtBlockConflictProceed.disabled = false;
+    }
+});
 els.adminQrScanForm?.addEventListener('submit', submitQrLookup);
 els.adminOverrideSport?.addEventListener('change', event => updateAdminOverrideSportAndCourts(event.target.value));
 els.adminOverrideCustomer?.addEventListener('change', applyAdminOverrideCustomer);
@@ -4597,10 +5358,12 @@ els.adminScheduleGrid?.addEventListener('click', event => {
 });
 els.adminReferenceSearch?.addEventListener('input', event => {
     adminReferenceSearch = event.target.value;
-    renderAdmin();
+    clearTimeout(adminBookingSearchTimer);
+    adminBookingSearchTimer = setTimeout(() => requestAdminBookings(true), 250);
 });
 syncAdminBookingDateInputs();
 syncAdminBookingSortInput();
+syncAdminBookingPageSizeInput();
 els.adminBookingStartDate?.addEventListener('change', event => {
     setAdminBookingDateRange(event.target.value, adminBookingEndDate);
 });
@@ -4612,7 +5375,23 @@ els.adminBookingDateClear?.addEventListener('click', () => {
 });
 els.adminBookingSort?.addEventListener('change', event => {
     adminBookingSort = event.target.value || 'created-desc';
-    renderAdmin();
+    requestAdminBookings(true);
+});
+els.adminBookingPageSize?.addEventListener('change', event => {
+    const nextSize = Number(event.target.value) || 20;
+    adminBookingPageSize = [10, 20, 50, 100].includes(nextSize) ? nextSize : 20;
+    requestAdminBookings(true);
+});
+els.adminBookingPrev?.addEventListener('click', () => {
+    if (adminBookingPage <= 1) return;
+    adminBookingPage -= 1;
+    requestAdminBookings(false);
+});
+els.adminBookingNext?.addEventListener('click', () => {
+    const totalPages = Number(state?.adminBookingPagination?.totalPages || 1);
+    if (adminBookingPage >= totalPages) return;
+    adminBookingPage += 1;
+    requestAdminBookings(false);
 });
 els.adminMemberSearch?.addEventListener('input', event => {
     adminMemberSearch = event.target.value;
@@ -4702,7 +5481,7 @@ document.querySelectorAll('[data-admin-filter]').forEach(button => {
             item.className = 'btn btn-outline-secondary btn-sm';
         });
         button.className = 'btn btn-primary btn-sm';
-        renderAdmin();
+        requestAdminBookings(true);
     });
 });
 

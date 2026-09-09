@@ -90,7 +90,7 @@ if ($active === 'member' && $pageTitle !== '') {
         ); ?>?v=<?php echo htmlspecialchars($assetVersion); ?>"
     >
 
-        <?php if ($useAdminShell && ($active ?? '') === 'admin-rates'): ?>
+        <?php if ($useAdminShell && in_array(($active ?? ''), ['admin-rates', 'admin-bookings'], true)): ?>
         <link
             rel="stylesheet"
             href="<?php echo htmlspecialchars(

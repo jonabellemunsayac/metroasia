@@ -31,5 +31,30 @@ include __DIR__ . '/../includes/header.php';
         </div>
         <div id="adminOverrideLogs" class="grid gap-2"></div>
     </section>
+
+    <div id="adminCourtBlockConflictModal" class="modal fade" tabindex="-1" aria-labelledby="adminCourtBlockConflictTitle" aria-hidden="true">
+        <div class="modal-dialog modal-lg modal-dialog-scrollable">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <div>
+                        <span class="section-kicker">Booked Slots Found</span>
+                        <h2 id="adminCourtBlockConflictTitle" class="modal-title fw-black">Proceed with available slots only?</h2>
+                    </div>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <p id="adminCourtBlockConflictSummary" class="small fw-semibold text-secondary"></p>
+                    <div id="adminCourtBlockConflictRows" class="table-responsive"></div>
+                    <div id="adminCourtBlockConflictMessage" class="mt-3 rounded-md bg-amber-50 p-3 small fw-bold text-warning">
+                        Existing bookings will not be overwritten, cancelled, or modified. Only available/unbooked slots in the selected range will be blocked.
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">Cancel</button>
+                    <button id="adminCourtBlockConflictProceed" type="button" class="btn btn-primary btn-sm">Proceed</button>
+                </div>
+            </div>
+        </div>
+    </div>
 </main>
 <?php include __DIR__ . '/../includes/footer.php'; ?>
