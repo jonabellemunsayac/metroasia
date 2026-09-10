@@ -1144,6 +1144,38 @@ function court_block_applies(?int $blockCourtId, ?string $blockSport, int $court
     return false;
 }
 
+function is_miami_court(int $courtId): bool
+{
+    return $courtId === 2;
+}
+
+function is_wooden_court(int $courtId): bool
+{
+    return in_array($courtId, [7, 8, 9], true);
+}
+
+function court_booking_resources_conflict(int $existingCourtId, int $requestedCourtId): bool
+{
+    if ($existingCourtId === $requestedCourtId) {
+        return true;
+    }
+
+    return (is_miami_court($existingCourtId) && is_wooden_court($requestedCourtId))
+        || (is_wooden_court($existingCourtId) && is_miami_court($requestedCourtId));
+}
+
+function related_booking_conflict_court_ids(int $courtId): array
+{
+    if (is_miami_court($courtId)) {
+        return [7, 8, 9];
+    }
+    if (is_wooden_court($courtId)) {
+        return [2];
+    }
+
+    return [];
+}
+
 function active_block_conflict(PDO $pdo, string $date, int $slotId, int $courtId, string $sport): ?array
 {
     $stmt = $pdo->prepare(
@@ -1204,6 +1236,36 @@ function active_court_conflict(PDO $pdo, string $date, int $slotId, int $courtId
             'blockingSport' => $row['sport'],
             'status' => $row['status'],
         ];
+    }
+
+    $relatedCourtIds = related_booking_conflict_court_ids($courtId);
+    if ($relatedCourtIds !== []) {
+        $relatedPlaceholders = implode(',', array_fill(0, count($relatedCourtIds), '?'));
+        $related = $pdo->prepare(
+            "SELECT cb.id, cb.court_id, cb.sport, cb.status, c.name AS court_name, ts.label AS time_label
+             FROM court_bookings cb
+             LEFT JOIN courts c ON c.id = cb.court_id
+             JOIN time_slots ts ON ts.id = cb.time_slot_id
+             WHERE cb.booking_date = ? AND cb.time_slot_id = ? AND cb.court_id IN ({$relatedPlaceholders})
+               AND cb.status IN (" . BLOCKING_RESERVATION_STATUS_SQL . ") {$excludeSql}
+             LIMIT 1{$lockSql}"
+        );
+        $relatedParams = array_merge([$date, $slotId], $relatedCourtIds);
+        if ($excludeBookingId !== null) {
+            $relatedParams[] = $excludeBookingId;
+        }
+        $related->execute($relatedParams);
+        $row = $related->fetch();
+        if ($row) {
+            $name = public_court_name((int) $row['court_id'], (string) $row['sport']);
+            $requestedName = public_court_name($courtId, $sport);
+            return [
+                'message' => "{$requestedName} is unavailable because {$name} is already {$row['status']} for {$row['sport']} during {$row['time_label']}.",
+                'blockingCourt' => $name,
+                'blockingSport' => $row['sport'],
+                'status' => $row['status'],
+            ];
+        }
     }
 
     $block = active_block_conflict($pdo, $date, $slotId, $courtId, $sport);
@@ -1318,11 +1380,15 @@ function active_bookings_for_booking(PDO $pdo, string $date, int $slotId, int $c
     foreach ($stmt->fetchAll() as $row) {
         $existingCourt = (int) $row['court_id'];
         $existingSport = (string) $row['sport'];
-        if ($existingCourt !== $courtId) {
+        if (!court_booking_resources_conflict($existingCourt, $courtId)) {
             continue;
         }
 
         $courtName = public_court_name($existingCourt, $existingSport);
+        $requestedCourtName = public_court_name($courtId, $sport);
+        $summary = $existingCourt === $courtId
+            ? "{$courtName} is currently reserved for {$existingSport} from {$row['time_label']} ({$row['status']}, {$row['customer_name']})."
+            : "{$requestedCourtName} is unavailable because {$courtName} is currently reserved for {$existingSport} from {$row['time_label']} ({$row['status']}, {$row['customer_name']}).";
         $matches[] = [
             'id' => (int) $row['id'],
             'courtId' => $existingCourt,
@@ -1331,7 +1397,7 @@ function active_bookings_for_booking(PDO $pdo, string $date, int $slotId, int $c
             'status' => $row['status'],
             'customerName' => $row['customer_name'],
             'time' => $row['time_label'],
-            'summary' => "{$courtName} is currently reserved for {$existingSport} from {$row['time_label']} ({$row['status']}, {$row['customer_name']}).",
+            'summary' => $summary,
         ];
     }
 
@@ -1436,7 +1502,6 @@ function get_state(PDO $pdo, bool $includeAdmin = false): array
                 cb.customer_name, cb.player_nickname, m.nickname AS member_nickname, cb.customer_email, cb.customer_phone, cb.payment_method,
                 cb.receipt_path, cb.base_rate, cb.final_amount, cb.created_at
          FROM court_bookings cb
-         JOIN courts c ON c.id = cb.court_id AND c.is_active = 1
          JOIN time_slots ts ON ts.id = cb.time_slot_id
          LEFT JOIN members m ON m.id = cb.member_id
          WHERE cb.status IN (" . BLOCKING_RESERVATION_STATUS_SQL . ")"

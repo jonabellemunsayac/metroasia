@@ -1058,6 +1058,23 @@ function bookingFor(date, time, court) {
     return Object.values(state.bookings).find(item => item.date === date && item.time === time && Number(item.court) === Number(court));
 }
 
+function isMiamiCourt(courtId) {
+    return Number(courtId) === 2;
+}
+
+function isWoodenCourt(courtId) {
+    return [7, 8, 9].includes(Number(courtId));
+}
+
+function bookingResourcesConflict(existingCourtId, requestedCourtId) {
+    const existing = Number(existingCourtId);
+    const requested = Number(requestedCourtId);
+    if (existing === requested) return true;
+
+    return (isMiamiCourt(existing) && isWoodenCourt(requested))
+        || (isWoodenCourt(existing) && isMiamiCourt(requested));
+}
+
 function courtDisplayName(courtInfo) {
     return courtInfo.labels?.[selectedSport] || courtInfo.name;
 }
@@ -1081,6 +1098,20 @@ function relatedConflictFor(date, time, courtInfo) {
             playerNickname: direct.playerNickname || '',
             shortLabel: compactStatusLabel(direct.status),
             message: `${courtDisplayName(courtInfo)} is already ${direct.status} for ${direct.sport} during ${time}.`
+        };
+    }
+
+    const related = bookingsAt(date, time).find(item => bookingResourcesConflict(item.court, court));
+    if (related) {
+        const relatedCourt = (state?.courts || []).find(item => Number(item.id) === Number(related.court));
+        const relatedCourtName = relatedCourt ? courtDisplayName(relatedCourt) : (related.courtName || `Court ${related.court}`);
+        return {
+            id: related.id,
+            status: related.status,
+            sport: related.sport,
+            playerNickname: related.playerNickname || '',
+            shortLabel: compactStatusLabel(related.status),
+            message: `${courtDisplayName(courtInfo)} is unavailable because ${relatedCourtName} is already ${related.status} for ${related.sport} during ${time}.`
         };
     }
 
