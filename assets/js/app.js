@@ -33,6 +33,7 @@ let adminRateCourtFilter = '';
 let adminRateDisplayRules = [];
 let adminQrStream = null;
 const supportedBookingSports = ['Pickleball', 'Basketball', 'Volleyball'];
+let adminBookingSport = supportedBookingSports.includes(pageParams.get('sport')) ? pageParams.get('sport') : '';
 function normalizeBookingSport(value) {
     const requested = String(value || '').trim().toLowerCase();
     return supportedBookingSports.find(sport => sport.toLowerCase() === requested) || 'Pickleball';
@@ -71,6 +72,8 @@ const els = {
     bookingSelectionBar: document.getElementById('bookingSelectionBar'),
     bookingSelectionSummary: document.getElementById('bookingSelectionSummary'),
     bookingSelectionBookNow: document.getElementById('bookingSelectionBookNow'),
+    bookingConfirmationModal: document.getElementById('bookingConfirmationModal'),
+    bookingConfirmationBody: document.getElementById('bookingConfirmationBody'),
     inlineReservation: document.getElementById('bookingInlineReservation'),
     inlineEmpty: document.getElementById('bookingInlineEmpty'),
     bookingSummaryDateLabel: document.getElementById('bookingSummaryDateLabel'),
@@ -88,6 +91,8 @@ const els = {
     adminRateCourt: document.getElementById('adminRateCourt'),
     adminRateSport: document.getElementById('adminRateSport'),
     adminRateDayOfWeek: document.getElementById('adminRateDayOfWeek'),
+    adminRateDayRangeFrom: document.getElementById('adminRateDayRangeFrom'),
+    adminRateDayRangeTo: document.getElementById('adminRateDayRangeTo'),
     adminRateMode: document.getElementById('adminRateMode'),
     adminRateTimeSlotWrap: document.getElementById('adminRateTimeSlotWrap'),
     adminRateTimeSlot: document.getElementById('adminRateTimeSlot'),
@@ -183,6 +188,7 @@ const els = {
     adminBookingStartDate: document.getElementById('adminBookingStartDate'),
     adminBookingEndDate: document.getElementById('adminBookingEndDate'),
     adminBookingDateClear: document.getElementById('adminBookingDateClear'),
+    adminBookingSport: document.getElementById('adminBookingSport'),
     adminBookingSort: document.getElementById('adminBookingSort'),
     adminBookingPagination: document.getElementById('adminBookingPagination'),
     adminBookingPageInfo: document.getElementById('adminBookingPageInfo'),
@@ -628,6 +634,15 @@ function setAdminRateMode(mode, editing = false) {
 }
 
 function populateAdminRateOptions(rule) {
+    const weekdays = [
+        ['Monday', 'Monday'],
+        ['Tuesday', 'Tuesday'],
+        ['Wednesday', 'Wednesday'],
+        ['Thursday', 'Thursday'],
+        ['Friday', 'Friday'],
+        ['Saturday', 'Saturday'],
+        ['Sunday', 'Sunday']
+    ];
     setSelectOptions(els.adminRateCourt, [
         ['all', 'All courts'],
         ...(state?.courts || []).map(court => [court.id, court.name])
@@ -650,6 +665,14 @@ function populateAdminRateOptions(rule) {
         ['Saturday', 'Saturday'],
         ['Sunday', 'Sunday']
     ], rule.dayOfWeek || rule.dayPattern || 'Any');
+    setSelectOptions(els.adminRateDayRangeFrom, [
+        ['', 'Use selected day'],
+        ...weekdays
+    ], '');
+    setSelectOptions(els.adminRateDayRangeTo, [
+        ['', 'Use selected day'],
+        ...weekdays
+    ], '');
     setSelectOptions(els.adminRateTimeSlot, Object.values(state?.slotDetails || {}).map(slot => [
         slot.id,
         compactTime(slot.label)
@@ -661,10 +684,26 @@ function populateAdminRateOptions(rule) {
 function currentRateRuleName() {
     const court = els.adminRateCourt?.selectedOptions?.[0]?.textContent || 'All courts';
     const sport = els.adminRateSport?.value || 'All sports';
-    const day = els.adminRateDayOfWeek?.selectedOptions?.[0]?.textContent || 'Any day';
+    const rangeFrom = els.adminRateDayRangeFrom?.value || '';
+    const rangeTo = els.adminRateDayRangeTo?.value || '';
+    const day = rangeFrom && rangeTo
+        ? `${rangeFrom} to ${rangeTo}`
+        : (els.adminRateDayOfWeek?.selectedOptions?.[0]?.textContent || 'Any day');
     const start = els.adminRateRangeStart?.selectedOptions?.[0]?.textContent || '';
     const end = els.adminRateRangeEnd?.selectedOptions?.[0]?.textContent || '';
     return `${court} ${sport} ${day} ${start}-${end}`.trim();
+}
+
+function syncAdminRateDayRange(changedSelect) {
+    const from = els.adminRateDayRangeFrom;
+    const to = els.adminRateDayRangeTo;
+    if (!from || !to) return;
+    if (changedSelect === from && from.value && !to.value) {
+        to.value = from.value;
+    }
+    if (changedSelect === to && to.value && !from.value) {
+        from.value = to.value;
+    }
 }
 
 function simpleRateDay(value) {
@@ -1944,7 +1983,7 @@ function renderBookingSelectionBar() {
         `${a.date} ${a.time} ${a.court}`.localeCompare(`${b.date} ${b.time} ${b.court}`)
     );
     const slotsText = sorted.map(slot => `${compactTime(slot.time)} ${slot.courtName}`).join(', ');
-    els.bookingSelectionSummary.textContent = `${selectedBookingSlots.length} slot${selectedBookingSlots.length === 1 ? '' : 's'} selected - ${slotsText} - Total ${peso.format(selectedBookingTotal())}`;
+    els.bookingSelectionSummary.textContent = `${selectedBookingSlots.length} slot${selectedBookingSlots.length === 1 ? '' : 's'} selected - ${slotsText}`;
 }
 
 function isInlineBookingForm() {
@@ -2024,21 +2063,18 @@ function bookingModalStepTitle(key) {
 
 function bookingSlotSummaryRows(slots = activeBookingSlots) {
     return slots.map(slot => {
-        const amount = slotPrice(slot.time, slot.court, slot.sport, slot.date);
         return `
             <tr>
                 <td>${escapeHtml(niceDate(slot.date))}</td>
                 <td>${escapeHtml(compactTime(slot.time))}</td>
                 <td>${escapeHtml(slot.courtName || `Court ${slot.court}`)}</td>
                 <td>${escapeHtml(slot.sport)}</td>
-                <td class="text-end">${peso.format(amount)}</td>
             </tr>
         `;
     }).join('');
 }
 
 function bookingDetailsTable(slots = activeBookingSlots, compact = false) {
-    const total = slots.reduce((sum, slot) => sum + slotPrice(slot.time, slot.court, slot.sport, slot.date), 0);
     return `
         <div class="booking-review-card">
             <table class="booking-review-table ${compact ? 'booking-review-table-compact' : ''}">
@@ -2048,16 +2084,9 @@ function bookingDetailsTable(slots = activeBookingSlots, compact = false) {
                         <th>Time</th>
                         <th>Court</th>
                         <th>Sport</th>
-                        <th class="text-end">Amount</th>
                     </tr>
                 </thead>
                 <tbody>${bookingSlotSummaryRows(slots)}</tbody>
-                <tfoot>
-                    <tr>
-                        <td colspan="4">Overall Total</td>
-                        <td class="text-end">${peso.format(total)}</td>
-                    </tr>
-                </tfoot>
             </table>
         </div>
     `;
@@ -2075,9 +2104,6 @@ function inlineReservationSummary(slots = activeBookingSlots) {
         if (!dateGroups.has(dateKey)) dateGroups.set(dateKey, []);
         dateGroups.get(dateKey).push(slot);
     });
-    const subtotal = sorted.reduce((sum, slot) => sum + slotPrice(slot.time, slot.court, slot.sport, slot.date), 0);
-    const surcharge = 0;
-    const total = subtotal + surcharge;
     const scheduleHtml = [...dateGroups.entries()].map(([date, dateSlots]) => {
         const courtGroups = new Map();
         dateSlots.forEach(slot => {
@@ -2104,11 +2130,6 @@ function inlineReservationSummary(slots = activeBookingSlots) {
     return `
         <div class="metro-reservation-summary">
             ${scheduleHtml}
-            <dl class="metro-summary-totals">
-                <div><dt>Rate Subtotal</dt><dd>${peso.format(subtotal)}</dd></div>
-                <div><dt>Convenience Surcharge</dt><dd>${peso.format(surcharge)}</dd></div>
-                <div class="metro-summary-total"><dt>Total Due</dt><dd>${peso.format(total)}</dd></div>
-            </dl>
         </div>
     `;
 }
@@ -2162,14 +2183,6 @@ function bookingSummaryBreakdown(slots = activeBookingSlots) {
     const sports = [...new Set(sorted.map(slot => slot.sport))];
     const courts = [...new Set(sorted.map(slot => slot.courtName || `Court ${slot.court}`))];
     const totalDuration = sorted.reduce((sum, slot) => sum + slotDuration(state?.slotDetails?.[slot.time]), 0);
-    const subtotal = sorted.reduce((sum, slot) => sum + slotPrice(slot.time, slot.court, slot.sport, slot.date), 0);
-    const discount = 0;
-    const total = subtotal - discount;
-    const hourlyRates = sorted.map(slot => rateForSlot(slot.time, slot.court, slot.sport, slot.date).hourly);
-    const uniqueRates = [...new Set(hourlyRates.map(rate => Number(rate)))];
-    const rateLabel = uniqueRates.length === 1
-        ? `${peso.format(uniqueRates[0])}/hour`
-        : `${peso.format(subtotal / Math.max(totalDuration, 1))}/hour average`;
     const dateLabel = dates.length === 1
         ? new Date(`${dates[0]}T00:00:00`).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
         : dates.map(date => niceDate(date)).join(', ');
@@ -2188,23 +2201,119 @@ function bookingSummaryBreakdown(slots = activeBookingSlots) {
                     <div><dt>Time:</dt><dd>${escapeHtml(times.join(', '))}</dd></div>
                     <div><dt>Duration:</dt><dd>${formatHours(totalDuration)}</dd></div>
                 </dl>
-                <table class="booking-breakdown-table">
-                    <thead>
-                        <tr><th>Description</th><th class="text-end">Amount</th></tr>
-                    </thead>
-                    <tbody>
-                        <tr><td>Court Rate</td><td class="text-end">${escapeHtml(rateLabel)}</td></tr>
-                        <tr><td>Duration</td><td class="text-end">${formatHours(totalDuration)}</td></tr>
-                        <tr><td>Subtotal</td><td class="text-end">${peso.format(subtotal)}</td></tr>
-                        <tr><td>Discount</td><td class="text-end">${peso.format(discount)}</td></tr>
-                    </tbody>
-                    <tfoot>
-                        <tr><td>Overall Total</td><td class="text-end">${peso.format(total)}</td></tr>
-                    </tfoot>
-                </table>
             </article>
         </div>
     `;
+}
+
+function showBookingConfirmationModal(references = [], slots = []) {
+    if (!els.bookingConfirmationModal || !els.bookingConfirmationBody) return;
+    const ranges = mergeBookingConfirmationSlots(slots);
+    const referenceHtml = references.length > 0
+        ? references.map(reference => `<li><strong>${escapeHtml(reference)}</strong></li>`).join('')
+        : '<li><strong>Reference pending</strong></li>';
+    const slotHtml = ranges.length > 0
+        ? ranges.map(range => `
+            <tr>
+                <td>${escapeHtml(niceDate(range.date))}</td>
+                <td>${escapeHtml(`${minutesToDisplay(range.start)} - ${minutesToDisplay(range.end)}`)}</td>
+                <td>${escapeHtml(range.courtName || `Court ${range.court}`)}</td>
+                <td>${escapeHtml(range.sport || selectedSport)}</td>
+            </tr>
+        `).join('')
+        : '<tr><td colspan="4" class="text-secondary">No slot details available.</td></tr>';
+
+    els.bookingConfirmationBody.innerHTML = `
+        <div class="metro-confirmation-reference">
+            <span class="metro-booking-label">Reference Number</span>
+            <ul class="booking-reference-list">${referenceHtml}</ul>
+        </div>
+        <div class="metro-confirmation-slots">
+            <span class="metro-booking-label">Reserved Slots</span>
+            <div class="table-responsive">
+                <table class="table table-sm align-middle mb-0">
+                    <thead>
+                        <tr>
+                            <th>Date</th>
+                            <th>Time</th>
+                            <th>Court</th>
+                            <th>Sport</th>
+                        </tr>
+                    </thead>
+                    <tbody>${slotHtml}</tbody>
+                </table>
+            </div>
+        </div>
+        <p class="metro-confirmation-note mb-0">Admin will verify your uploaded proof and confirm the booking.</p>
+    `;
+
+    if (window.bootstrap) {
+        bootstrap.Modal.getOrCreateInstance(els.bookingConfirmationModal).show();
+    }
+}
+
+function mergeBookingConfirmationSlots(slots = []) {
+    return [...slots]
+        .sort((a, b) => {
+            if (a.date !== b.date) return a.date.localeCompare(b.date);
+            if (String(a.sport || selectedSport) !== String(b.sport || selectedSport)) {
+                return String(a.sport || selectedSport).localeCompare(String(b.sport || selectedSport));
+            }
+            if (Number(a.court) !== Number(b.court)) return Number(a.court) - Number(b.court);
+            return slotStartMinutes(a) - slotStartMinutes(b);
+        })
+        .reduce((ranges, slot) => {
+            const start = slotStartMinutes(slot);
+            const end = slotEndMinutes(slot);
+            const previous = ranges[ranges.length - 1];
+            const sameGroup = previous
+                && previous.date === slot.date
+                && Number(previous.court) === Number(slot.court)
+                && String(previous.sport || selectedSport) === String(slot.sport || selectedSport);
+
+            if (sameGroup && previous.end === start) {
+                previous.end = end;
+                return ranges;
+            }
+
+            ranges.push({
+                date: slot.date,
+                court: slot.court,
+                courtName: slot.courtName,
+                sport: slot.sport || selectedSport,
+                start,
+                end
+            });
+            return ranges;
+        }, []);
+}
+
+function resetPlayerBookingPage() {
+    if (!isInlineBookingForm()) return;
+
+    selectedBookingSlots = [];
+    activeBookingSlots = [];
+    bookingPaymentDeadline = 0;
+    bookingPaymentMethod = '';
+    stopBookingPaymentTimer();
+
+    els.form?.reset();
+    renderPaymentInstructions('');
+    if (els.bookingReferencePanel) {
+        els.bookingReferencePanel.classList.add('hidden');
+        els.bookingReferencePanel.innerHTML = '';
+    }
+    if (els.formMessage) {
+        showFormMessage('', true, true);
+    }
+    if (els.modalSubmitButton) {
+        els.modalSubmitButton.disabled = true;
+        els.modalSubmitButton.type = 'submit';
+        els.modalSubmitButton.textContent = 'Confirm Reservation';
+        delete els.modalSubmitButton.dataset.done;
+    }
+
+    renderAll();
 }
 
 function renderBookingReviewSummary() {
@@ -2606,6 +2715,10 @@ function syncAdminBookingDateInputs() {
     if (els.adminBookingEndDate) els.adminBookingEndDate.value = adminBookingEndDate;
 }
 
+function syncAdminBookingSportInput() {
+    if (els.adminBookingSport) els.adminBookingSport.value = adminBookingSport;
+}
+
 function setAdminBookingDateRange(start, end = start) {
     adminBookingStartDate = start || '';
     adminBookingEndDate = end || '';
@@ -2628,6 +2741,7 @@ function adminBookingQueryParams() {
         status: adminFilter,
         from: start || '',
         to: end || '',
+        sport: adminBookingSport,
         search: adminReferenceSearch.trim(),
         sort: adminBookingSort,
         page: String(adminBookingPage),
@@ -3778,11 +3892,9 @@ async function submitPayment(event) {
         state = payload.state;
     }
 
-    if (els.bookingReferencePanel && references.length > 0) {
-        if (!inlineForm) {
-            bookingModalCloseUnlocked = true;
-            setBookingModalStep(bookingModalStep);
-        }
+    if (!inlineForm && els.bookingReferencePanel && references.length > 0) {
+        bookingModalCloseUnlocked = true;
+        setBookingModalStep(bookingModalStep);
         const messengerUrl = String(state?.siteConfig?.messenger_url || '').trim();
         const messengerText = messengerUrl
             ? `<a href="${escapeHtml(messengerUrl)}" target="_blank" rel="noopener" class="text-primary">Facebook Messenger</a>`
@@ -3800,24 +3912,20 @@ async function submitPayment(event) {
 
     if (saved === slots.length) {
         stopBookingPaymentTimer();
+        const submittedSlots = [...slots];
         clearBookingSelection();
         renderAll();
         if (inlineForm) {
-            if (els.bookingReferencePanel && references.length > 0) {
-                els.bookingReferencePanel.classList.remove('hidden');
-                els.bookingReferencePanel.innerHTML = `
-                    <p class="modal-info-title">Booking reference${references.length === 1 ? '' : 's'} generated</p>
-                    <ul class="booking-reference-list">
-                        ${references.map(reference => `<li><strong>${escapeHtml(reference)}</strong></li>`).join('')}
-                    </ul>
-                    <p>${state?.member ? 'Admin will verify your uploaded proof and confirm the booking.' : 'Send these references with your payment proof.'}</p>
-                `;
+            if (els.bookingReferencePanel) {
+                els.bookingReferencePanel.classList.add('hidden');
+                els.bookingReferencePanel.innerHTML = '';
             }
             if (els.modalSubmitButton) {
                 els.modalSubmitButton.disabled = true;
                 els.modalSubmitButton.type = 'submit';
                 els.modalSubmitButton.textContent = 'Confirm Reservation';
             }
+            showBookingConfirmationModal(references, submittedSlots);
             return;
         }
         if (els.modalSubmitButton) {
@@ -5327,6 +5435,7 @@ els.modalSubmitButton?.addEventListener('click', () => {
         closeModal();
     }
 });
+els.bookingConfirmationModal?.addEventListener('hidden.bs.modal', resetPlayerBookingPage);
 els.form?.addEventListener('submit', submitPayment);
 els.adminOverrideBookingForm?.addEventListener('submit', submitAdminOverrideBooking);
 els.adminCancelReservationForm?.addEventListener('submit', submitCancelReservation);
@@ -5393,6 +5502,7 @@ els.adminReferenceSearch?.addEventListener('input', event => {
     adminBookingSearchTimer = setTimeout(() => requestAdminBookings(true), 250);
 });
 syncAdminBookingDateInputs();
+syncAdminBookingSportInput();
 syncAdminBookingSortInput();
 syncAdminBookingPageSizeInput();
 els.adminBookingStartDate?.addEventListener('change', event => {
@@ -5403,6 +5513,12 @@ els.adminBookingEndDate?.addEventListener('change', event => {
 });
 els.adminBookingDateClear?.addEventListener('click', () => {
     setAdminBookingDateRange('', '');
+});
+els.adminBookingSport?.addEventListener('change', event => {
+    const value = event.target.value || '';
+    adminBookingSport = supportedBookingSports.includes(value) ? value : '';
+    syncAdminBookingSportInput();
+    requestAdminBookings(true);
 });
 els.adminBookingSort?.addEventListener('change', event => {
     adminBookingSort = event.target.value || 'created-desc';
@@ -5442,6 +5558,12 @@ els.adminRateCourtFilter?.addEventListener('change', event => {
     renderAdminRateSummary();
     document.dispatchEvent(new CustomEvent('admin-rates-filtered'));
 });
+els.adminRateDayOfWeek?.addEventListener('change', () => {
+    if (els.adminRateDayRangeFrom) els.adminRateDayRangeFrom.value = '';
+    if (els.adminRateDayRangeTo) els.adminRateDayRangeTo.value = '';
+});
+els.adminRateDayRangeFrom?.addEventListener('change', event => syncAdminRateDayRange(event.target));
+els.adminRateDayRangeTo?.addEventListener('change', event => syncAdminRateDayRange(event.target));
 els.adminRateClearFilters?.addEventListener('click', () => {
     adminRateSportFilter = '';
     adminRateCourtFilter = '';

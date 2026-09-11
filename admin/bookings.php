@@ -62,6 +62,15 @@ include __DIR__ . '/../includes/header.php';
                     </label>
                     <button id="adminBookingDateClear" type="button" class="btn btn-outline-secondary btn-sm">Clear Dates</button>
                     <label class="mb-0 small fw-bold d-flex align-items-center gap-1">
+                        <span class="text-secondary text-xs text-uppercase">Sport</span>
+                        <select id="adminBookingSport" class="form-select form-select-sm" aria-label="Filter bookings by sport">
+                            <option value="">All sports</option>
+                            <option value="Pickleball">Pickleball</option>
+                            <option value="Basketball">Basketball</option>
+                            <option value="Volleyball">Volleyball</option>
+                        </select>
+                    </label>
+                    <label class="mb-0 small fw-bold d-flex align-items-center gap-1">
                         <span class="text-secondary text-xs text-uppercase">Sort</span>
                         <select id="adminBookingSort" class="form-select form-select-sm" aria-label="Sort bookings">
                             <option value="created-desc">Newest created</option>

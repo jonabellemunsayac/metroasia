@@ -257,6 +257,10 @@ function ensure_booking_list_indexes(PDO $pdo): void
             'columns' => ['booking_reference', 'status', 'booking_date'],
             'sql' => 'ALTER TABLE court_bookings ADD INDEX idx_booking_admin_reference_status (booking_reference, status, booking_date)',
         ],
+        'idx_booking_admin_sport_date_status' => [
+            'columns' => ['sport', 'booking_date', 'status'],
+            'sql' => 'ALTER TABLE court_bookings ADD INDEX idx_booking_admin_sport_date_status (sport, booking_date, status)',
+        ],
         'idx_booking_admin_created_by' => [
             'columns' => ['created_by_type', 'created_by_id'],
             'sql' => 'ALTER TABLE court_bookings ADD INDEX idx_booking_admin_created_by (created_by_type, created_by_id)',
@@ -708,6 +712,11 @@ function valid_rate_day_selections(): array
     return ['Any', 'Holiday', 'Weekday', 'Weekend', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 }
 
+function rate_weekday_names(): array
+{
+    return ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+}
+
 function expand_rate_day_selection(string $selection): array
 {
     if ($selection === 'Weekday') {
@@ -718,6 +727,33 @@ function expand_rate_day_selection(string $selection): array
     }
 
     return [$selection];
+}
+
+function expand_rate_day_range(string $from, string $to): array
+{
+    $days = rate_weekday_names();
+    $start = array_search($from, $days, true);
+    $end = array_search($to, $days, true);
+    if ($start === false || $end === false) {
+        return [];
+    }
+
+    $selected = [];
+    $index = $start;
+    while (true) {
+        $selected[] = $days[$index];
+        if ($index === $end) {
+            break;
+        }
+        $index = ($index + 1) % count($days);
+    }
+
+    return $selected;
+}
+
+function normalize_rate_day_label(array $days): string
+{
+    return count($days) === 1 ? $days[0] : implode(', ', $days);
 }
 
 function rate_rules(PDO $pdo, bool $includeInactive = false): array
@@ -2201,6 +2237,11 @@ function admin_booking_request_options(): array
         $sort = 'created-desc';
     }
 
+    $sport = trim((string) ($_GET['sport'] ?? ''));
+    if (!in_array($sport, ['Pickleball', 'Basketball', 'Volleyball'], true)) {
+        $sport = '';
+    }
+
     $pageSize = (int) ($_GET['pageSize'] ?? 20);
     if (!in_array($pageSize, [10, 20, 50, 100], true)) {
         $pageSize = 20;
@@ -2211,6 +2252,7 @@ function admin_booking_request_options(): array
         'search' => trim((string) ($_GET['search'] ?? '')),
         'from' => $startDate,
         'to' => $endDate,
+        'sport' => $sport,
         'sort' => $sort,
         'page' => max(1, (int) ($_GET['page'] ?? 1)),
         'pageSize' => $pageSize,
@@ -2354,6 +2396,10 @@ function admin_booking_group_where_sql(array $options, array &$params, array $co
     if ($options['to'] !== '') {
         $where[] = 'cb.booking_date <= ?';
         $params[] = $options['to'];
+    }
+    if (($options['sport'] ?? '') !== '') {
+        $where[] = 'cb.sport = ?';
+        $params[] = $options['sport'];
     }
     if ($options['search'] !== '') {
         $searchTerm = '%' . $options['search'] . '%';
@@ -3745,6 +3791,8 @@ if ($action === 'admin-rate-rule') {
     $courtValue = (string) require_field('courtId');
     $sport = require_field('sport');
     $daySelection = (string) ($_POST['dayOfWeek'] ?? 'Any');
+    $dayRangeFrom = trim((string) ($_POST['dayRangeFrom'] ?? ''));
+    $dayRangeTo = trim((string) ($_POST['dayRangeTo'] ?? ''));
     $pricePerHour = (float) require_field('pricePerHour');
     $reason = trim((string) ($_POST['reason'] ?? 'Regular rate'));
     $effectiveDate = trim((string) ($_POST['effectiveDate'] ?? date('Y-m-d')));
@@ -3759,12 +3807,22 @@ if ($action === 'admin-rate-rule') {
     if (!in_array($sport, ['Pickleball', 'Basketball', 'Volleyball'], true)) {
         json_response(['ok' => false, 'message' => 'Invalid sport.'], 422);
     }
-    if (!in_array($daySelection, valid_rate_day_selections(), true)) {
+    $hasDayRange = $dayRangeFrom !== '' || $dayRangeTo !== '';
+    if ($hasDayRange && ($dayRangeFrom === '' || $dayRangeTo === '')) {
+        json_response(['ok' => false, 'message' => 'Select both day range from and day range to.'], 422);
+    }
+    if ($hasDayRange && (!in_array($dayRangeFrom, rate_weekday_names(), true) || !in_array($dayRangeTo, rate_weekday_names(), true))) {
+        json_response(['ok' => false, 'message' => 'Select a valid day range.'], 422);
+    }
+    if (!$hasDayRange && !in_array($daySelection, valid_rate_day_selections(), true)) {
         json_response(['ok' => false, 'message' => 'Invalid day of week.'], 422);
     }
-    $daySelections = expand_rate_day_selection($daySelection);
+    $daySelections = $hasDayRange ? expand_rate_day_range($dayRangeFrom, $dayRangeTo) : expand_rate_day_selection($daySelection);
+    if ($daySelections === []) {
+        json_response(['ok' => false, 'message' => 'Select a valid day range.'], 422);
+    }
     if ($id > 0 && count($daySelections) > 1) {
-        json_response(['ok' => false, 'message' => 'Weekday and Weekend shortcuts are only available when adding rates.'], 422);
+        json_response(['ok' => false, 'message' => 'Day ranges, Weekday, and Weekend shortcuts are only available when adding rates.'], 422);
     }
     if ($pricePerHour <= 0) {
         json_response(['ok' => false, 'message' => 'Rate per hour must be greater than zero.'], 422);
@@ -3936,7 +3994,7 @@ if ($action === 'admin-rate-rule') {
 
     json_response([
         'ok' => true,
-        'message' => sprintf('Rate adjustment saved for %d court%s, %d day%s, and %d slot%s (%d new version%s, %d advance booking%s updated).', count($courtIds), count($courtIds) === 1 ? '' : 's', count($daySelections), count($daySelections) === 1 ? '' : 's', count($slotIds), count($slotIds) === 1 ? '' : 's', $created, $created === 1 ? '' : 's', $updatedBookings, $updatedBookings === 1 ? '' : 's'),
+        'message' => sprintf('Rate adjustment saved for %d court%s, %s, and %d slot%s (%d new version%s, %d advance booking%s updated).', count($courtIds), count($courtIds) === 1 ? '' : 's', normalize_rate_day_label($daySelections), count($slotIds), count($slotIds) === 1 ? '' : 's', $created, $created === 1 ? '' : 's', $updatedBookings, $updatedBookings === 1 ? '' : 's'),
         'state' => get_state($pdo, true),
     ]);
 }

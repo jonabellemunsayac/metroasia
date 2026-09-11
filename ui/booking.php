@@ -100,10 +100,6 @@ $selectedSport = $sportOptions[$requestedSport] ?? null;
                         <p><?php echo htmlspecialchars($selectedSport['label']); ?> booking schedule</p>
                     </div>
 
-                    <div class="metro-booking-rates">
-                        <span class="metro-booking-label">Court Rates</span>
-                        <div id="rateCards" class="metro-rate-cards"></div>
-                    </div>
                 </div>
 
                 <!-- BOOKING PANEL -->
@@ -222,6 +218,25 @@ $selectedSport = $sportOptions[$requestedSport] ?? null;
 
         </div>
     </section>
+
+    <div class="modal fade" id="bookingConfirmationModal" tabindex="-1" aria-labelledby="bookingConfirmationTitle" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content metro-booking-confirmation-modal">
+                <div class="modal-header">
+                    <div>
+                        <span class="metro-booking-label">Reservation Confirmed</span>
+                        <h2 id="bookingConfirmationTitle" class="modal-title">Booking Submitted</h2>
+                    </div>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body" id="bookingConfirmationBody"></div>
+                <div class="modal-footer">
+                    <a class="btn btn-outline-primary" href="<?php echo htmlspecialchars(app_url('ui/member.php')); ?>">My Bookings</a>
+                    <button type="button" class="btn btn-primary" data-bs-dismiss="modal">Done</button>
+                </div>
+            </div>
+        </div>
+    </div>
     <?php endif; ?>
 
 </main>

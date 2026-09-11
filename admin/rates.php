@@ -179,6 +179,30 @@ include __DIR__ . '/../includes/header.php';
                                     <option value="Sunday">Sunday</option>
                                 </select>
                             </label>
+                            <label class="col-md-4 small fw-bold">Day Range From
+                                <select name="dayRangeFrom" id="adminRateDayRangeFrom" class="form-select">
+                                    <option value="">Use selected day</option>
+                                    <option value="Monday">Monday</option>
+                                    <option value="Tuesday">Tuesday</option>
+                                    <option value="Wednesday">Wednesday</option>
+                                    <option value="Thursday">Thursday</option>
+                                    <option value="Friday">Friday</option>
+                                    <option value="Saturday">Saturday</option>
+                                    <option value="Sunday">Sunday</option>
+                                </select>
+                            </label>
+                            <label class="col-md-4 small fw-bold">Day Range To
+                                <select name="dayRangeTo" id="adminRateDayRangeTo" class="form-select">
+                                    <option value="">Use selected day</option>
+                                    <option value="Monday">Monday</option>
+                                    <option value="Tuesday">Tuesday</option>
+                                    <option value="Wednesday">Wednesday</option>
+                                    <option value="Thursday">Thursday</option>
+                                    <option value="Friday">Friday</option>
+                                    <option value="Saturday">Saturday</option>
+                                    <option value="Sunday">Sunday</option>
+                                </select>
+                            </label>
                             <input type="hidden" name="rateMode" id="adminRateMode" value="range">
                             <label id="adminRateTimeSlotWrap" class="col-md-4 small fw-bold" hidden>Time Slot
                                 <select name="timeSlotId" id="adminRateTimeSlot" class="form-select"></select>
@@ -198,7 +222,7 @@ include __DIR__ . '/../includes/header.php';
                                 <input required type="date" name="effectiveDate" id="adminRateEffectiveFrom" class="form-input">
                             </label>
                             <p id="adminRateRangeHelp" class="col-12 small fw-semibold text-secondary mb-0">
-                                The rate will be applied to every existing hourly slot fully inside the selected range starting on the effective date. Previous rate versions stay intact.
+                                The rate will be applied to every existing hourly slot fully inside the selected time range and selected day range starting on the effective date. Previous rate versions stay intact.
                             </p>
                         </div>
                         <div class="hidden rounded-md p-2 text-xs font-bold mt-3" data-rate-rule-message></div>

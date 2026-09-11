@@ -1460,6 +1460,80 @@ button.metro-schedule-slot.booking-slot-past {
     opacity: .55;
 }
 
+.metro-booking-confirmation-modal {
+    border: 0;
+    border-radius: 6px;
+    overflow: hidden;
+}
+
+.metro-booking-confirmation-modal .modal-header,
+.metro-booking-confirmation-modal .modal-footer {
+    border-color: #dbe3ec;
+}
+
+.metro-booking-confirmation-modal .modal-title {
+    margin: 3px 0 0;
+    color: var(--metro-primary);
+    font-size: 1.35rem;
+    font-weight: 900;
+}
+
+.metro-booking-confirmation-modal .modal-body {
+    display: grid;
+    gap: 18px;
+}
+
+.metro-confirmation-reference,
+.metro-confirmation-slots {
+    display: grid;
+    gap: 8px;
+}
+
+.metro-confirmation-reference .booking-reference-list {
+    margin: 0;
+    padding: 12px 14px;
+    border: 1px solid #dbe3ec;
+    border-radius: 4px;
+    background: #f7fafc;
+    list-style: none;
+}
+
+.metro-confirmation-reference .booking-reference-list li + li {
+    margin-top: 6px;
+}
+
+.metro-confirmation-reference strong {
+    color: var(--metro-primary);
+    font-size: 1rem;
+    font-weight: 900;
+    letter-spacing: .02em;
+}
+
+.metro-confirmation-slots .table {
+    border: 1px solid #dbe3ec;
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+.metro-confirmation-slots th {
+    color: #647086;
+    font-size: .72rem;
+    font-weight: 900;
+    text-transform: uppercase;
+}
+
+.metro-confirmation-slots td {
+    color: var(--metro-primary);
+    font-size: .82rem;
+    font-weight: 800;
+}
+
+.metro-confirmation-note {
+    color: #647086;
+    font-size: .84rem;
+    font-weight: 800;
+}
+
 /* Selection bar */
 .metro-booking-selection-bar {
     margin-top: 20px;

@@ -334,6 +334,7 @@ function ensure_booking_list_indexes(PDO $pdo): void
         'idx_booking_admin_status_created' => 'ALTER TABLE court_bookings ADD INDEX idx_booking_admin_status_created (status, created_at, id)',
         'idx_booking_admin_date_status' => 'ALTER TABLE court_bookings ADD INDEX idx_booking_admin_date_status (booking_date, status, created_at)',
         'idx_booking_admin_reference_status' => 'ALTER TABLE court_bookings ADD INDEX idx_booking_admin_reference_status (booking_reference, status, booking_date)',
+        'idx_booking_admin_sport_date_status' => 'ALTER TABLE court_bookings ADD INDEX idx_booking_admin_sport_date_status (sport, booking_date, status)',
         'idx_booking_admin_created_by' => 'ALTER TABLE court_bookings ADD INDEX idx_booking_admin_created_by (created_by_type, created_by_id)',
     ];
 
