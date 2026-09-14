@@ -38,7 +38,7 @@ include __DIR__ . '/../includes/header.php';
                 <div class="modal-header">
                     <div>
                         <span class="section-kicker">Booked Slots Found</span>
-                        <h2 id="adminCourtBlockConflictTitle" class="modal-title fw-black">Proceed with available slots only?</h2>
+                        <h2 id="adminCourtBlockConflictTitle" class="modal-title fw-black">Court blocking not allowed</h2>
                     </div>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
@@ -46,12 +46,12 @@ include __DIR__ . '/../includes/header.php';
                     <p id="adminCourtBlockConflictSummary" class="small fw-semibold text-secondary"></p>
                     <div id="adminCourtBlockConflictRows" class="table-responsive"></div>
                     <div id="adminCourtBlockConflictMessage" class="mt-3 rounded-md bg-amber-50 p-3 small fw-bold text-warning">
-                        Existing bookings will not be overwritten, cancelled, or modified. Only available/unbooked slots in the selected range will be blocked.
+                        Existing bookings will not be overwritten, cancelled, modified, or bypassed. Choose another court, date, or time range.
                     </div>
                 </div>
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">Cancel</button>
-                    <button id="adminCourtBlockConflictProceed" type="button" class="btn btn-primary btn-sm">Proceed</button>
+                    <button type="button" class="btn btn-primary btn-sm" data-bs-dismiss="modal">Close</button>
+                    <button id="adminCourtBlockConflictProceed" type="button" class="btn btn-primary btn-sm" hidden>Proceed</button>
                 </div>
             </div>
         </div>

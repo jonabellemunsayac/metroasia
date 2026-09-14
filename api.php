@@ -406,7 +406,19 @@ function slot_is_past(string $date, array $slot): bool
         return true;
     }
 
-    $slotStart = DateTimeImmutable::createFromFormat('!Y-m-d H:i:s', $date . ' ' . $startsAt);
+    $actualDate = $date;
+    $firstStartsAt = (string) ($slot['first_starts_at'] ?? '');
+    $sortOrder = isset($slot['sort_order']) ? (int) $slot['sort_order'] : 0;
+    $firstSortOrder = isset($slot['first_sort_order']) ? (int) $slot['first_sort_order'] : 0;
+    if (
+        $sortOrder > $firstSortOrder
+        && preg_match('/^\d{2}:\d{2}/', $firstStartsAt)
+        && time_minutes_for_range($startsAt) < time_minutes_for_range($firstStartsAt)
+    ) {
+        $actualDate = (new DateTimeImmutable($date))->modify('+1 day')->format('Y-m-d');
+    }
+
+    $slotStart = DateTimeImmutable::createFromFormat('!Y-m-d H:i:s', $actualDate . ' ' . $startsAt);
     if (!$slotStart) {
         return true;
     }
@@ -696,10 +708,52 @@ function display_time_label(string $time): string
 {
     $time = substr($time, 0, 5);
     if ($time === '00:00') {
-        return '12 MN';
+        return '12:00 MN';
     }
 
-    return date('g A', strtotime('2000-01-01 ' . $time));
+    return date('h:i A', strtotime('2000-01-01 ' . $time));
+}
+
+function normalize_clock_time(?string $value): ?string
+{
+    $value = trim((string) $value);
+    if (!preg_match('/^([01]\d|2[0-3]):([0-5]\d)$/', $value, $matches)) {
+        return null;
+    }
+
+    return $matches[1] . ':' . $matches[2] . ':00';
+}
+
+function period_for_time(string $startsAt): string
+{
+    $minutes = time_minutes_for_range($startsAt);
+    if ($minutes < 8 * 60) {
+        return 'Early morning';
+    }
+    if ($minutes < 12 * 60) {
+        return 'Morning';
+    }
+    if ($minutes < 18 * 60) {
+        return 'Afternoon';
+    }
+
+    return 'Evening';
+}
+
+function is_core_booking_time_slot(string $startsAt, string $endsAt): bool
+{
+    $startParts = explode(':', $startsAt);
+    $endParts = explode(':', $endsAt);
+    $startHour = (int) ($startParts[0] ?? -1);
+    $startMinute = (int) ($startParts[1] ?? -1);
+    $endHour = (int) ($endParts[0] ?? -1);
+    $endMinute = (int) ($endParts[1] ?? -1);
+
+    return $startHour >= 5
+        && $startHour < 24
+        && $startMinute === 0
+        && $endMinute === 0
+        && $endHour === (($startHour + 1) % 24);
 }
 
 function valid_rate_days(): array
@@ -1177,7 +1231,7 @@ function court_block_applies(?int $blockCourtId, ?string $blockSport, int $court
         return $blockSport === null || $blockSport === $sport || in_array($courtId, [1, 2], true);
     }
 
-    return false;
+    return court_booking_resources_conflict($blockCourtId, $courtId);
 }
 
 function is_miami_court(int $courtId): bool
@@ -1516,7 +1570,7 @@ function get_state(PDO $pdo, bool $includeAdmin = false): array
         'price' => (int) $group['price'],
         'time' => display_time_label($group['start']) . ' - ' . display_time_label($group['end']),
     ], $rateGroups);
-    $slotRows = $pdo->query('SELECT id, period, label, starts_at, ends_at, CAST(price AS UNSIGNED) AS price FROM time_slots ORDER BY sort_order, id')->fetchAll();
+    $slotRows = $pdo->query('SELECT id, period, label, starts_at, ends_at, CAST(price AS UNSIGNED) AS price, sort_order FROM time_slots ORDER BY sort_order, id')->fetchAll();
 
     $timeSlots = [];
     $slotDetails = [];
@@ -1529,6 +1583,7 @@ function get_state(PDO $pdo, bool $includeAdmin = false): array
             'startsAt' => substr((string) $slot['starts_at'], 0, 5),
             'endsAt' => substr((string) $slot['ends_at'], 0, 5),
             'price' => (float) $slot['price'],
+            'sortOrder' => (int) $slot['sort_order'],
         ];
     }
 
@@ -2976,7 +3031,18 @@ if ($action === 'book') {
         $nickname = strtok($name, ' ') ?: $name;
     }
 
-    $slotStmt = $pdo->prepare('SELECT id, label, starts_at, ends_at, price FROM time_slots WHERE label = ?');
+    $slotStmt = $pdo->prepare(
+        "SELECT ts.id, ts.label, ts.starts_at, ts.ends_at, ts.price, ts.sort_order,
+                first_slot.starts_at AS first_starts_at, first_slot.sort_order AS first_sort_order
+         FROM time_slots ts
+         CROSS JOIN (
+             SELECT starts_at, sort_order
+             FROM time_slots
+             ORDER BY sort_order, id
+             LIMIT 1
+         ) first_slot
+         WHERE ts.label = ?"
+    );
     $slotStmt->execute([$time]);
     $slot = $slotStmt->fetch();
     $slotId = (int) ($slot['id'] ?? 0);
@@ -3304,7 +3370,19 @@ if ($action === 'admin-override-booking') {
     }
 
     $slotPlaceholders = implode(',', array_fill(0, count($timeSlotIds), '?'));
-    $slotStmt = $pdo->prepare("SELECT id, label, starts_at, ends_at, price FROM time_slots WHERE id IN ({$slotPlaceholders}) ORDER BY sort_order, id");
+    $slotStmt = $pdo->prepare(
+        "SELECT ts.id, ts.label, ts.starts_at, ts.ends_at, ts.price, ts.sort_order,
+                first_slot.starts_at AS first_starts_at, first_slot.sort_order AS first_sort_order
+         FROM time_slots ts
+         CROSS JOIN (
+             SELECT starts_at, sort_order
+             FROM time_slots
+             ORDER BY sort_order, id
+             LIMIT 1
+         ) first_slot
+         WHERE ts.id IN ({$slotPlaceholders})
+         ORDER BY ts.sort_order, ts.id"
+    );
     $slotStmt->execute($timeSlotIds);
     $slots = $slotStmt->fetchAll();
     if (count($slots) !== count($timeSlotIds)) {
@@ -3532,7 +3610,18 @@ if ($action === 'admin-booking-update') {
         json_response(['ok' => false, 'message' => 'Use a valid customer email.'], 422);
     }
 
-    $slotStmt = $pdo->prepare('SELECT id, label, starts_at, ends_at, price FROM time_slots WHERE id = ?');
+    $slotStmt = $pdo->prepare(
+        "SELECT ts.id, ts.label, ts.starts_at, ts.ends_at, ts.price, ts.sort_order,
+                first_slot.starts_at AS first_starts_at, first_slot.sort_order AS first_sort_order
+         FROM time_slots ts
+         CROSS JOIN (
+             SELECT starts_at, sort_order
+             FROM time_slots
+             ORDER BY sort_order, id
+             LIMIT 1
+         ) first_slot
+         WHERE ts.id = ?"
+    );
     $slotStmt->execute([$timeSlotId]);
     $slot = $slotStmt->fetch();
     if (!$slot) {
@@ -4173,6 +4262,122 @@ if ($action === 'admin-sport-slot-availability') {
     ]);
 }
 
+if ($action === 'admin-time-slot-save') {
+    $admin = require_staff_admin_json();
+    if ((string) ($admin['role'] ?? '') !== 'super_admin') {
+        json_response(['ok' => false, 'message' => 'Super Admin permission required.'], 403);
+    }
+
+    ensure_core_booking_time_slots($pdo);
+    ensure_sport_time_slot_availability($pdo);
+
+    $id = (int) ($_POST['id'] ?? 0);
+    $startsAt = normalize_clock_time($_POST['startsAt'] ?? null);
+    $endsAt = normalize_clock_time($_POST['endsAt'] ?? null);
+    $period = trim((string) ($_POST['period'] ?? ''));
+    $price = (float) ($_POST['price'] ?? 0);
+    $sortOrder = (int) ($_POST['sortOrder'] ?? 0);
+
+    if ($startsAt === null || $endsAt === null) {
+        json_response(['ok' => false, 'message' => 'Select a valid start and end time.'], 422);
+    }
+    if ($startsAt === $endsAt) {
+        json_response(['ok' => false, 'message' => 'Start and end time cannot be the same.'], 422);
+    }
+    if ($price < 0) {
+        json_response(['ok' => false, 'message' => 'Price cannot be negative.'], 422);
+    }
+    if ($period === '') {
+        $period = period_for_time($startsAt);
+    }
+    $label = display_time_label($startsAt) . ' - ' . display_time_label($endsAt);
+
+    if ($id > 0) {
+        $stmt = $pdo->prepare('SELECT COUNT(*) FROM time_slots WHERE id = ?');
+        $stmt->execute([$id]);
+        if ((int) $stmt->fetchColumn() === 0) {
+            json_response(['ok' => false, 'message' => 'Time slot not found.'], 404);
+        }
+    }
+
+    $duplicate = $pdo->prepare('SELECT COUNT(*) FROM time_slots WHERE starts_at = ? AND ends_at = ? AND id <> ?');
+    $duplicate->execute([$startsAt, $endsAt, $id]);
+    if ((int) $duplicate->fetchColumn() > 0) {
+        json_response(['ok' => false, 'message' => 'A time slot with the same start and end time already exists.'], 409);
+    }
+
+    if ($id > 0) {
+        $stmt = $pdo->prepare(
+            'UPDATE time_slots
+             SET period = ?, label = ?, starts_at = ?, ends_at = ?, price = ?, sort_order = ?
+             WHERE id = ?'
+        );
+        $stmt->execute([$period, $label, $startsAt, $endsAt, $price, $sortOrder, $id]);
+    } else {
+        $stmt = $pdo->prepare(
+            'INSERT INTO time_slots (period, label, starts_at, ends_at, price, sort_order)
+             VALUES (?, ?, ?, ?, ?, ?)'
+        );
+        $stmt->execute([$period, $label, $startsAt, $endsAt, $price, $sortOrder]);
+    }
+
+    ensure_sport_time_slot_availability($pdo);
+
+    json_response([
+        'ok' => true,
+        'message' => 'Time slot saved.',
+        'state' => get_state($pdo, true),
+    ]);
+}
+
+if ($action === 'admin-time-slot-delete') {
+    $admin = require_staff_admin_json();
+    if ((string) ($admin['role'] ?? '') !== 'super_admin') {
+        json_response(['ok' => false, 'message' => 'Super Admin permission required.'], 403);
+    }
+
+    $id = (int) ($_POST['id'] ?? 0);
+    if ($id <= 0) {
+        json_response(['ok' => false, 'message' => 'Invalid time slot.'], 422);
+    }
+
+    $stmt = $pdo->prepare('SELECT starts_at, ends_at FROM time_slots WHERE id = ?');
+    $stmt->execute([$id]);
+    $slot = $stmt->fetch();
+    if (!$slot) {
+        json_response(['ok' => false, 'message' => 'Time slot not found.'], 404);
+    }
+    if (is_core_booking_time_slot((string) $slot['starts_at'], (string) $slot['ends_at'])) {
+        json_response(['ok' => false, 'message' => 'Default hourly time slots cannot be deleted. You can edit the slot details instead.'], 409);
+    }
+
+    $usageChecks = [
+        'court_bookings' => 'SELECT COUNT(*) FROM court_bookings WHERE time_slot_id = ?',
+        'rates' => 'SELECT COUNT(*) FROM rates WHERE time_slot_id = ?',
+        'court_blocks' => 'SELECT COUNT(*) FROM court_blocks WHERE time_slot_id = ?',
+    ];
+    foreach ($usageChecks as $table => $sql) {
+        if (!api_table_exists($pdo, $table)) {
+            continue;
+        }
+        $usage = $pdo->prepare($sql);
+        $usage->execute([$id]);
+        if ((int) $usage->fetchColumn() > 0) {
+            json_response(['ok' => false, 'message' => 'This time slot is already used by bookings, rates, or court blocks and cannot be deleted.'], 409);
+        }
+    }
+
+    $stmt = $pdo->prepare('DELETE FROM time_slots WHERE id = ?');
+    $stmt->execute([$id]);
+    ensure_sport_time_slot_availability($pdo);
+
+    json_response([
+        'ok' => true,
+        'message' => 'Time slot deleted.',
+        'state' => get_state($pdo, true),
+    ]);
+}
+
 if ($action === 'admin-court-block') {
     $admin = require_operations_admin_json();
 
@@ -4188,7 +4393,6 @@ if ($action === 'admin-court-block') {
     $reason = require_field('reason');
     $notes = trim((string) ($_POST['notes'] ?? ''));
     $isActive = isset($_POST['isActive']) && $_POST['isActive'] === '1';
-    $proceedAvailableOnly = isset($_POST['proceedAvailableOnly']) && $_POST['proceedAvailableOnly'] === '1';
     $allowedReasons = ['Maintenance', 'Private event', 'Tournament', 'Cleaning', 'Construction', 'Club activity'];
 
     if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $blockDate)) {
@@ -4231,24 +4435,15 @@ if ($action === 'admin-court-block') {
             $conflicts = array_merge($conflicts, active_bookings_for_block($pdo, $blockDate, $slotId, $courtId, $sport));
         }
     }
-    if ($conflicts !== [] && !$proceedAvailableOnly) {
+    if ($conflicts !== []) {
         $conflictSlotIds = array_values(array_unique(array_map('intval', array_column($conflicts, 'timeSlotId'))));
-        $availableSlotIds = array_values(array_diff($timeSlotIds, $conflictSlotIds));
         json_response([
             'ok' => false,
-            'requiresAvailabilityConfirm' => true,
-            'message' => 'Some selected slots already have bookings. Only available/unbooked slots will be blocked if you proceed.',
+            'requiresBlockConflict' => true,
+            'message' => 'Court blocking cannot be saved because one or more selected slots already have bookings.',
             'conflicts' => $conflicts,
-            'availableSlotCount' => count($availableSlotIds),
             'bookedSlotCount' => count($conflictSlotIds),
         ], 409);
-    }
-    if ($conflicts !== [] && $proceedAvailableOnly) {
-        $conflictSlotIds = array_values(array_unique(array_map('intval', array_column($conflicts, 'timeSlotId'))));
-        $timeSlotIds = array_values(array_diff($timeSlotIds, $conflictSlotIds));
-        if ($timeSlotIds === []) {
-            json_response(['ok' => false, 'message' => 'All selected slots already have bookings. No court blocks were created.'], 422);
-        }
     }
 
     $status = $isActive ? 'Active' : 'Cancelled';
@@ -4329,7 +4524,7 @@ if ($action === 'admin-court-block') {
                 'replacedBlockIds' => array_values(array_unique($replacedIds)),
                 'status' => $status,
                 'isActive' => $isActive,
-                'proceededWithAvailableSlotsOnly' => $proceedAvailableOnly,
+                'proceededWithAvailableSlotsOnly' => false,
                 'block' => [
                     'blockDate' => $blockDate,
                     'timeSlotIds' => $timeSlotIds,

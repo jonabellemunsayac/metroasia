@@ -27,7 +27,8 @@
 
   function availableCount(courtInfo, times, date) {
     return times.filter(time => {
-      const conflict = relatedConflictFor(date, time, courtInfo);
+      const cellDate = typeof scheduleCellDate === 'function' ? scheduleCellDate(date, time, selectedSport) : date;
+      const conflict = relatedConflictFor(cellDate, time, courtInfo);
       return !slotIsPast(date, time) && (!conflict || conflict.status === 'Available');
     }).length;
   }
@@ -35,7 +36,7 @@
   function selectedCount(courtId, date) {
     return selectedBookingSlots.filter(slot =>
       Number(slot.court) === Number(courtId) &&
-      slot.date === date &&
+      (slot.date === date || (typeof slotActualDate === 'function' && slotActualDate(date, slot.time, slot.sport) === slot.date)) &&
       slot.sport === selectedSport
     ).length;
   }
@@ -117,11 +118,12 @@
     }).join('');
 
     const timeButtons = times.map(time => {
-      const conflict = relatedConflictFor(date, time, selectedCourt);
+      const cellDate = typeof scheduleCellDate === 'function' ? scheduleCellDate(date, time, selectedSport) : date;
+      const conflict = relatedConflictFor(cellDate, time, selectedCourt);
       const isPast = slotIsPast(date, time);
 
       const slotData = {
-        date,
+        date: cellDate,
         time,
         court: Number(selectedCourt.id),
         courtName: selectedCourtName,
@@ -133,14 +135,14 @@
       );
 
       const ui = slotState(conflict, isPast, selected);
-      const price = slotPrice(time, selectedCourt.id, selectedSport, date);
+      const price = slotPrice(time, selectedCourt.id, selectedSport, cellDate);
 
       return `
         <button
           type="button"
           ${ui.disabled ? 'disabled' : ''}
           class="mobile-court-time-slot ${ui.css}"
-          data-book-date="${escapeHtml(date)}"
+          data-book-date="${escapeHtml(cellDate)}"
           data-book-time="${escapeHtml(time)}"
           data-book-court="${escapeHtml(selectedCourt.id)}"
           data-book-court-name="${escapeHtml(selectedCourtName)}"

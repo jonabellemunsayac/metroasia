@@ -861,6 +861,39 @@
     line-height: 1.15;
 }
 
+.metro-schedule-next-day-merge {
+    display: grid;
+    grid-auto-flow: column;
+    place-content: center;
+    align-items: center;
+    gap: 6px;
+    min-height: 26px;
+    padding: 4px 8px;
+    border-right: 1px solid #f1d5a8;
+    border-bottom: 1px solid #f1d5a8;
+    background: #fff3df;
+    color: #c46b00;
+    text-align: center;
+}
+
+.metro-schedule-next-day-merge span,
+.metro-schedule-next-day-merge strong {
+    display: inline-block;
+    font-weight: 900;
+    line-height: 1.12;
+    font-size: .58rem;
+}
+
+.metro-schedule-next-day-merge strong {
+    color: #d36b00;
+}
+
+.metro-schedule-next-day-time {
+    min-height: 38px;
+    background: #fff8ec;
+    color: #d36b00;
+}
+
 .metro-schedule-slot {
     display: grid;
     place-items: center;

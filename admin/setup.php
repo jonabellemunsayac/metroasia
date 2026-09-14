@@ -443,7 +443,7 @@ function ensure_core_booking_time_slots(PDO $pdo): void
     $fallbackPrice = (float) ($pdo->query('SELECT price FROM time_slots ORDER BY sort_order, id LIMIT 1')->fetchColumn() ?: 265);
     $timeLabel = static function (string $time): string {
         $time = substr($time, 0, 5);
-        return $time === '00:00' ? '12 MN' : date('g A', strtotime('2000-01-01 ' . $time));
+        return $time === '00:00' ? '12:00 MN' : date('h:i A', strtotime('2000-01-01 ' . $time));
     };
     $exists = $pdo->prepare('SELECT id FROM time_slots WHERE starts_at = ? AND ends_at = ? LIMIT 1');
     $insert = $pdo->prepare(

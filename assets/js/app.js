@@ -137,6 +137,16 @@ const els = {
     adminCourtType: document.getElementById('adminCourtType'),
     adminCourtSurface: document.getElementById('adminCourtSurface'),
     adminCourtActive: document.getElementById('adminCourtActive'),
+    adminAddTimeSlot: document.getElementById('adminAddTimeSlot'),
+    adminTimeSlotModal: document.getElementById('adminTimeSlotModal'),
+    adminTimeSlotForm: document.getElementById('adminTimeSlotForm'),
+    adminTimeSlotModalTitle: document.getElementById('adminTimeSlotModalTitle'),
+    adminTimeSlotId: document.getElementById('adminTimeSlotId'),
+    adminTimeSlotStartsAt: document.getElementById('adminTimeSlotStartsAt'),
+    adminTimeSlotEndsAt: document.getElementById('adminTimeSlotEndsAt'),
+    adminTimeSlotPeriod: document.getElementById('adminTimeSlotPeriod'),
+    adminTimeSlotPrice: document.getElementById('adminTimeSlotPrice'),
+    adminTimeSlotSortOrder: document.getElementById('adminTimeSlotSortOrder'),
     adminSportSlotAvailability: document.getElementById('adminSportSlotAvailability'),
     adminSportSlotForm: document.getElementById('adminSportSlotForm'),
     adminSportSlotMessage: document.getElementById('adminSportSlotMessage'),
@@ -269,6 +279,19 @@ function niceDate(iso) {
     });
 }
 
+function addDaysIso(iso, days = 1) {
+    const date = new Date(`${iso}T00:00:00`);
+    date.setDate(date.getDate() + days);
+    return isoDate(date);
+}
+
+function shortMonthDay(iso) {
+    return new Date(`${iso}T00:00:00`).toLocaleDateString('en-US', {
+        month: 'short',
+        day: 'numeric'
+    });
+}
+
 function bookingMaxDateIso() {
     const raw = String(state?.siteConfig?.booking_max_date || '').trim();
     return /^\d{4}-\d{2}-\d{2}$/.test(raw) ? raw : '';
@@ -296,6 +319,24 @@ function compactTimeHeader(label) {
         return `${start.displayHour}-${end.displayHour}${end.suffix}`;
     }
     return `${start.displayHour}${start.suffix}-${end.displayHour}${end.suffix}`;
+}
+
+function firstNextDaySlotIndex(slots) {
+    for (let index = 1; index < slots.length; index += 1) {
+        const previous = state?.slotDetails?.[slots[index - 1]] || {};
+        const current = state?.slotDetails?.[slots[index]] || {};
+        if (timeToMinutes(current.startsAt) < timeToMinutes(previous.startsAt)) {
+            return index;
+        }
+    }
+    return -1;
+}
+
+function slotActualDate(date, time, sport = selectedSport) {
+    const slots = slotsForSport(sport).map(slot => slot.label);
+    const rolloverIndex = firstNextDaySlotIndex(slots);
+    const slotIndex = slots.indexOf(time);
+    return rolloverIndex >= 0 && slotIndex >= rolloverIndex ? addDaysIso(date, 1) : date;
 }
 
 async function loadState() {
@@ -582,8 +623,13 @@ function setSelectOptions(select, options, selected) {
     }).join('');
 }
 
+function slotSortValue(slot) {
+    const sortOrder = Number(slot?.sortOrder);
+    return Number.isFinite(sortOrder) ? sortOrder : timeToMinutes(slot?.startsAt);
+}
+
 function sortedRateSlots() {
-    return Object.values(state?.slotDetails || {}).sort((a, b) => timeToMinutes(a.startsAt) - timeToMinutes(b.startsAt));
+    return Object.values(state?.slotDetails || {}).sort((a, b) => slotSortValue(a) - slotSortValue(b) || timeToMinutes(a.startsAt) - timeToMinutes(b.startsAt));
 }
 
 function slotAvailableForSport(slot, sport = selectedSport) {
@@ -598,7 +644,57 @@ function slotsForSport(sport = selectedSport) {
 }
 
 function sortedCourtBlockSlots() {
-    return Object.values(state?.slotDetails || {}).sort((a, b) => timeToMinutes(a.startsAt) - timeToMinutes(b.startsAt));
+    return Object.values(state?.slotDetails || {}).sort((a, b) => slotSortValue(a) - slotSortValue(b) || timeToMinutes(a.startsAt) - timeToMinutes(b.startsAt));
+}
+
+function adminTimeSlotById(id) {
+    return Object.values(state?.slotDetails || {}).find(slot => Number(slot.id) === Number(id)) || null;
+}
+
+function periodForStartTime(startsAt = '08:00') {
+    const minutes = timeToMinutes(startsAt || '08:00');
+    if (minutes < 8 * 60) return 'Early morning';
+    if (minutes < 12 * 60) return 'Morning';
+    if (minutes < 18 * 60) return 'Afternoon';
+    return 'Evening';
+}
+
+function defaultAdminTimeSlot() {
+    const slots = sortedRateSlots();
+    const last = slots[slots.length - 1] || null;
+    const startsAt = last?.endsAt || '08:00';
+    const startMinutes = timeToMinutes(startsAt);
+    const endMinutes = (startMinutes + 60) % 1440;
+    return {
+        id: '',
+        startsAt,
+        endsAt: `${String(Math.floor(endMinutes / 60)).padStart(2, '0')}:${String(endMinutes % 60).padStart(2, '0')}`,
+        period: periodForStartTime(startsAt),
+        price: last?.price ?? 0,
+        sortOrder: (last?.sortOrder ?? slots.length) + 1
+    };
+}
+
+function openAdminTimeSlotModal(id = '') {
+    if (!els.adminTimeSlotForm) return;
+    const existing = id ? adminTimeSlotById(id) : null;
+    const slot = { ...defaultAdminTimeSlot(), ...(existing || {}) };
+    els.adminTimeSlotForm.reset();
+    if (els.adminTimeSlotModalTitle) els.adminTimeSlotModalTitle.textContent = existing ? 'Edit Time Slot' : 'Add Time Slot';
+    if (els.adminTimeSlotId) els.adminTimeSlotId.value = slot.id || '';
+    if (els.adminTimeSlotStartsAt) els.adminTimeSlotStartsAt.value = slot.startsAt || '';
+    if (els.adminTimeSlotEndsAt) els.adminTimeSlotEndsAt.value = slot.endsAt || '';
+    if (els.adminTimeSlotPeriod) els.adminTimeSlotPeriod.value = slot.period || periodForStartTime(slot.startsAt);
+    if (els.adminTimeSlotPrice) els.adminTimeSlotPrice.value = slot.price ?? 0;
+    if (els.adminTimeSlotSortOrder) els.adminTimeSlotSortOrder.value = slot.sortOrder ?? 0;
+    const message = document.getElementById('adminTimeSlotFormMessage');
+    if (message) {
+        message.textContent = '';
+        message.className = 'hidden rounded-md p-2 text-xs font-bold mt-3';
+    }
+    if (window.bootstrap && els.adminTimeSlotModal) {
+        bootstrap.Modal.getOrCreateInstance(els.adminTimeSlotModal).show();
+    }
 }
 
 function populateAdminRateRangeOptions(rule) {
@@ -1170,7 +1266,7 @@ function courtBlockApplies(blockCourtId, blockSport, courtId, sport) {
         return !blockSport || blockSport === sport || [1, 2].includes(court);
     }
 
-    return false;
+    return bookingResourcesConflict(blockCourt, court);
 }
 
 function blockConflictFor(date, time, courtId, sport) {
@@ -1307,6 +1403,10 @@ function blockCell(date, time, courtId, sport) {
     return scheduleCell('BLOCKED', 'Blocked', 'Court Blocking', message, { blockId: block.id });
 }
 
+function scheduleCellDate(date, time, sport = selectedSport) {
+    return slotActualDate(date, time, sport);
+}
+
 function adminBookingCustomerDisplay(booking) {
     return String(
         booking.playerNickname
@@ -1360,10 +1460,19 @@ function renderAdminSchedule() {
         <div class="admin-schedule-head ${index === 0 ? 'admin-schedule-head-time' : ''}">${label}</div>
     `).join('');
 
-    const rows = slots.map(time => {
+    const nextDayIndex = firstNextDaySlotIndex(slots);
+    const nextDayDate = nextDayIndex >= 0 ? shortMonthDay(addDaysIso(date, 1)) : '';
+    const rows = slots.map((time, index) => {
+        const cellDate = scheduleCellDate(date, time, adminScheduleSportFilter || selectedSport);
+        const divider = index === nextDayIndex ? `
+            <div class="admin-schedule-next-day-row" style="grid-column: 1 / span ${columns.length + 1};">
+                <span>Next day</span>
+                <strong>${escapeHtml(nextDayDate)}</strong>
+            </div>
+        ` : '';
         const timeCell = `<div class="admin-schedule-time">${compactTimeHeader(time)}</div>`;
         const cells = columns.map(column => {
-            const cell = adminScheduleCell(date, time, column);
+            const cell = adminScheduleCell(cellDate, time, column);
             const selection = adminColumnSelection(column, cell);
             const slot = state.slotDetails?.[time] || {};
             const isPastAvailable = cell.status === 'Available' && slotIsPast(date, time);
@@ -1379,7 +1488,7 @@ function renderAdminSchedule() {
                         class="admin-schedule-action ${adminScheduleCellClass(cellStatus)}"
                         ${actionable ? '' : 'disabled'}
                         data-admin-calendar-booking
-                        data-date="${escapeHtml(date)}"
+                        data-date="${escapeHtml(cellDate)}"
                         data-time="${escapeHtml(time)}"
                         data-time-slot-id="${escapeHtml(slot.id || '')}"
                         data-court-id="${escapeHtml(selection.courtId)}"
@@ -1395,7 +1504,7 @@ function renderAdminSchedule() {
                 </div>
             `;
         }).join('');
-        return timeCell + cells;
+        return divider + timeCell + cells;
     }).join('');
 
     els.adminScheduleGrid.innerHTML = header + rows;
@@ -1892,7 +2001,7 @@ function slotDuration(slot) {
 function slotIsPast(date, time) {
     const slot = state?.slotDetails?.[time];
     if (!slot?.startsAt) return date < isoDate(new Date());
-    return new Date(`${date}T${slot.startsAt}:00`) <= new Date();
+    return new Date(`${slotActualDate(date, time)}T${slot.startsAt}:00`) <= new Date();
 }
 
 function rateForSlot(time, courtId = null, sport = selectedSport, date = isoDate(selectedDate)) {
@@ -2413,15 +2522,35 @@ function renderBookingGrid() {
         return;
     }
 
+    const nextDayIndex = firstNextDaySlotIndex(allSlots);
     els.grid.style.gridTemplateColumns = `minmax(112px, 150px) repeat(${allSlots.length}, minmax(76px, 1fr))`;
     els.grid.style.minWidth = `${150 + allSlots.length * 76}px`;
 
-    const header = ['Court', ...allSlots];
-    const headerHtml = header.map((item, index) => `
-        <div class="metro-schedule-head ${index === 0 ? 'metro-schedule-head-court' : ''}">
-            ${index === 0 ? item : compactTimeHeader(item)}
-        </div>
-    `).join('');
+    const nextDayDate = nextDayIndex >= 0 ? shortMonthDay(addDaysIso(date, 1)) : '';
+    const nextDayColumn = nextDayIndex + 2;
+    const nextDaySpan = nextDayIndex >= 0 ? allSlots.length - nextDayIndex : 0;
+    const headerHtml = nextDayIndex >= 0
+        ? [
+            '<div class="metro-schedule-head metro-schedule-head-court" style="grid-column: 1; grid-row: 1 / span 2;">Court</div>',
+            ...allSlots.slice(0, nextDayIndex).map((time, index) => `
+                <div class="metro-schedule-head" style="grid-column: ${index + 2}; grid-row: 1 / span 2;">
+                    ${compactTimeHeader(time)}
+                </div>
+            `),
+            `<div class="metro-schedule-next-day-merge" style="grid-column: ${nextDayColumn} / span ${nextDaySpan}; grid-row: 1;">
+                <span>Next day</span>
+                <strong>${escapeHtml(nextDayDate)}</strong>
+            </div>`,
+            ...allSlots.slice(nextDayIndex).map((time, index) => `
+                <div class="metro-schedule-head metro-schedule-next-day-time" style="grid-column: ${nextDayColumn + index}; grid-row: 2;">
+                    ${compactTimeHeader(time)}
+                </div>
+            `)
+        ].join('')
+        : [
+            '<div class="metro-schedule-head metro-schedule-head-court">Court</div>',
+            ...allSlots.map(time => `<div class="metro-schedule-head">${compactTimeHeader(time)}</div>`)
+        ].join('');
 
     const rows = courts.map((courtInfo, index) => {
         const court = courtInfo.id;
@@ -2435,12 +2564,13 @@ function renderBookingGrid() {
             </div>
         `;
         const cells = allSlots.map(time => {
-            const conflict = relatedConflictFor(date, time, courtInfo);
+            const cellDate = scheduleCellDate(date, time, selectedSport);
+            const conflict = relatedConflictFor(cellDate, time, courtInfo);
             const status = conflict?.status || 'Available';
             const isPast = slotIsPast(date, time);
             const tone = statusTone(status);
             const slotData = {
-                date,
+                date: cellDate,
                 time,
                 court,
                 courtName: courtLabel,
@@ -2464,7 +2594,7 @@ function renderBookingGrid() {
                 : status === 'Available' && !isPast
                 ? ''
                 : tone === 'blocked' || isPast
-                ? 'Unavailable'
+                ? ''
                 : publicSlotLabel(status, conflict);
             const help = isPast
                 ? 'Past dates and time slots cannot be booked.'
@@ -2473,7 +2603,7 @@ function renderBookingGrid() {
                 : `${courtLabel} is unavailable for this time.`;
             return `
                 <button ${disabled}
-                    data-book-date="${date}"
+                    data-book-date="${escapeHtml(cellDate)}"
                     data-book-time="${time}"
                     data-book-court="${court}"
                     data-book-court-name="${escapeHtml(courtLabel)}"
@@ -3466,6 +3596,7 @@ function renderAdminSportSlotAvailability() {
                         <th>Start</th>
                         <th>End</th>
                         ${sports.map(sport => `<th class="text-center">${escapeHtml(sport)}</th>`).join('')}
+                        <!-- <th class="text-end">Actions</th> -->
                     </tr>
                 </thead>
                 <tbody class="small fw-semibold">
@@ -3487,12 +3618,25 @@ function renderAdminSportSlotAvailability() {
                                     </td>
                                 `;
                             }).join('')}
+                            <!-- <td class="text-end">
+                                <div class="d-inline-flex gap-1">
+                                    <button type="button" class="btn btn-outline-primary btn-sm" data-admin-time-slot-edit="${escapeHtml(slot.id)}">Edit</button>
+                                    <button type="button" class="btn btn-outline-danger btn-sm" data-admin-time-slot-delete="${escapeHtml(slot.id)}" data-admin-time-slot-label="${escapeHtml(compactTime(slot.label))}">Delete</button>
+                                </div>
+                            </td> -->
                         </tr>
                     `).join('')}
                 </tbody>
             </table>
         </div>
     `;
+
+    els.adminSportSlotAvailability.querySelectorAll('[data-admin-time-slot-edit]').forEach(button => {
+        button.addEventListener('click', () => openAdminTimeSlotModal(button.dataset.adminTimeSlotEdit));
+    });
+    els.adminSportSlotAvailability.querySelectorAll('[data-admin-time-slot-delete]').forEach(button => {
+        button.addEventListener('click', () => deleteAdminTimeSlot(button));
+    });
 }
 
 async function submitAdminSportSlotAvailability(event) {
@@ -3512,6 +3656,50 @@ async function submitAdminSportSlotAvailability(event) {
     } else if (response.status === 401) {
         window.location.href = adminLoginUrl;
     }
+}
+
+async function submitAdminTimeSlotForm(event) {
+    event.preventDefault();
+    const form = event.currentTarget;
+    if (!form.reportValidity()) return;
+    const message = document.getElementById('adminTimeSlotFormMessage');
+    const formData = new FormData(form);
+    const response = await fetch(`${api}?action=admin-time-slot-save`, { method: 'POST', body: formData });
+    const payload = await response.json();
+
+    if (message) {
+        message.textContent = payload.message || (payload.ok ? 'Saved.' : 'Could not save time slot.');
+        message.className = `rounded-md p-2 text-xs font-bold mt-3 ${payload.ok ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-700'}`;
+    }
+    if (payload.ok) {
+        state = payload.state;
+        renderAll();
+        showAdminToast(payload.message || 'Time slot saved successfully.');
+        if (window.bootstrap && els.adminTimeSlotModal) {
+            bootstrap.Modal.getInstance(els.adminTimeSlotModal)?.hide();
+        }
+    } else if (response.status === 401) {
+        window.location.href = adminLoginUrl;
+    }
+}
+
+async function deleteAdminTimeSlot(button) {
+    const id = button.dataset.adminTimeSlotDelete;
+    const label = button.dataset.adminTimeSlotLabel || 'this time slot';
+    if (!id || !window.confirm(`Delete ${label}? This cannot be undone.`)) return;
+
+    const formData = new FormData();
+    formData.set('id', id);
+    const response = await fetch(`${api}?action=admin-time-slot-delete`, { method: 'POST', body: formData });
+    const payload = await response.json();
+    if (!payload.ok) {
+        window.alert(payload.message || 'Could not delete time slot.');
+        return;
+    }
+
+    state = payload.state;
+    renderAll();
+    showAdminToast(payload.message || 'Time slot deleted successfully.');
 }
 
 async function submitAdminCourtForm(event) {
@@ -5180,11 +5368,13 @@ async function submitCourtBlock(event) {
 
 function showCourtBlockConflictModal(form, payload) {
     const conflicts = Array.isArray(payload.conflicts) ? payload.conflicts : [];
-    pendingCourtBlockConflictForm = form;
+    pendingCourtBlockConflictForm = null;
     if (els.adminCourtBlockConflictSummary) {
-        const availableCount = Number(payload.availableSlotCount || 0);
         const bookedCount = Number(payload.bookedSlotCount || conflicts.length || 0);
-        els.adminCourtBlockConflictSummary.textContent = `${bookedCount} booked slot${bookedCount === 1 ? '' : 's'} found. ${availableCount} available slot${availableCount === 1 ? '' : 's'} can still be blocked.`;
+        els.adminCourtBlockConflictSummary.textContent = `${bookedCount} booked slot${bookedCount === 1 ? '' : 's'} found. Court blocking was not saved.`;
+    }
+    if (els.adminCourtBlockConflictProceed) {
+        els.adminCourtBlockConflictProceed.hidden = true;
     }
     if (els.adminCourtBlockConflictRows) {
         els.adminCourtBlockConflictRows.innerHTML = conflicts.length === 0
@@ -5222,11 +5412,7 @@ function showCourtBlockConflictModal(form, payload) {
         return;
     }
 
-    if (window.confirm(`${payload.message || 'Booked slots found.'}\n\nOnly available/unbooked slots will be blocked. Proceed?`)) {
-        saveCourtBlock(form, true);
-    } else {
-        pendingCourtBlockConflictForm = null;
-    }
+    window.alert(payload.message || 'Court blocking cannot be saved because selected slots already have bookings.');
 }
 
 async function submitCourtBlockStatus(button) {
@@ -5255,7 +5441,7 @@ async function submitCourtBlockStatus(button) {
     }
 }
 
-async function saveCourtBlock(form, proceedAvailableOnly = false) {
+async function saveCourtBlock(form) {
     const message = form.querySelector('[data-court-block-message]');
     const formData = new FormData(form);
     const [courtId, sport = ''] = String(formData.get('blockScope') || '2|').split('|');
@@ -5263,20 +5449,12 @@ async function saveCourtBlock(form, proceedAvailableOnly = false) {
     formData.set('sport', sport);
     formData.set('isActive', form.querySelector('[name="isActive"]').checked ? '1' : '0');
     formData.delete('blockScope');
-    if (proceedAvailableOnly) formData.set('proceedAvailableOnly', '1');
 
     const response = await fetch(`${api}?action=admin-court-block`, { method: 'POST', body: formData });
     const payload = await response.json();
 
-    if (response.status === 409 && payload.requiresAvailabilityConfirm) {
+    if (response.status === 409 && (payload.requiresBlockConflict || payload.requiresAvailabilityConfirm)) {
         showCourtBlockConflictModal(form, payload);
-        return;
-    }
-
-    if (!payload.ok && proceedAvailableOnly && els.adminCourtBlockConflictModal?.classList.contains('show')) {
-        if (els.adminCourtBlockConflictSummary) {
-            els.adminCourtBlockConflictSummary.textContent = payload.message || 'Could not save court blocking.';
-        }
         return;
     }
 
@@ -5476,18 +5654,8 @@ els.adminEntrancePlayStartTime?.addEventListener('change', () => {
     syncEntranceFeeDateTimeLimits();
 });
 els.adminEntrancePlayEndTime?.addEventListener('change', syncEntranceFeeDateTimeLimits);
-els.adminCourtBlockConflictProceed?.addEventListener('click', async () => {
-    const form = pendingCourtBlockConflictForm;
-    if (!form) return;
-    els.adminCourtBlockConflictProceed.disabled = true;
-    await saveCourtBlock(form, true);
-    els.adminCourtBlockConflictProceed.disabled = false;
-});
 els.adminCourtBlockConflictModal?.addEventListener('hidden.bs.modal', () => {
     pendingCourtBlockConflictForm = null;
-    if (els.adminCourtBlockConflictProceed) {
-        els.adminCourtBlockConflictProceed.disabled = false;
-    }
 });
 els.adminQrScanForm?.addEventListener('submit', submitQrLookup);
 els.adminOverrideSport?.addEventListener('change', event => updateAdminOverrideSportAndCourts(event.target.value));
@@ -5591,6 +5759,13 @@ document.querySelectorAll('[data-password-toggle]').forEach(button => {
     });
 });
 els.adminAddCourt?.addEventListener('click', () => openAdminCourtModal());
+els.adminAddTimeSlot?.addEventListener('click', () => openAdminTimeSlotModal());
+els.adminTimeSlotForm?.addEventListener('submit', submitAdminTimeSlotForm);
+els.adminTimeSlotStartsAt?.addEventListener('change', event => {
+    if (els.adminTimeSlotPeriod && els.adminTimeSlotPeriod.value.trim() === '') {
+        els.adminTimeSlotPeriod.value = periodForStartTime(event.target.value || '08:00');
+    }
+});
 els.adminSportSlotForm?.addEventListener('submit', submitAdminSportSlotAvailability);
 els.adminSportSlotForm?.addEventListener('change', event => {
     const input = event.target?.closest?.('.sport-slot-toggle input');

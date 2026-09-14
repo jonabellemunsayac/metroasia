@@ -437,6 +437,31 @@ body.admin-body{
   font-weight:900;
 }
 
+.admin-schedule-next-day-row{
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:8px;
+  min-height:32px;
+  padding:6px 10px;
+  border-right:1px solid #f1d5a8;
+  border-bottom:1px solid #f1d5a8;
+  background:#fff3df;
+  color:#c46b00;
+  text-align:center;
+}
+
+.admin-schedule-next-day-row span,
+.admin-schedule-next-day-row strong{
+  font-size:.64rem;
+  font-weight:900;
+  line-height:1.15;
+}
+
+.admin-schedule-next-day-row strong{
+  color:#d36b00;
+}
+
 .admin-schedule-cell{
   padding:6px;
   background:#fff;
