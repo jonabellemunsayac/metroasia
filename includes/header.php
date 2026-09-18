@@ -6,7 +6,7 @@ $appBrand = 'Metro Asia';
 $appTitle = '';
 $pageTitle = $pageTitle ?? $appTitle;
 $active = $active ?? 'home';
-$assetVersion = $assetVersion ?? '3.1.78';
+$assetVersion = $assetVersion ?? '3.1.80';
 $themeName = $themeName ?? 'metro';
 $memberAccountStyles = $memberAccountStyles ?? false;
 $currentAdmin = current_admin();
@@ -90,7 +90,7 @@ if ($active === 'member' && $pageTitle !== '') {
         ); ?>?v=<?php echo htmlspecialchars($assetVersion); ?>"
     >
 
-        <?php if ($useAdminShell && in_array(($active ?? ''), ['admin-rates', 'admin-bookings'], true)): ?>
+        <?php if ($useAdminShell && in_array(($active ?? ''), ['admin-rates', 'admin-bookings', 'admin-court-blockings'], true)): ?>
         <link
             rel="stylesheet"
             href="<?php echo htmlspecialchars(

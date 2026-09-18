@@ -19,6 +19,23 @@ include __DIR__ . '/../includes/header.php';
 
     <section class="app-card mb-3">
         <div id="adminCourtBlocks" class="grid gap-3"></div>
+        <div id="adminCourtBlockPagination" class="admin-rate-pagination" hidden>
+            <div class="admin-rate-pagination-inner">
+                <div id="adminCourtBlockPageInfo" class="admin-rate-pagination-meta">
+                    Showing court blockings...
+                </div>
+                <div class="admin-rate-pagination-actions">
+                    <select id="adminCourtBlockPageSize" class="admin-rate-page-size" aria-label="Court blockings per page">
+                        <option value="10" selected>10 per page</option>
+                        <option value="20">20 per page</option>
+                        <option value="50">50 per page</option>
+                        <option value="100">100 per page</option>
+                    </select>
+                    <button id="adminCourtBlockPrev" class="btn btn-outline-secondary btn-sm" type="button">Previous</button>
+                    <button id="adminCourtBlockNext" class="btn btn-primary btn-sm" type="button">Next</button>
+                </div>
+            </div>
+        </div>
     </section>
 
     <section class="app-card">

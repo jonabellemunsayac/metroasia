@@ -763,7 +763,7 @@ function valid_rate_days(): array
 
 function valid_rate_day_selections(): array
 {
-    return ['Any', 'Holiday', 'Weekday', 'Weekend', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+    return ['Any', 'Holiday', 'Weekday', 'Weekend', 'Monday-Thursday', 'Friday-Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 }
 
 function rate_weekday_names(): array
@@ -778,6 +778,12 @@ function expand_rate_day_selection(string $selection): array
     }
     if ($selection === 'Weekend') {
         return ['Saturday', 'Sunday'];
+    }
+    if ($selection === 'Monday-Thursday') {
+        return ['Monday', 'Tuesday', 'Wednesday', 'Thursday'];
+    }
+    if ($selection === 'Friday-Sunday') {
+        return ['Friday', 'Saturday', 'Sunday'];
     }
 
     return [$selection];
@@ -1954,6 +1960,43 @@ function advance_bookings_for_rate_change(PDO $pdo, array $courtIds, string $spo
     return $rows;
 }
 
+function advance_booking_ids_for_deleted_rates(PDO $pdo, array $rateRows): array
+{
+    if ($rateRows === []) {
+        return [];
+    }
+
+    $stmt = $pdo->prepare(
+        "SELECT id, booking_date
+         FROM court_bookings
+         WHERE court_id = ?
+           AND sport = ?
+           AND time_slot_id = ?
+           AND booking_date >= ?
+           AND booking_date >= CURDATE()
+           AND status IN (" . BLOCKING_RESERVATION_STATUS_SQL . ")
+         ORDER BY booking_date, id"
+    );
+
+    $bookingIds = [];
+    foreach ($rateRows as $rateRow) {
+        $stmt->execute([
+            (int) $rateRow['court_id'],
+            (string) $rateRow['sport'],
+            (int) $rateRow['time_slot_id'],
+            (string) $rateRow['effective_date'],
+        ]);
+        foreach ($stmt->fetchAll() as $bookingRow) {
+            if (!rate_day_applies_to_date($pdo, (string) $rateRow['day_of_week'], (string) $bookingRow['booking_date'])) {
+                continue;
+            }
+            $bookingIds[] = (int) $bookingRow['id'];
+        }
+    }
+
+    return array_values(array_unique($bookingIds));
+}
+
 function update_advance_bookings_for_rate_change(PDO $pdo, array $bookingIds): int
 {
     if ($bookingIds === []) {
@@ -3117,7 +3160,9 @@ if ($action === 'book') {
             (int) $member['id'],
         ]);
         $bookingId = (int) $pdo->lastInsertId();
-        $pdo->commit();
+        if ($pdo->inTransaction()) {
+            $pdo->commit();
+        }
     } catch (Throwable $exception) {
         if ($pdo->inTransaction()) {
             $pdo->rollBack();
@@ -3195,7 +3240,9 @@ if ($action === 'openplay') {
                 'time' => $session['session_time'],
             ], $amount, 'openplay'),
         ]);
-        $pdo->commit();
+        if ($pdo->inTransaction()) {
+            $pdo->commit();
+        }
     } catch (Throwable $exception) {
         if ($pdo->inTransaction()) {
             $pdo->rollBack();
@@ -3533,9 +3580,13 @@ if ($action === 'admin-override-booking') {
             ]
         );
 
-        $pdo->commit();
+        if ($pdo->inTransaction()) {
+            $pdo->commit();
+        }
     } catch (Throwable $exception) {
-        $pdo->rollBack();
+        if ($pdo->inTransaction()) {
+            $pdo->rollBack();
+        }
         json_response(['ok' => false, 'message' => 'Override booking failed: ' . $exception->getMessage()], 500);
     }
 
@@ -3728,7 +3779,9 @@ if ($action === 'admin-booking-update') {
                 ],
             ]
         );
-        $pdo->commit();
+        if ($pdo->inTransaction()) {
+            $pdo->commit();
+        }
     } catch (Throwable $exception) {
         if ($pdo->inTransaction()) {
             $pdo->rollBack();
@@ -3886,6 +3939,12 @@ if ($action === 'admin-rate-rule') {
     $reason = trim((string) ($_POST['reason'] ?? 'Regular rate'));
     $effectiveDate = trim((string) ($_POST['effectiveDate'] ?? date('Y-m-d')));
     $advanceBookingChoice = trim((string) ($_POST['advanceBookingChoice'] ?? ''));
+    $isHolidayRate = $daySelection === 'Holiday';
+    if ($isHolidayRate) {
+        $effectiveDate = date('Y-m-d');
+        $dayRangeFrom = '';
+        $dayRangeTo = '';
+    }
     if ($reason === '') {
         $reason = 'Regular rate';
     }
@@ -3961,23 +4020,27 @@ if ($action === 'admin-rate-rule') {
         return $matches[1] . ':' . $matches[2] . ':00';
     };
 
-    $rangeStart = $normalizeTime((string) ($_POST['rangeStart'] ?? ''));
-    $rangeEnd = $normalizeTime((string) ($_POST['rangeEnd'] ?? ''));
-    if ($rangeStart === null || $rangeEnd === null) {
-        json_response(['ok' => false, 'message' => 'Select a valid start and end time.'], 422);
-    }
-    $rangeStartMinutes = time_minutes_for_range($rangeStart);
-    $rangeEndMinutes = time_minutes_for_range($rangeEnd, true);
-    if ($rangeEndMinutes <= $rangeStartMinutes) {
-        json_response(['ok' => false, 'message' => 'End time must be after start time.'], 422);
-    }
-
     $slotRows = $pdo->query('SELECT id, starts_at, ends_at FROM time_slots ORDER BY sort_order, id')->fetchAll();
-    foreach ($slotRows as $slotRow) {
-        $slotStart = time_minutes_for_range((string) $slotRow['starts_at']);
-        $slotEnd = time_minutes_for_range((string) $slotRow['ends_at'], true);
-        if ($slotStart >= $rangeStartMinutes && $slotEnd <= $rangeEndMinutes) {
-            $slotIds[] = (int) $slotRow['id'];
+    if ($isHolidayRate) {
+        $slotIds = array_map('intval', array_column($slotRows, 'id'));
+    } else {
+        $rangeStart = $normalizeTime((string) ($_POST['rangeStart'] ?? ''));
+        $rangeEnd = $normalizeTime((string) ($_POST['rangeEnd'] ?? ''));
+        if ($rangeStart === null || $rangeEnd === null) {
+            json_response(['ok' => false, 'message' => 'Select a valid start and end time.'], 422);
+        }
+        $rangeStartMinutes = time_minutes_for_range($rangeStart);
+        $rangeEndMinutes = time_minutes_for_range($rangeEnd, true);
+        if ($rangeEndMinutes <= $rangeStartMinutes) {
+            json_response(['ok' => false, 'message' => 'End time must be after start time.'], 422);
+        }
+
+        foreach ($slotRows as $slotRow) {
+            $slotStart = time_minutes_for_range((string) $slotRow['starts_at']);
+            $slotEnd = time_minutes_for_range((string) $slotRow['ends_at'], true);
+            if ($slotStart >= $rangeStartMinutes && $slotEnd <= $rangeEndMinutes) {
+                $slotIds[] = (int) $slotRow['id'];
+            }
         }
     }
     if ($slotIds === []) {
@@ -4118,25 +4181,57 @@ if ($action === 'admin-rate-delete') {
         json_response(['ok' => false, 'message' => 'Rate not found.'], 404);
     }
 
-    $delete = $pdo->prepare("DELETE FROM rates WHERE id IN ({$placeholders})");
-    $delete->execute($ids);
+    $affectedBookingIds = advance_booking_ids_for_deleted_rates($pdo, $previousRows);
+    $updatedBookings = 0;
 
-    $audit = $pdo->prepare(
-        'INSERT INTO rate_audit_logs (rate_id, admin_id, action, previous_payload, new_payload, reason)
-         VALUES (NULL, ?, ?, ?, NULL, ?)'
-    );
-    foreach ($previousRows as $previous) {
-        $audit->execute([
-            (int) $admin['id'],
-            'deleted',
-            json_encode($previous, JSON_THROW_ON_ERROR),
-            'Rate deleted from admin rate management.',
-        ]);
+    $pdo->beginTransaction();
+    try {
+        $delete = $pdo->prepare("DELETE FROM rates WHERE id IN ({$placeholders})");
+        $delete->execute($ids);
+
+        $audit = $pdo->prepare(
+            'INSERT INTO rate_audit_logs (rate_id, admin_id, action, previous_payload, new_payload, reason)
+             VALUES (NULL, ?, ?, ?, NULL, ?)'
+        );
+        foreach ($previousRows as $previous) {
+            $audit->execute([
+                (int) $admin['id'],
+                'deleted',
+                json_encode($previous, JSON_THROW_ON_ERROR),
+                'Rate deleted from admin rate management.',
+            ]);
+        }
+
+        if ($affectedBookingIds !== []) {
+            $updatedBookings = update_advance_bookings_for_rate_change($pdo, $affectedBookingIds);
+            write_override_log(
+                $pdo,
+                (int) $admin['id'],
+                'rate-delete-advance-bookings',
+                'court_booking',
+                implode(',', $affectedBookingIds),
+                'Advance booking rates recalculated after rate deletion.',
+                [
+                    'bookingIds' => $affectedBookingIds,
+                    'deletedRateIds' => array_values(array_map('intval', array_column($previousRows, 'id'))),
+                ]
+            );
+        }
+
+        $pdo->commit();
+    } catch (Throwable $exception) {
+        if ($pdo->inTransaction()) {
+            $pdo->rollBack();
+        }
+        throw $exception;
     }
 
+    $baseMessage = count($previousRows) === 1 ? 'Rate deleted.' : count($previousRows) . ' rate slots deleted.';
     json_response([
         'ok' => true,
-        'message' => count($previousRows) === 1 ? 'Rate deleted.' : count($previousRows) . ' rate slots deleted.',
+        'message' => $updatedBookings > 0
+            ? $baseMessage . ' ' . $updatedBookings . ' advance booking' . ($updatedBookings === 1 ? '' : 's') . ' updated to the current applicable rate.'
+            : $baseMessage,
         'state' => get_state($pdo, true),
     ]);
 }

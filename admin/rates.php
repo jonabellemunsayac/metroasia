@@ -40,6 +40,11 @@ include __DIR__ . '/../includes/header.php';
                                 <option value="">All courts</option>
                             </select>
                         </label>
+                        <label class="col-md-4 col-lg-3 small fw-bold">Filter by Day
+                            <select id="adminRateDayFilter" class="form-select">
+                                <option value="">All days</option>
+                            </select>
+                        </label>
                         <div class="col-md-4 col-lg-3">
                             <button id="adminRateClearFilters" class="btn btn-outline-secondary btn-sm" type="button">Clear Filters</button>
                         </div>
@@ -170,30 +175,8 @@ include __DIR__ . '/../includes/header.php';
                                     <option value="Holiday">Holiday</option>
                                     <option value="Weekday">Weekday</option>
                                     <option value="Weekend">Weekend</option>
-                                    <option value="Monday">Monday</option>
-                                    <option value="Tuesday">Tuesday</option>
-                                    <option value="Wednesday">Wednesday</option>
-                                    <option value="Thursday">Thursday</option>
-                                    <option value="Friday">Friday</option>
-                                    <option value="Saturday">Saturday</option>
-                                    <option value="Sunday">Sunday</option>
-                                </select>
-                            </label>
-                            <label class="col-md-4 small fw-bold">Day Range From
-                                <select name="dayRangeFrom" id="adminRateDayRangeFrom" class="form-select">
-                                    <option value="">Use selected day</option>
-                                    <option value="Monday">Monday</option>
-                                    <option value="Tuesday">Tuesday</option>
-                                    <option value="Wednesday">Wednesday</option>
-                                    <option value="Thursday">Thursday</option>
-                                    <option value="Friday">Friday</option>
-                                    <option value="Saturday">Saturday</option>
-                                    <option value="Sunday">Sunday</option>
-                                </select>
-                            </label>
-                            <label class="col-md-4 small fw-bold">Day Range To
-                                <select name="dayRangeTo" id="adminRateDayRangeTo" class="form-select">
-                                    <option value="">Use selected day</option>
+                                    <option value="Monday-Thursday">Monday - Thursday</option>
+                                    <option value="Friday-Sunday">Friday - Sunday</option>
                                     <option value="Monday">Monday</option>
                                     <option value="Tuesday">Tuesday</option>
                                     <option value="Wednesday">Wednesday</option>
@@ -218,7 +201,7 @@ include __DIR__ . '/../includes/header.php';
                             <label class="col-md-4 small fw-bold">Rate / hr
                                 <input required type="number" min="1" step="1" name="pricePerHour" id="adminRatePrice" class="form-input">
                             </label>
-                            <label class="col-md-4 small fw-bold">Effective Date
+                            <label id="adminRateEffectiveWrap" class="col-md-4 small fw-bold">Effective Date
                                 <input required type="date" name="effectiveDate" id="adminRateEffectiveFrom" class="form-input">
                             </label>
                             <p id="adminRateRangeHelp" class="col-12 small fw-semibold text-secondary mb-0">

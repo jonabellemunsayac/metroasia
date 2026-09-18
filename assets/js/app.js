@@ -8,6 +8,7 @@ let state = null;
 let selectedDate = new Date();
 let adminScheduleDate = new Date();
 let adminScheduleSportFilter = 'Pickleball';
+let adminScheduleCourtFilter = '';
 const adminReservationFilters = ['Held', 'Booked', 'Cancelled', 'All'];
 function normalizeAdminFilter(value) {
     return adminReservationFilters.includes(value) ? value : 'Held';
@@ -30,7 +31,11 @@ let adminMemberSearch = '';
 let adminAccessLogSearch = '';
 let adminRateSportFilter = '';
 let adminRateCourtFilter = '';
+let adminRateDayFilter = '';
 let adminRateDisplayRules = [];
+let adminCourtBlockSort = { column: 'date', direction: 'desc' };
+let adminCourtBlockPage = 1;
+let adminCourtBlockPageSize = 10;
 let adminQrStream = null;
 const supportedBookingSports = ['Pickleball', 'Basketball', 'Volleyball'];
 let adminBookingSport = supportedBookingSports.includes(pageParams.get('sport')) ? pageParams.get('sport') : '';
@@ -82,6 +87,7 @@ const els = {
     adminRateSummary: document.getElementById('adminRateSummary'),
     adminRateSportFilter: document.getElementById('adminRateSportFilter'),
     adminRateCourtFilter: document.getElementById('adminRateCourtFilter'),
+    adminRateDayFilter: document.getElementById('adminRateDayFilter'),
     adminRateClearFilters: document.getElementById('adminRateClearFilters'),
     adminAddRate: document.getElementById('adminAddRate'),
     adminRateModal: document.getElementById('adminRateModal'),
@@ -100,6 +106,7 @@ const els = {
     adminRateRangeStart: document.getElementById('adminRateRangeStart'),
     adminRateRangeEnd: document.getElementById('adminRateRangeEnd'),
     adminRateRangeHelp: document.getElementById('adminRateRangeHelp'),
+    adminRateEffectiveWrap: document.getElementById('adminRateEffectiveWrap'),
     adminRateDay: document.getElementById('adminRateDay'),
     adminRateStart: document.getElementById('adminRateStart'),
     adminRateEnd: document.getElementById('adminRateEnd'),
@@ -151,6 +158,11 @@ const els = {
     adminSportSlotForm: document.getElementById('adminSportSlotForm'),
     adminSportSlotMessage: document.getElementById('adminSportSlotMessage'),
     adminCourtBlocks: document.getElementById('adminCourtBlocks'),
+    adminCourtBlockPagination: document.getElementById('adminCourtBlockPagination'),
+    adminCourtBlockPageInfo: document.getElementById('adminCourtBlockPageInfo'),
+    adminCourtBlockPageSize: document.getElementById('adminCourtBlockPageSize'),
+    adminCourtBlockPrev: document.getElementById('adminCourtBlockPrev'),
+    adminCourtBlockNext: document.getElementById('adminCourtBlockNext'),
     adminCourtBlockConflictModal: document.getElementById('adminCourtBlockConflictModal'),
     adminCourtBlockConflictSummary: document.getElementById('adminCourtBlockConflictSummary'),
     adminCourtBlockConflictRows: document.getElementById('adminCourtBlockConflictRows'),
@@ -164,6 +176,9 @@ const els = {
     adminScheduleGrid: document.getElementById('adminScheduleGrid'),
     adminScheduleDateLabel: document.getElementById('adminScheduleDateLabel'),
     adminScheduleSportFilter: document.getElementById('adminScheduleSportFilter'),
+    adminScheduleCourtFilter: document.getElementById('adminScheduleCourtFilter'),
+    adminScheduleDatePrev: document.getElementById('adminScheduleDatePrev'),
+    adminScheduleDateNext: document.getElementById('adminScheduleDateNext'),
     adminScheduleCalendarOpen: document.getElementById('adminScheduleCalendarOpen'),
     adminScheduleDatePickerModal: document.getElementById('adminScheduleDatePickerModal'),
     adminScheduleCalendarTitle: document.getElementById('adminScheduleCalendarTitle'),
@@ -729,30 +744,44 @@ function setAdminRateMode(mode, editing = false) {
     });
 }
 
-function populateAdminRateOptions(rule) {
-    const weekdays = [
-        ['Monday', 'Monday'],
-        ['Tuesday', 'Tuesday'],
-        ['Wednesday', 'Wednesday'],
-        ['Thursday', 'Thursday'],
-        ['Friday', 'Friday'],
-        ['Saturday', 'Saturday'],
-        ['Sunday', 'Sunday']
-    ];
+function adminRateCourtOptionsForSport(sport) {
+    return (state?.courts || [])
+        .filter(court => !sport || (court.sports || []).includes(sport))
+        .map(court => [
+            court.id,
+            court.labels?.[sport] || court.name || `Court ${court.id}`
+        ]);
+}
+
+function syncAdminRateCourtOptions(selectedCourt = null) {
+    if (!els.adminRateCourt) return;
+    const sport = els.adminRateSport?.value || '';
+    const courts = adminRateCourtOptionsForSport(sport);
+    const current = selectedCourt ?? els.adminRateCourt.value ?? 'all';
+    const selected = String(current) === 'all' || courts.some(([id]) => String(id) === String(current))
+        ? current
+        : 'all';
+
     setSelectOptions(els.adminRateCourt, [
         ['all', 'All courts'],
-        ...(state?.courts || []).map(court => [court.id, court.name])
-    ], rule.courtId ?? '');
+        ...courts
+    ], selected);
+}
+
+function populateAdminRateOptions(rule) {
     setSelectOptions(els.adminRateSport, [
         ['Pickleball', 'Pickleball'],
         ['Basketball', 'Basketball'],
         ['Volleyball', 'Volleyball']
     ], rule.sport ?? '');
+    syncAdminRateCourtOptions(rule.courtId ?? 'all');
     setSelectOptions(els.adminRateDayOfWeek, [
         ['Any', 'Any day'],
         ['Holiday', 'Holiday'],
         ['Weekday', 'Weekday'],
         ['Weekend', 'Weekend'],
+        ['Monday-Thursday', 'Monday - Thursday'],
+        ['Friday-Sunday', 'Friday - Sunday'],
         ['Monday', 'Monday'],
         ['Tuesday', 'Tuesday'],
         ['Wednesday', 'Wednesday'],
@@ -761,14 +790,6 @@ function populateAdminRateOptions(rule) {
         ['Saturday', 'Saturday'],
         ['Sunday', 'Sunday']
     ], rule.dayOfWeek || rule.dayPattern || 'Any');
-    setSelectOptions(els.adminRateDayRangeFrom, [
-        ['', 'Use selected day'],
-        ...weekdays
-    ], '');
-    setSelectOptions(els.adminRateDayRangeTo, [
-        ['', 'Use selected day'],
-        ...weekdays
-    ], '');
     setSelectOptions(els.adminRateTimeSlot, Object.values(state?.slotDetails || {}).map(slot => [
         slot.id,
         compactTime(slot.label)
@@ -777,14 +798,36 @@ function populateAdminRateOptions(rule) {
     if (els.adminRateReason) els.adminRateReason.value = rule.changeReason || 'Regular rate';
 }
 
+function syncAdminRateHolidayFields() {
+    const isHoliday = els.adminRateDayOfWeek?.value === 'Holiday';
+    const slots = sortedRateSlots();
+    if (els.adminRateRangeWrap) els.adminRateRangeWrap.hidden = isHoliday;
+    if (els.adminRateEffectiveWrap) els.adminRateEffectiveWrap.hidden = isHoliday;
+    if (els.adminRateRangeHelp) {
+        els.adminRateRangeHelp.textContent = isHoliday
+            ? 'Holiday rates apply automatically to dates listed under Holiday Schedules.'
+            : 'The rate will be applied to every existing hourly slot fully inside the selected time range starting on the effective date. Previous rate versions stay intact.';
+    }
+    [els.adminRateRangeStart, els.adminRateRangeEnd].forEach(select => {
+        if (!select) return;
+        select.disabled = isHoliday;
+        select.required = !isHoliday;
+    });
+    if (els.adminRateEffectiveFrom) {
+        els.adminRateEffectiveFrom.disabled = isHoliday;
+        els.adminRateEffectiveFrom.required = !isHoliday;
+        if (isHoliday) els.adminRateEffectiveFrom.value = todayIso;
+    }
+    if (isHoliday && slots.length) {
+        if (els.adminRateRangeStart) els.adminRateRangeStart.value = slots[0].startsAt || '';
+        if (els.adminRateRangeEnd) els.adminRateRangeEnd.value = slots[slots.length - 1].endsAt || '';
+    }
+}
+
 function currentRateRuleName() {
     const court = els.adminRateCourt?.selectedOptions?.[0]?.textContent || 'All courts';
     const sport = els.adminRateSport?.value || 'All sports';
-    const rangeFrom = els.adminRateDayRangeFrom?.value || '';
-    const rangeTo = els.adminRateDayRangeTo?.value || '';
-    const day = rangeFrom && rangeTo
-        ? `${rangeFrom} to ${rangeTo}`
-        : (els.adminRateDayOfWeek?.selectedOptions?.[0]?.textContent || 'Any day');
+    const day = els.adminRateDayOfWeek?.selectedOptions?.[0]?.textContent || 'Any day';
     const start = els.adminRateRangeStart?.selectedOptions?.[0]?.textContent || '';
     const end = els.adminRateRangeEnd?.selectedOptions?.[0]?.textContent || '';
     return `${court} ${sport} ${day} ${start}-${end}`.trim();
@@ -804,6 +847,8 @@ function syncAdminRateDayRange(changedSelect) {
 
 function simpleRateDay(value) {
     const day = String(value || '');
+    if (day === 'Monday-Thursday') return 'Monday - Thursday';
+    if (day === 'Friday-Sunday') return 'Friday - Sunday';
     if (day === 'Monday-Friday') return 'Monday - Friday';
     if (day === 'Saturday-Sunday') return 'Saturday - Sunday';
     if (day === 'Any') return 'All days';
@@ -811,12 +856,12 @@ function simpleRateDay(value) {
 }
 
 function rateDaySortValue(value) {
-    return ['Any', 'Holiday', 'Weekday', 'Weekend', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'].indexOf(value || 'Any');
+    return ['Any', 'Holiday', 'Weekday', 'Weekend', 'Monday-Thursday', 'Friday-Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'].indexOf(value || 'Any');
 }
 
 function expandedRateDays(selection) {
-    if (selection === 'Monday-Friday') return ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
-    if (selection === 'Saturday-Sunday') return ['Saturday', 'Sunday'];
+    if (selection === 'Monday-Thursday') return ['Monday', 'Tuesday', 'Wednesday', 'Thursday'];
+    if (selection === 'Friday-Sunday') return ['Friday', 'Saturday', 'Sunday'];
     return [selection || 'Monday'];
 }
 
@@ -859,6 +904,7 @@ function openAdminRateModal(ruleId = '') {
     if (els.adminRateActive) els.adminRateActive.checked = Boolean(rule.isActive);
     if (els.adminRateEffectiveFrom) els.adminRateEffectiveFrom.value = existing ? todayIso : (rule.effectiveFrom || rule.effectiveDate || todayIso);
     if (els.adminRateEffectiveTo) els.adminRateEffectiveTo.value = rule.effectiveTo || '';
+    syncAdminRateHolidayFields();
 
     const message = els.adminRateForm.querySelector('[data-rate-rule-message]');
     if (message) {
@@ -1295,6 +1341,25 @@ function directBookingAt(date, time, courtId) {
     return bookingsAt(date, time).find(item => Number(item.court) === Number(courtId));
 }
 
+function syncAdminScheduleCourtFilterOptions() {
+    if (!els.adminScheduleCourtFilter || !state) return;
+    const courts = (state.courts || [])
+        .filter(court => {
+            const sports = court.sports || [];
+            if (adminScheduleSportFilter && !sports.includes(adminScheduleSportFilter)) return false;
+            return !(adminScheduleSportFilter === 'Pickleball' && Number(court.id) === 2);
+        })
+        .map(court => [
+            court.id,
+            court.labels?.[adminScheduleSportFilter] || court.name || `Court ${court.id}`
+        ]);
+    const selected = courts.some(([id]) => String(id) === String(adminScheduleCourtFilter))
+        ? adminScheduleCourtFilter
+        : '';
+    adminScheduleCourtFilter = selected;
+    setSelectOptions(els.adminScheduleCourtFilter, [['', 'All courts'], ...courts], selected);
+}
+
 function adminScheduleColumns() {
     return (state?.courts || []).flatMap(court => {
         const sports = court.sports || [];
@@ -1305,7 +1370,10 @@ function adminScheduleColumns() {
             sport,
             openLabel: sport === 'Pickleball' ? 'OPEN' : 'AVAILABLE'
         }));
-    }).filter(column => !adminScheduleSportFilter || column.sport === adminScheduleSportFilter);
+    }).filter(column =>
+        (!adminScheduleSportFilter || column.sport === adminScheduleSportFilter) &&
+        (!adminScheduleCourtFilter || String(column.court) === String(adminScheduleCourtFilter))
+    );
 }
 
 function adminScheduleDateText(date) {
@@ -1445,13 +1513,15 @@ function adminScheduleCellClass(status) {
 function renderAdminSchedule() {
     if (!els.adminScheduleGrid || !state) return;
     const date = isoDate(adminScheduleDate);
+    syncAdminScheduleCourtFilterOptions();
     const columns = adminScheduleColumns();
     const slots = slotsForSport(adminScheduleSportFilter).map(slot => slot.label);
     if (els.adminScheduleDateLabel) els.adminScheduleDateLabel.textContent = adminScheduleDateText(date);
     renderAdminScheduleCalendar();
     if (columns.length === 0) {
         els.adminScheduleGrid.style.gridTemplateColumns = '1fr';
-        els.adminScheduleGrid.innerHTML = `<div class="p-4 text-sm fw-bold text-secondary">No active courts found${adminScheduleSportFilter ? ` for ${escapeHtml(adminScheduleSportFilter)}` : ''}.</div>`;
+        const courtText = adminScheduleCourtFilter ? ` and selected court` : '';
+        els.adminScheduleGrid.innerHTML = `<div class="p-4 text-sm fw-bold text-secondary">No active courts found${adminScheduleSportFilter ? ` for ${escapeHtml(adminScheduleSportFilter)}` : ''}${courtText}.</div>`;
         return;
     }
     els.adminScheduleGrid.style.gridTemplateColumns = `minmax(92px, 120px) repeat(${columns.length}, minmax(90px, 1fr))`;
@@ -2235,10 +2305,26 @@ function inlineReservationSummary(slots = activeBookingSlots) {
             </section>
         `;
     }).join('');
+    const totalDuration = sorted.reduce((sum, slot) => sum + slotDuration(state?.slotDetails?.[slot.time]), 0);
+    const totalAmount = sorted.reduce((sum, slot) => sum + slotPrice(slot.time, slot.court, slot.sport, slot.date), 0);
 
     return `
         <div class="metro-reservation-summary">
             ${scheduleHtml}
+            <dl class="metro-summary-totals">
+                <div>
+                    <dt>Selected slots</dt>
+                    <dd>${sorted.length}</dd>
+                </div>
+                <div>
+                    <dt>Duration</dt>
+                    <dd>${escapeHtml(formatHours(totalDuration))}</dd>
+                </div>
+                <div class="metro-summary-total">
+                    <dt>Total</dt>
+                    <dd>${peso.format(totalAmount)}</dd>
+                </div>
+            </dl>
         </div>
     `;
 }
@@ -2951,6 +3037,12 @@ function setAdminScheduleDate(dateIso) {
     renderAdminScheduleCalendar();
 }
 
+function shiftAdminScheduleDate(days) {
+    const date = new Date(adminScheduleDate);
+    date.setDate(date.getDate() + days);
+    setAdminScheduleDate(isoDate(date));
+}
+
 function openAdminScheduleCalendar() {
     setAdminScheduleCalendarMonth(isoDate(adminScheduleDate));
     renderAdminScheduleCalendar();
@@ -3250,6 +3342,8 @@ function populateAdminRateFilters(rules) {
         String(rule.courtId),
         rule.courtName || `Court ${rule.courtId}`
     ])).entries()].sort((a, b) => String(a[1]).localeCompare(String(b[1])));
+    const days = [...new Set(rules.map(rule => rule.dayOfWeek || rule.dayPattern || 'Any').filter(Boolean))]
+        .sort((a, b) => rateDaySortValue(a) - rateDaySortValue(b) || String(a).localeCompare(String(b)));
 
     if (els.adminRateSportFilter) {
         const current = adminRateSportFilter;
@@ -3272,6 +3366,18 @@ function populateAdminRateFilters(rules) {
         if (current && !courts.some(([id]) => id === current)) {
             adminRateCourtFilter = '';
             els.adminRateCourtFilter.value = '';
+        }
+    }
+
+    if (els.adminRateDayFilter) {
+        const current = adminRateDayFilter;
+        setSelectOptions(els.adminRateDayFilter, [
+            ['', 'All days'],
+            ...days.map(day => [day, day === 'Any' ? 'Any day' : simpleRateDay(day)])
+        ], current);
+        if (current && !days.includes(current)) {
+            adminRateDayFilter = '';
+            els.adminRateDayFilter.value = '';
         }
     }
 }
@@ -3318,7 +3424,8 @@ function renderAdminRateSummary() {
     const filteredRows = allRules
         .filter(rule =>
             (!adminRateSportFilter || rule.sport === adminRateSportFilter) &&
-            (!adminRateCourtFilter || String(rule.courtId) === String(adminRateCourtFilter))
+            (!adminRateCourtFilter || String(rule.courtId) === String(adminRateCourtFilter)) &&
+            (!adminRateDayFilter || String(rule.dayOfWeek || rule.dayPattern || 'Any') === String(adminRateDayFilter))
         )
         .sort((a, b) => {
             const courtCompare = String(a.courtName || 'All courts').localeCompare(String(b.courtName || 'All courts'));
@@ -3726,6 +3833,69 @@ async function submitAdminCourtForm(event) {
     }
 }
 
+function adminCourtBlockStatusLabel(block) {
+    return block?.status === 'Cancelled' ? 'Inactive' : 'Active';
+}
+
+function adminCourtBlockSortableHeader(column, label) {
+    const active = adminCourtBlockSort.column === column;
+    const direction = active ? adminCourtBlockSort.direction : 'none';
+    const iconClass = active ? `is-${direction}` : 'is-idle';
+    return `
+        <button type="button"
+            class="admin-sort-button"
+            data-court-block-sort="${column}"
+            aria-label="Sort court blockings by ${escapeHtml(label)}"
+            aria-pressed="${active ? 'true' : 'false'}">
+            <span>${escapeHtml(label)}</span>
+            <span class="admin-sort-icon ${iconClass}" aria-hidden="true">
+                <span class="admin-sort-icon-up"></span>
+                <span class="admin-sort-icon-down"></span>
+            </span>
+        </button>
+    `;
+}
+
+function sortAdminCourtBlocks(blocks) {
+    const direction = adminCourtBlockSort.direction === 'asc' ? 1 : -1;
+    const compareText = (left, right) => String(left || '').localeCompare(String(right || ''));
+    const compareDate = (left, right) => String(left || '').localeCompare(String(right || ''));
+    const compareStatus = (left, right) => compareText(adminCourtBlockStatusLabel(left), adminCourtBlockStatusLabel(right));
+    const compareCourt = (left, right) => compareText(left?.courtName || 'All courts', right?.courtName || 'All courts');
+    const compareMap = {
+        date: (left, right) => compareDate(left.date, right.date),
+        court: compareCourt,
+        status: compareStatus
+    };
+    const primaryCompare = compareMap[adminCourtBlockSort.column] || compareMap.date;
+
+    return [...blocks].sort((left, right) => {
+        const primary = primaryCompare(left, right);
+        if (primary !== 0) return primary * direction;
+        return compareDate(right.date, left.date)
+            || left.startMinutes - right.startMinutes
+            || compareCourt(left, right);
+    });
+}
+
+function renderAdminCourtBlockPagination(total) {
+    if (!els.adminCourtBlockPagination || !els.adminCourtBlockPageInfo || !els.adminCourtBlockPrev || !els.adminCourtBlockNext) return;
+    const totalPages = Math.max(1, Math.ceil(total / adminCourtBlockPageSize));
+    adminCourtBlockPage = Math.min(Math.max(1, adminCourtBlockPage), totalPages);
+    const from = total === 0 ? 0 : ((adminCourtBlockPage - 1) * adminCourtBlockPageSize) + 1;
+    const to = Math.min(adminCourtBlockPage * adminCourtBlockPageSize, total);
+
+    els.adminCourtBlockPagination.hidden = total === 0;
+    els.adminCourtBlockPageInfo.textContent = total === 0
+        ? 'No court blockings found'
+        : `Showing ${from}-${to} of ${total} court blockings | Page ${adminCourtBlockPage} of ${totalPages}`;
+    els.adminCourtBlockPrev.disabled = adminCourtBlockPage <= 1;
+    els.adminCourtBlockNext.disabled = adminCourtBlockPage >= totalPages;
+    if (els.adminCourtBlockPageSize) {
+        els.adminCourtBlockPageSize.value = String(adminCourtBlockPageSize);
+    }
+}
+
 function renderAdminCourtBlocks() {
     if (!els.adminCourtBlocks || !state) return;
     const blocks = state.adminCourtBlocks || [];
@@ -3777,11 +3947,7 @@ function renderAdminCourtBlocks() {
             groups[key].endsAt = block.endsAt;
         }
         return groups;
-    }, {})).sort((a, b) =>
-        String(b.date).localeCompare(String(a.date))
-        || a.startMinutes - b.startMinutes
-        || String(a.courtName || '').localeCompare(String(b.courtName || ''))
-    );
+    }, {}));
 
     const blockScopeOptions = selected => {
         const value = blockScopeValue(selected);
@@ -3851,25 +4017,32 @@ function renderAdminCourtBlocks() {
         </form>
     `;
 
-    const table = groupedBlocks.length === 0
+    const sortedBlocks = sortAdminCourtBlocks(groupedBlocks);
+    const totalBlockRows = sortedBlocks.length;
+    const totalBlockPages = Math.max(1, Math.ceil(totalBlockRows / adminCourtBlockPageSize));
+    adminCourtBlockPage = Math.min(Math.max(1, adminCourtBlockPage), totalBlockPages);
+    const blockPageStart = (adminCourtBlockPage - 1) * adminCourtBlockPageSize;
+    const pageBlocks = sortedBlocks.slice(blockPageStart, blockPageStart + adminCourtBlockPageSize);
+
+    const table = totalBlockRows === 0
         ? '<div class="rounded-lg border border-dashed border-line bg-white p-5 text-sm fw-bold text-secondary">No court blockings have been added yet.</div>'
         : `
             <div class="table-responsive">
                 <table class="table table-hover align-middle admin-members-table mb-0">
                     <thead>
                         <tr>
-                            <th scope="col">Date</th>
-                            <th scope="col">Court</th>
+                            <th scope="col">${adminCourtBlockSortableHeader('date', 'Date')}</th>
+                            <th scope="col">${adminCourtBlockSortableHeader('court', 'Court')}</th>
                             <th scope="col">Time Range</th>
                             <th scope="col">Reason</th>
                             <th scope="col">Notes</th>
-                            <th scope="col">Status</th>
+                            <th scope="col">${adminCourtBlockSortableHeader('status', 'Status')}</th>
                             <th scope="col">Created By</th>
                             <th scope="col" class="text-end">Action</th>
                         </tr>
                     </thead>
                     <tbody>
-                        ${groupedBlocks.map(block => {
+                        ${pageBlocks.map(block => {
                             const active = block.status !== 'Cancelled';
                             return `
                             <tr>
@@ -3905,6 +4078,7 @@ function renderAdminCourtBlocks() {
         `;
 
     els.adminCourtBlocks.innerHTML = `${formFor(newBlock)}${table}`;
+    renderAdminCourtBlockPagination(totalBlockRows);
     els.adminCourtBlocks.querySelectorAll('[data-court-block-form]').forEach(form => {
         const syncFallbackSlot = () => {
             const start = form.querySelector('[name="startTime"]')?.value || '';
@@ -3919,6 +4093,19 @@ function renderAdminCourtBlocks() {
     els.adminCourtBlocks.querySelectorAll('[data-court-block-status]').forEach(button => {
         button.addEventListener('click', () => submitCourtBlockStatus(button));
     });
+    els.adminCourtBlocks.querySelectorAll('[data-court-block-sort]').forEach(button => {
+        button.addEventListener('click', () => {
+            const column = button.dataset.courtBlockSort;
+            if (adminCourtBlockSort.column === column) {
+                adminCourtBlockSort.direction = adminCourtBlockSort.direction === 'asc' ? 'desc' : 'asc';
+            } else {
+                adminCourtBlockSort = { column, direction: column === 'date' ? 'desc' : 'asc' };
+            }
+            adminCourtBlockPage = 1;
+            renderAdminCourtBlocks();
+        });
+    });
+    if (window.lucide) lucide.createIcons();
 }
 
 function blockScopeValue(block) {
@@ -5258,6 +5445,12 @@ async function saveRateRule(form, advanceBookingChoice = '') {
     const formData = new FormData(form);
     formData.set('reason', formData.get('reason') || 'Regular rate');
     formData.set('name', currentRateRuleName());
+    if (String(formData.get('dayOfWeek') || '') === 'Holiday') {
+        const slots = sortedRateSlots();
+        formData.set('effectiveDate', todayIso);
+        formData.set('rangeStart', slots[0]?.startsAt || '00:00');
+        formData.set('rangeEnd', slots[slots.length - 1]?.endsAt || '23:59');
+    }
     if (advanceBookingChoice) formData.set('advanceBookingChoice', advanceBookingChoice);
 
     const response = await fetch(`${api}?action=admin-rate-rule`, { method: 'POST', body: formData });
@@ -5479,39 +5672,77 @@ async function submitAdminOverrideBooking(event) {
 
 async function saveAdminOverrideBooking(form, confirmedOverride = false) {
     const message = els.adminOverrideBookingMessage || form.querySelector('[data-admin-override-message]');
+    const submitButton = form.querySelector('button[type="submit"]');
     const formData = new FormData(form);
     if (confirmedOverride) formData.set('overrideConfirm', '1');
     const endpoint = formData.get('bookingId') ? 'admin-booking-update' : 'admin-override-booking';
 
-    const response = await fetch(`${api}?action=${endpoint}`, { method: 'POST', body: formData });
-    const payload = await response.json();
+    if (submitButton) submitButton.disabled = true;
+    if (message) {
+        message.textContent = confirmedOverride ? 'Saving override...' : 'Saving booking...';
+        message.className = 'rounded-md p-2 text-xs font-bold bg-slate-100 text-slate-700';
+    }
 
-    if (response.status === 409 && payload.requiresOverride) {
-        const confirmed = window.confirm(payload.message || 'Resource Conflict\n\nCancel conflicting reservation and continue?');
-        if (confirmed) {
-            await saveAdminOverrideBooking(form, true);
+    let response;
+    let payload;
+    try {
+        response = await fetch(`${api}?action=${endpoint}`, { method: 'POST', body: formData });
+        const text = await response.text();
+        try {
+            payload = text ? JSON.parse(text) : {};
+        } catch (error) {
+            throw new Error(text || 'Server returned an invalid response.');
         }
+    } catch (error) {
+        const errorMessage = error?.message || 'Could not save booking. Please try again.';
+        if (message) {
+            message.textContent = errorMessage;
+            message.className = 'rounded-md p-2 text-xs font-bold bg-rose-50 text-rose-700';
+        }
+        showAdminToast(errorMessage, false);
+        if (submitButton) submitButton.disabled = false;
         return;
     }
 
     if (message) {
-        message.textContent = payload.message || 'Saved.';
-        message.className = `rounded-md p-2 text-xs font-bold ${payload.ok ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-700'}`;
+        message.textContent = payload?.message || (payload?.ok ? 'Saved.' : 'Could not save booking.');
+        message.className = `rounded-md p-2 text-xs font-bold ${payload?.ok ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-700'}`;
     }
 
-    if (payload.ok) {
-        state = payload.state;
+    if (response.status === 409 && payload?.requiresOverride) {
+        const confirmed = window.confirm(payload.message || 'Resource Conflict\n\nCancel conflicting reservation and continue?');
+        if (confirmed) {
+            await saveAdminOverrideBooking(form, true);
+        } else if (submitButton) {
+            submitButton.disabled = false;
+        }
+        return;
+    }
+
+    if (payload?.ok) {
+        if (payload.state) {
+            state = payload.state;
+        } else {
+            await loadState();
+        }
         const dateValue = form.querySelector('[name="date"]')?.value;
         if (dateValue) {
             adminScheduleDate = new Date(`${dateValue}T00:00:00`);
             setAdminScheduleCalendarMonth(dateValue);
         }
+        renderAll();
+        showAdminToast(payload.message || (endpoint === 'admin-booking-update' ? 'Booking updated successfully.' : 'Override booking saved successfully.'));
         if (window.bootstrap && els.adminOverrideBookingModal) {
             bootstrap.Modal.getInstance(els.adminOverrideBookingModal)?.hide();
         }
         form.reset();
-        renderAll();
-        showAdminToast(payload.message || (endpoint === 'admin-booking-update' ? 'Booking updated successfully.' : 'Override booking saved successfully.'));
+    } else {
+        showAdminToast(payload?.message || 'Could not save booking.', false);
+        if (response.status === 401) {
+            window.location.href = adminLoginUrl;
+            return;
+        }
+        if (submitButton) submitButton.disabled = false;
     }
 }
 
@@ -5541,6 +5772,8 @@ els.datePicker?.addEventListener('change', () => {
 });
 
 els.adminScheduleCalendarOpen?.addEventListener('click', openAdminScheduleCalendar);
+els.adminScheduleDatePrev?.addEventListener('click', () => shiftAdminScheduleDate(-1));
+els.adminScheduleDateNext?.addEventListener('click', () => shiftAdminScheduleDate(1));
 els.adminScheduleCalendarGrid?.addEventListener('click', event => {
     const button = event.target.closest('[data-admin-schedule-calendar-date]');
     if (!button) return;
@@ -5562,9 +5795,16 @@ els.adminScheduleCalendarToday?.addEventListener('click', () => {
 });
 els.adminScheduleSportFilter?.addEventListener('change', event => {
     adminScheduleSportFilter = event.target.value;
+    adminScheduleCourtFilter = '';
     if (els.superAdminRangeSport) {
         els.superAdminRangeSport.value = adminScheduleSportFilter;
     }
+    syncAdminScheduleCourtFilterOptions();
+    renderAdminSchedule();
+    renderSuperAdminRangeOverride();
+});
+els.adminScheduleCourtFilter?.addEventListener('change', event => {
+    adminScheduleCourtFilter = event.target.value || '';
     renderAdminSchedule();
     renderSuperAdminRangeOverride();
 });
@@ -5573,6 +5813,8 @@ els.superAdminRangeSport?.addEventListener('change', event => {
     if (els.adminScheduleSportFilter) {
         els.adminScheduleSportFilter.value = adminScheduleSportFilter;
     }
+    adminScheduleCourtFilter = '';
+    syncAdminScheduleCourtFilterOptions();
     renderAdminSchedule();
     renderSuperAdminRangeOverride();
 });
@@ -5580,6 +5822,20 @@ els.superAdminRangeCourt?.addEventListener('change', syncSuperAdminRangeOverride
 els.superAdminRangeStart?.addEventListener('change', syncSuperAdminRangeOverride);
 els.superAdminRangeEnd?.addEventListener('change', syncSuperAdminRangeOverride);
 els.superAdminRangeOverrideButton?.addEventListener('click', openSuperAdminRangeOverride);
+els.adminCourtBlockPageSize?.addEventListener('change', event => {
+    const selected = Number(event.target.value);
+    adminCourtBlockPageSize = [10, 20, 50, 100].includes(selected) ? selected : 10;
+    adminCourtBlockPage = 1;
+    renderAdminCourtBlocks();
+});
+els.adminCourtBlockPrev?.addEventListener('click', () => {
+    adminCourtBlockPage = Math.max(1, adminCourtBlockPage - 1);
+    renderAdminCourtBlocks();
+});
+els.adminCourtBlockNext?.addEventListener('click', () => {
+    adminCourtBlockPage += 1;
+    renderAdminCourtBlocks();
+});
 els.adminOverrideBookingModal?.addEventListener('hidden.bs.modal', () => {
     if (els.adminOverrideTimeSlotIds) els.adminOverrideTimeSlotIds.value = '';
     renderAdminOverrideBookingForm();
@@ -5726,17 +5982,24 @@ els.adminRateCourtFilter?.addEventListener('change', event => {
     renderAdminRateSummary();
     document.dispatchEvent(new CustomEvent('admin-rates-filtered'));
 });
-els.adminRateDayOfWeek?.addEventListener('change', () => {
-    if (els.adminRateDayRangeFrom) els.adminRateDayRangeFrom.value = '';
-    if (els.adminRateDayRangeTo) els.adminRateDayRangeTo.value = '';
+els.adminRateDayFilter?.addEventListener('change', event => {
+    adminRateDayFilter = event.target.value;
+    renderAdminRateSummary();
+    document.dispatchEvent(new CustomEvent('admin-rates-filtered'));
 });
+els.adminRateSport?.addEventListener('change', () => {
+    syncAdminRateCourtOptions();
+});
+els.adminRateDayOfWeek?.addEventListener('change', syncAdminRateHolidayFields);
 els.adminRateDayRangeFrom?.addEventListener('change', event => syncAdminRateDayRange(event.target));
 els.adminRateDayRangeTo?.addEventListener('change', event => syncAdminRateDayRange(event.target));
 els.adminRateClearFilters?.addEventListener('click', () => {
     adminRateSportFilter = '';
     adminRateCourtFilter = '';
+    adminRateDayFilter = '';
     if (els.adminRateSportFilter) els.adminRateSportFilter.value = '';
     if (els.adminRateCourtFilter) els.adminRateCourtFilter.value = '';
+    if (els.adminRateDayFilter) els.adminRateDayFilter.value = '';
     renderAdminRateSummary();
     document.dispatchEvent(new CustomEvent('admin-rates-filtered'));
 });

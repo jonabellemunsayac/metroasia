@@ -88,10 +88,23 @@ include __DIR__ . '/../includes/header.php';
                         <option value="Volleyball">Volleyball</option>
                     </select>
                 </label>
-                <button id="adminScheduleCalendarOpen" class="btn btn-outline-primary btn-sm" type="button">
-                    <i data-lucide="calendar-days" class="icon-sm"></i>
-                    <span>Date: <span id="adminScheduleDateLabel"></span></span>
-                </button>
+                <label class="small fw-bold text-secondary">Court
+                    <select id="adminScheduleCourtFilter" class="form-select form-select-sm">
+                        <option value="">All courts</option>
+                    </select>
+                </label>
+                <div class="admin-schedule-date-stepper" aria-label="Schedule date selector">
+                    <button id="adminScheduleDatePrev" class="btn btn-outline-primary btn-sm" type="button" aria-label="Previous day">
+                        <i data-lucide="chevron-left" class="icon-sm"></i>
+                    </button>
+                    <button id="adminScheduleCalendarOpen" class="btn btn-outline-primary btn-sm" type="button">
+                        <i data-lucide="calendar-days" class="icon-sm"></i>
+                        <span>Date: <span id="adminScheduleDateLabel"></span></span>
+                    </button>
+                    <button id="adminScheduleDateNext" class="btn btn-outline-primary btn-sm" type="button" aria-label="Next day">
+                        <i data-lucide="chevron-right" class="icon-sm"></i>
+                    </button>
+                </div>
             </div>
         </div>
         <?php if (($admin['role'] ?? '') === 'super_admin'): ?>

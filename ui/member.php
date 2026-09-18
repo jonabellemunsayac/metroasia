@@ -120,6 +120,7 @@ function member_group_reservations(array $rows): array
                 'amount' => 0.0,
                 'createdAt' => (string) $row['created_at'],
                 'courtGroups' => [],
+                'detailRows' => [],
                 'endTimestamp' => 0,
                 'startTimestamp' => PHP_INT_MAX,
             ];
@@ -146,6 +147,9 @@ function member_group_reservations(array $rows): array
         $groups[$key]['sportSet'][(string) $row['sport']] = true;
         $groups[$key]['statusSet'][(string) $row['status']] = true;
         $groups[$key]['amount'] += (float) $row['final_amount'];
+        $groups[$key]['date'] = strcmp((string) $row['date'], $groups[$key]['date']) < 0
+            ? (string) $row['date']
+            : $groups[$key]['date'];
         $groups[$key]['receipt'] = $groups[$key]['receipt'] ?: (string) ($row['receipt_path'] ?? '');
         $groups[$key]['createdAt'] = strcmp((string) $row['created_at'], $groups[$key]['createdAt']) < 0
             ? (string) $row['created_at']
@@ -157,6 +161,18 @@ function member_group_reservations(array $rows): array
             'end' => (string) $row['ends_at'],
             'startMinutes' => $startMinutes,
             'endMinutes' => $endMinutes,
+        ];
+        $groups[$key]['detailRows'][] = [
+            'id' => (int) $row['id'],
+            'date' => (string) $row['date'],
+            'courtId' => $courtId,
+            'courtName' => $courtName,
+            'sport' => (string) $row['sport'],
+            'start' => (string) $row['starts_at'],
+            'end' => (string) $row['ends_at'],
+            'startMinutes' => $startMinutes,
+            'endMinutes' => $endMinutes,
+            'amount' => (float) $row['final_amount'],
         ];
     }
 
@@ -182,6 +198,50 @@ function member_group_reservations(array $rows): array
             $courtGroup['slotCount'] = count($courtGroup['slots']);
         }
         unset($courtGroup);
+
+        usort($group['detailRows'], static function (array $a, array $b): int {
+            $dateCompare = strcmp((string) $a['date'], (string) $b['date']);
+            if ($dateCompare !== 0) {
+                return $dateCompare;
+            }
+            return ((int) $a['startMinutes'] <=> (int) $b['startMinutes'])
+                ?: strcmp((string) $a['courtName'], (string) $b['courtName'])
+                ?: ((int) $a['id'] <=> (int) $b['id']);
+        });
+
+        $mergedDetails = [];
+        foreach ($group['detailRows'] as $detail) {
+            $detailKey = $detail['date'] . ':' . $detail['courtId'];
+            if (!isset($mergedDetails[$detailKey])) {
+                $mergedDetails[$detailKey] = $detail;
+                $mergedDetails[$detailKey]['amount'] = 0.0;
+                $mergedDetails[$detailKey]['sports'] = [];
+                $mergedDetails[$detailKey]['ranges'] = [];
+            }
+            $merged = &$mergedDetails[$detailKey];
+            $merged['amount'] += $detail['amount'];
+            $merged['sports'][$detail['sport']] = true;
+            $last = array_key_last($merged['ranges']);
+            if ($last !== null && $merged['ranges'][$last]['endMinutes'] >= $detail['startMinutes']) {
+                if ($detail['endMinutes'] > $merged['ranges'][$last]['endMinutes']) {
+                    $merged['ranges'][$last]['end'] = $detail['end'];
+                    $merged['ranges'][$last]['endMinutes'] = $detail['endMinutes'];
+                }
+            } else {
+                $merged['ranges'][] = $detail;
+            }
+            unset($merged);
+        }
+        foreach ($mergedDetails as &$detail) {
+            $detail['sport'] = implode(', ', array_keys($detail['sports']));
+            $detail['timeRanges'] = implode(', ', array_map(
+                static fn (array $range): string => member_format_time($range['start']) . ' - ' . member_format_time($range['end']),
+                $detail['ranges']
+            ));
+            unset($detail['sports'], $detail['ranges']);
+        }
+        unset($detail);
+        $group['detailRows'] = array_values($mergedDetails);
     }
     unset($group);
 
@@ -241,6 +301,7 @@ $upcomingReservations = array_values(array_filter(
     $reservations,
     static fn (array $group): bool => in_array($group['status'], ['Held', 'Booked'], true) && $group['endTimestamp'] >= $now
 ));
+usort($upcomingReservations, static fn (array $a, array $b): int => $a['startTimestamp'] <=> $b['startTimestamp']);
 $playedReservations = array_values(array_filter(
     $reservations,
     static fn (array $group): bool => $group['status'] === 'Booked' && $group['endTimestamp'] < $now
@@ -373,33 +434,40 @@ include __DIR__ . '/../includes/header.php';
                         </div>
 
                         <div class="member-booking-details">
-                            <?php foreach ($group['courtGroups'] as $courtGroup): ?>
-                                <div>
-                                    <dt><?php echo htmlspecialchars($courtGroup['courtName']); ?></dt>
-                                    <dd><?php echo htmlspecialchars(implode(', ', $courtGroup['ranges'])); ?></dd>
-                                </div>
-                            <?php endforeach; ?>
-                            <div>
-                                <dt>Payment</dt>
-                                <dd><?php echo htmlspecialchars($group['paymentMethod'] ?: 'N/A'); ?></dd>
+                            <div class="member-booking-table-wrap">
+                                <table class="member-booking-detail-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Date</th>
+                                            <th>Time</th>
+                                            <th>Court</th>
+                                            <th>Sport</th>
+                                            <th>Receipt</th>
+                                            <th class="text-end">Amount</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <?php foreach ($group['detailRows'] as $detailIndex => $detail): ?>
+                                            <tr>
+                                                <td><?php echo htmlspecialchars(member_format_day_date((string) $detail['date'])); ?></td>
+                                                <td><?php echo htmlspecialchars($detail['timeRanges']); ?></td>
+                                                <td><?php echo htmlspecialchars((string) $detail['courtName']); ?></td>
+                                                <td><?php echo htmlspecialchars((string) $detail['sport']); ?></td>
+                                                <td>
+                                                    <?php if ($detailIndex === 0): ?>
+                                                        <?php if ($group['receipt']): ?>
+                                                            <a class="member-table-link" href="<?php echo htmlspecialchars(app_url((string) $group['receipt'])); ?>" target="_blank" rel="noopener">View receipt</a>
+                                                        <?php else: ?>
+                                                            <span class="text-secondary">No receipt uploaded</span>
+                                                        <?php endif; ?>
+                                                    <?php endif; ?>
+                                                </td>
+                                                <td class="text-end"><?php echo member_format_money((float) $detail['amount']); ?></td>
+                                            </tr>
+                                        <?php endforeach; ?>
+                                    </tbody>
+                                </table>
                             </div>
-                            <div>
-                                <dt>Amount</dt>
-                                <dd><?php echo member_format_money((float) $group['amount']); ?></dd>
-                            </div>
-                        </div>
-
-                        <div class="member-booking-actions">
-                            <?php if ($group['receipt']): ?>
-                                <a href="<?php echo htmlspecialchars(app_url((string) $group['receipt'])); ?>" target="_blank" rel="noopener">View receipt</a>
-                            <?php endif; ?>
-                            <?php if ($group['status'] === 'Held'): ?>
-                                <form method="post" enctype="multipart/form-data" class="member-receipt-form">
-                                    <input type="hidden" name="reservationIds" value="<?php echo htmlspecialchars(implode(',', $group['ids'])); ?>">
-                                    <input required type="file" name="receipt" accept=".jpg,.jpeg,.png,.webp,.pdf">
-                                    <button class="btn btn-primary btn-sm">Upload Proof</button>
-                                </form>
-                            <?php endif; ?>
                         </div>
                     </article>
                 <?php endforeach; ?>

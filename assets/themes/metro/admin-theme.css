@@ -402,6 +402,37 @@ body.admin-body{
   min-width:104px;
 }
 
+.admin-schedule-date-stepper{
+  display:inline-flex;
+  align-items:stretch;
+}
+
+.admin-schedule-date-stepper .btn{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  gap:6px;
+  min-height:31px;
+}
+
+.admin-schedule-date-stepper .btn:not(:first-child){
+  margin-left:-1px;
+}
+
+.admin-schedule-date-stepper .btn:first-child{
+  border-top-right-radius:0;
+  border-bottom-right-radius:0;
+}
+
+.admin-schedule-date-stepper .btn:not(:first-child):not(:last-child){
+  border-radius:0;
+}
+
+.admin-schedule-date-stepper .btn:last-child{
+  border-top-left-radius:0;
+  border-bottom-left-radius:0;
+}
+
 .admin-schedule-head,
 .admin-schedule-time,
 .admin-schedule-cell{
@@ -1209,6 +1240,75 @@ body.public-body .public-password-field .admin-password-toggle{
 
 .sport-slot-toggle:not(:has(input:checked)){
   color:var(--admin-muted);
+}
+
+.admin-sort-button{
+  display:inline-flex;
+  align-items:center;
+  justify-content:flex-start;
+  gap:7px;
+  width:auto;
+  min-width:0;
+  padding:2px 0;
+  border:0 !important;
+  appearance:none;
+  background:transparent !important;
+  color:inherit;
+  font:inherit;
+  font-weight:800;
+  text-align:left;
+  box-shadow:none !important;
+  line-height:1;
+}
+
+.admin-sort-button:hover,
+.admin-sort-button:focus-visible{
+  color:var(--admin-accent);
+}
+
+.admin-sort-button:focus-visible{
+  outline:2px solid rgba(31,78,121,.22);
+  outline-offset:3px;
+  border-radius:6px;
+}
+
+.admin-sort-icon{
+  position:relative;
+  display:inline-grid;
+  gap:2px;
+  width:9px;
+  height:14px;
+  align-content:center;
+  color:var(--admin-muted);
+  flex:0 0 auto;
+}
+
+.admin-sort-icon-up,
+.admin-sort-icon-down{
+  display:block;
+  width:0;
+  height:0;
+  border-left:4px solid transparent;
+  border-right:4px solid transparent;
+}
+
+.admin-sort-icon-up{
+  border-bottom:5px solid currentColor;
+}
+
+.admin-sort-icon-down{
+  border-top:5px solid currentColor;
+}
+
+.admin-sort-icon.is-asc .admin-sort-icon-up,
+.admin-sort-icon.is-desc .admin-sort-icon-down{
+  color:var(--admin-accent);
+}
+
+.admin-sort-icon.is-asc .admin-sort-icon-down,
+.admin-sort-icon.is-desc .admin-sort-icon-up,
+.admin-sort-icon.is-idle{
+  opacity:.45;
 }
 
 @media(max-width:767.98px){
