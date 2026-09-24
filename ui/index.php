@@ -131,11 +131,11 @@ for ($i = 1; $i <= 4; $i++) {
 
         <div class="metro-container metro-hero-inner">
             <div class="metro-hero-copy">
-                <h1>Where Passion Meets Performance</h1>
+                <h1>One Arena. Three Sports. Endless Energy. MetroAsia Arena</h1>
 
-                <p>
+                <!-- <p>
                     MetroAsia Arena is open daily and ready for your next game.
-                </p>
+                </p> -->
 
                 <div class="metro-actions">
                     <a
@@ -149,7 +149,7 @@ for ($i = 1; $i <= 4; $i++) {
                 </div>
             </div>
 
-            <div class="metro-community-card">
+            <div class="metro-community-card" hidden style="display: none;">
                 <div class="metro-community-top">
                     <div class="metro-avatar-stack" aria-hidden="true">
                         <img src="<?php echo htmlspecialchars($tf['avatar_1']); ?>" alt="">
@@ -161,22 +161,6 @@ for ($i = 1; $i <= 4; $i++) {
                 <strong>Open Daily</strong>
                 <span>Court reservations</span>
                 <p>A growing community of players across multiple sports and skill levels.</p>
-            </div>
-        </div>
-    </section>
-
-    <!-- TEXT STRIP -->
-    <section class="metro-experience-strip" aria-hidden="true">
-        <div class="metro-experience-track" aria-hidden="true">
-            <div class="metro-experience-group">
-                <span>Experience MetroAsia</span><i>&#10022;</i>
-                <span>Experience MetroAsia</span><i>&#10022;</i>
-                <span>Experience MetroAsia</span><i>&#10022;</i>
-            </div>
-            <div class="metro-experience-group">
-                <span>Experience MetroAsia</span><i>&#10022;</i>
-                <span>Experience MetroAsia</span><i>&#10022;</i>
-                <span>Experience MetroAsia</span><i>&#10022;</i>
             </div>
         </div>
     </section>
@@ -216,7 +200,7 @@ for ($i = 1; $i <= 4; $i++) {
                                 data-gallery-image
                                 onerror="this.closest('figure').classList.add('image-missing')"
                             >
-                            <figcaption><?php echo htmlspecialchars((string) $item['title']); ?></figcaption>
+                            <figcaption hidden style="display: none;"><?php echo htmlspecialchars((string) $item['title']); ?></figcaption>
                         </figure>
                     <?php endforeach; ?>
                 </div>
@@ -225,7 +209,7 @@ for ($i = 1; $i <= 4; $i++) {
     <?php endif; ?>
 
     <!-- ABOUT -->
-    <section id="about" class="metro-section metro-about-section">
+    <section id="about-intro" class="metro-section metro-about-section" hidden style="display: none;">
         <div class="metro-container metro-about">
             <div class="metro-about-visual">
                 <div class="metro-about-main" style="background-image:url('<?php echo htmlspecialchars($aboutMainImage, ENT_QUOTES); ?>')"></div>
@@ -264,7 +248,7 @@ for ($i = 1; $i <= 4; $i++) {
     </section>
 
     <!-- SERVICES / PLAY OPTIONS -->
-    <section id="play-options" class="metro-home-block metro-services-block">
+    <section id="play-options" class="metro-home-block metro-services-block" hidden style="display: none;">
         <div class="metro-container metro-panel metro-services-panel">
             <div class="metro-heading">
                 <h2>From First Game to Match Day</h2>
@@ -327,12 +311,12 @@ for ($i = 1; $i <= 4; $i++) {
 
     <?php //include __DIR__ . '/../includes/amenities-gallery.php'; ?>
     <!-- MEMBERSHIP -->
-    <section class="metro-section metro-membership-section">
+    <section id="membership" class="metro-section metro-membership-section">
         <div class="metro-container">
             <div class="metro-membership-top">
                 <div class="metro-membership-intro">
-                    <h2>One Membership,<br>Endless Play</h2>
-                    <p>Create an account and keep your bookings organized in one place.</p>
+                    <h2>Become a MetroAsia Member</h2>
+                    <p>Create your free member account to access court schedules, rates, reservations, and payment tracking.</p>
 
                     <?php if ($currentMember): ?>
                         <a
@@ -346,13 +330,13 @@ for ($i = 1; $i <= 4; $i++) {
                             href="<?php echo htmlspecialchars(app_url('ui/register.php')); ?>"
                             class="metro-btn metro-btn-outline-dark"
                         >
-                            Become a Member Today
+                            Create my account
                         </a>
                     <?php endif; ?>
                 </div>
 
                 <div class="metro-membership-description">
-                    <h3>MetroAsia member access</h3>
+                    <h3>One Membership, Endless play</h3>
                     <p>
                         Manage bookings, upload payment proof, review reservation status,
                         and keep your booking history accessible from your account.
@@ -457,7 +441,7 @@ for ($i = 1; $i <= 4; $i++) {
     </section>
 
     <!-- CTA -->
-    <section class="metro-home-block">
+    <section class="metro-home-block" hidden style="display: none;">
         <div class="metro-container metro-cta-card" style="background-image:url('<?php echo htmlspecialchars($tf['cta'], ENT_QUOTES); ?>')">
             <div class="metro-cta-overlay"></div>
             <div class="metro-cta-copy">
@@ -471,7 +455,7 @@ for ($i = 1; $i <= 4; $i++) {
     </section>
 
     <!-- STATS -->
-    <section class="metro-stats-section">
+    <section id="stats" class="metro-stats-section">
         <div class="metro-container metro-stats">
             <div><strong>Daily</strong><span>Court Availability</span></div>
             <div><strong>Online</strong><span>Reservation Access</span></div>

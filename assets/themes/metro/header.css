@@ -1,8 +1,8 @@
 .metro-header {
     position: relative;
     z-index: 99;
-    background: var(--metro-primary);
-    color: #fff;
+    background: #fff;
+    color: var(--metro-primary);
 }
 
 .metro-header.overlay {
@@ -10,7 +10,7 @@
     top: 0;
     left: 0;
     right: 0;
-    background: linear-gradient(to bottom, rgba(2, 20, 33, 0.82), rgba(2, 20, 33, 0));
+    background: #fff;
 }
 
 .metro-header-inner {
@@ -48,6 +48,28 @@
     font-weight: 800;
 }
 
+.metro-brand.metro-brand-logo-only {
+    width: 108px;
+    height: 96px;
+    justify-content: center;
+    gap: 0;
+}
+
+.metro-brand.metro-brand-logo-only img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    border-radius: 0;
+    object-fit: contain;
+}
+
+@media (max-width: 900px) {
+    .metro-brand.metro-brand-logo-only {
+        width: 86px;
+        height: 78px;
+    }
+}
+
 .metro-brand-name {
     white-space: nowrap;
 }
@@ -63,7 +85,7 @@
 .metro-nav a {
     padding: 9px 12px;
     border-radius: var(--metro-pill);
-    color: rgba(255, 255, 255, 0.8);
+    color: var(--metro-primary);
     font-size: 0.76rem;
     font-weight: 700;
     letter-spacing: 0.08em;
@@ -72,8 +94,8 @@
 }
 
 .metro-nav a:hover {
-    background: rgba(255, 255, 255, 0.12);
-    color: #fff;
+    background: var(--metro-secondary);
+    color: var(--metro-primary);
 }
 
 .metro-nav a.active {
@@ -115,8 +137,9 @@
 }
 
 .metro-header-action-secondary {
-    background: rgba(255, 255, 255, 0.08);
-    color: #fff;
+    border-color: var(--metro-primary);
+    background: transparent;
+    color: var(--metro-primary);
 }
 
 .metro-header-action-secondary:hover {
@@ -129,10 +152,10 @@
     display: none;
     width: 44px;
     height: 44px;
-    border: 1px solid rgba(255, 255, 255, 0.34);
+    border: 1px solid var(--metro-primary);
     border-radius: 50%;
     background: transparent;
-    color: #fff;
+    color: var(--metro-primary);
     cursor: pointer;
 }
 
@@ -208,7 +231,7 @@
     .metro-nav {
         display: none;
         position: absolute;
-        top: 74px;
+        top: 100%;
         left: 16px;
         right: 16px;
         padding: 14px;
@@ -241,7 +264,7 @@
 
     .metro-nav-mobile-actions {
         display: grid;
-        grid-template-columns: 1fr 1fr;
+        grid-template-columns: 1fr;
         gap: 10px;
         padding-top: 8px;
         border-top: 1px solid var(--metro-border);

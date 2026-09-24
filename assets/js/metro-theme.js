@@ -292,8 +292,16 @@ const setActiveNavSection = activeHash => {
 const syncActiveNavSection = () => {
   if (!navSections.length) return;
 
+  const visibleSections = navSections
+    .filter(section => section.target.getClientRects().length > 0)
+    .sort((a, b) => a.target.getBoundingClientRect().top - b.target.getBoundingClientRect().top);
+  if (!visibleSections.length) {
+    setActiveNavSection('');
+    return;
+  }
+
   const headerOffset = header
-    ? Math.min(header.offsetHeight, 96)
+    ? header.offsetHeight
     : 0;
 
   const marker =
@@ -301,15 +309,15 @@ const syncActiveNavSection = () => {
     headerOffset +
     Math.round(window.innerHeight * 0.22);
 
-  let activeSection = navSections[0];
+  let activeSection = null;
 
-  navSections.forEach(section => {
-    if (section.target.offsetTop <= marker) {
+  visibleSections.forEach(section => {
+    if (section.target.getBoundingClientRect().top + window.scrollY <= marker) {
       activeSection = section;
     }
   });
 
-  setActiveNavSection(activeSection.hash);
+  setActiveNavSection(activeSection ? activeSection.hash : '');
 };
 
 if (navSections.length) {
@@ -336,10 +344,10 @@ if (navSections.length) {
       if (!selector || selector === '#') return;
 
       const target = doc.querySelector(selector);
-      if (!target) return;
+      if (!target || target.getClientRects().length === 0) return;
 
       event.preventDefault();
-      const headerOffset = header ? Math.min(header.offsetHeight, 96) : 0;
+      const headerOffset = header ? header.offsetHeight : 0;
       const top = target.getBoundingClientRect().top + window.scrollY - headerOffset;
 
       window.scrollTo({

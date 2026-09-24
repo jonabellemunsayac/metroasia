@@ -1,11 +1,12 @@
-/* Home yellow experience strip marquee. */
-.metro-home-page {
+/* Homepage header marquee and full-height hero. */
+.metro-home-page,
+.metro-header {
     --metro-marquee-height: 64px;
 }
 
 .metro-home-page .metro-home-hero {
-    height: calc(100svh - var(--metro-marquee-height));
-    min-height: min(650px, calc(100svh - var(--metro-marquee-height)));
+    height: 100svh;
+    min-height: min(650px, 100svh);
     max-height: none;
 }
 
@@ -40,13 +41,14 @@
 }
 
 @media (max-width: 640px) {
-    .metro-home-page {
+    .metro-home-page,
+    .metro-header {
         --metro-marquee-height: 54px;
     }
 
     .metro-home-page .metro-home-hero {
-        height: calc(100svh - var(--metro-marquee-height));
-        min-height: min(650px, calc(100svh - var(--metro-marquee-height)));
+        height: 100svh;
+        min-height: min(650px, 100svh);
         max-height: none;
     }
 
@@ -65,13 +67,14 @@
 }
 
 @media (min-width: 641px) and (max-width: 1000px) {
-    .metro-home-page {
+    .metro-home-page,
+    .metro-header {
         --metro-marquee-height: 58px;
     }
 
     .metro-home-page .metro-home-hero {
-        height: calc(100svh - var(--metro-marquee-height));
-        min-height: min(650px, calc(100svh - var(--metro-marquee-height)));
+        height: 100svh;
+        min-height: min(650px, 100svh);
         max-height: none;
     }
 
