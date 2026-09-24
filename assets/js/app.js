@@ -1496,6 +1496,23 @@ function adminScheduleCell(date, time, column) {
         return scheduleCell(label, status, sub, title, { reservationId: direct.id });
     }
 
+    const related = bookingsAt(date, time).find(item => bookingResourcesConflict(item.court, column.court));
+    if (related) {
+        const relatedCourt = courtById(related.court);
+        const relatedCourtName = relatedCourt?.labels?.[related.sport]
+            || relatedCourt?.name
+            || related.courtName
+            || `Court ${related.court}`;
+        const title = `${column.label} is unavailable because ${relatedCourtName} is ${related.status} for ${related.sport} during ${time}.`;
+        return scheduleCell(
+            compactStatusLabel(related.status).toUpperCase(),
+            related.status,
+            relatedCourtName,
+            title,
+            { reservationId: related.id }
+        );
+    }
+
     const block = blockCell(date, time, column.court, column.sport);
     if (block) return block;
 
