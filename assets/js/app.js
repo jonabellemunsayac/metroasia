@@ -1262,7 +1262,10 @@ function courtDisplayName(courtInfo) {
 
 function courtsForSelectedSport() {
     if (!state?.courts) return [];
+    const showWoodenCourts = isoDate(selectedDate) >= '2026-09-30';
     return state.courts.filter(court => {
+        // Display-only launch date for Wooden Courts in the player booking UI.
+        if (isWoodenCourt(court.id) && !showWoodenCourts) return false;
         if (!court.sports.includes(selectedSport)) return false;
         return !(selectedSport === 'Pickleball' && Number(court.id) === 2);
     });

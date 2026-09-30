@@ -18,7 +18,7 @@ body.admin-body{
   overflow-x:hidden;
   background:var(--admin-bg);
   color:var(--admin-ink);
-  font-family:"Inter Tight",Arial,sans-serif;
+  font-family:var(--metro-font);
 }
 
 .admin-layout{
@@ -71,7 +71,7 @@ body.admin-body{
 
 .admin-brand-title{
   color:#fff;
-  font-family:"Manrope",Arial,sans-serif;
+  font-family:var(--metro-display);
   font-size:1.05rem;
   font-weight:700;
 }
@@ -154,7 +154,7 @@ body.admin-body{
 
 .admin-page-title{
   color:var(--admin-ink);
-  font-family:"Manrope",Arial,sans-serif;
+  font-family:var(--metro-display);
   font-size:clamp(1.35rem,2.1vw,2rem);
   font-weight:700;
   letter-spacing:-.035em;
@@ -255,7 +255,7 @@ body.admin-body{
 .admin-hero h2{
   max-width:780px;
   color:var(--admin-ink);
-  font-family:"Manrope",Arial,sans-serif;
+  font-family:var(--metro-display);
   font-size:clamp(1.7rem,3vw,2.8rem);
   font-weight:700!important;
   letter-spacing:-.045em;
@@ -304,7 +304,7 @@ body.admin-body{
 
 .stat-number{
   color:var(--admin-ink);
-  font-family:"Manrope",Arial,sans-serif;
+  font-family:var(--metro-display);
   font-size:clamp(1.8rem,3vw,2.6rem);
   font-weight:700;
   line-height:1;
@@ -336,7 +336,7 @@ body.admin-body{
 
 .app-card .card-header h2{
   color:var(--admin-ink);
-  font-family:"Manrope",Arial,sans-serif;
+  font-family:var(--metro-display);
   font-size:clamp(1.25rem,2vw,1.7rem);
   font-weight:700!important;
 }

@@ -1,11 +1,11 @@
-/* Home yellow experience strip marquee. */
-.metro-home-page {
-    --metro-marquee-height: 64px;
+/* Compact homepage marquee above the navigation. */
+.metro-header {
+    --metro-marquee-height: 36px;
 }
 
 .metro-home-page .metro-home-hero {
-    height: calc(100svh - var(--metro-marquee-height));
-    min-height: min(650px, calc(100svh - var(--metro-marquee-height)));
+    height: 100svh;
+    min-height: min(650px, 100svh);
     max-height: none;
 }
 
@@ -16,17 +16,19 @@
 
 .metro-experience-track {
     gap: 0;
-    font-size: clamp(1.3rem, 2.1vw, 2.1rem);
+    font-size: 1rem;
     animation: metro-experience-marquee 24s linear infinite;
     will-change: transform;
 }
 
 .metro-experience-group {
     flex: 0 0 auto;
+    min-width: 100vw;
+    justify-content: space-around;
     display: flex;
     align-items: center;
-    gap: 32px;
-    padding-right: 32px;
+    gap: 24px;
+    padding-right: 24px;
 }
 
 @keyframes metro-experience-marquee {
@@ -40,13 +42,13 @@
 }
 
 @media (max-width: 640px) {
-    .metro-home-page {
-        --metro-marquee-height: 54px;
+    .metro-header {
+        --metro-marquee-height: 30px;
     }
 
     .metro-home-page .metro-home-hero {
-        height: calc(100svh - var(--metro-marquee-height));
-        min-height: min(650px, calc(100svh - var(--metro-marquee-height)));
+        height: 100svh;
+        min-height: min(650px, 100svh);
         max-height: none;
     }
 
@@ -55,7 +57,7 @@
     }
 
     .metro-experience-track {
-        font-size: 1.25rem;
+        font-size: 0.875rem;
     }
 
     .metro-experience-group {
@@ -65,13 +67,13 @@
 }
 
 @media (min-width: 641px) and (max-width: 1000px) {
-    .metro-home-page {
-        --metro-marquee-height: 58px;
+    .metro-header {
+        --metro-marquee-height: 34px;
     }
 
     .metro-home-page .metro-home-hero {
-        height: calc(100svh - var(--metro-marquee-height));
-        min-height: min(650px, calc(100svh - var(--metro-marquee-height)));
+        height: 100svh;
+        min-height: min(650px, 100svh);
         max-height: none;
     }
 

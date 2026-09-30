@@ -11,7 +11,7 @@
 }
 
 body {
-    font-family: Poppins, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    font-family: var(--metro-font);
     color: var(--ma-ink);
     background: linear-gradient(180deg, #ffffff 0%, #f2f7ff 100%);
 }
@@ -79,7 +79,7 @@ a {
 }
 
 .brand-word {
-    font-family: Poppins, system-ui, sans-serif;
+    font-family: var(--metro-font);
     font-weight: 900;
     font-size: 1.35rem;
     color: var(--ma-primary);
@@ -199,7 +199,7 @@ a {
 
 .arena-home-content h1 {
     margin: 0;
-    font-family: Poppins, system-ui, sans-serif;
+    font-family: var(--metro-font);
     font-size: clamp(1.8rem, 5vw, 3.7rem);
     font-weight: 600;
     line-height: 1.08;
@@ -2166,7 +2166,7 @@ textarea.rounded-md:focus {
 
 .admin-page-title {
     color: var(--ma-ink);
-    font-family: Poppins, system-ui, sans-serif;
+    font-family: var(--metro-font);
     font-size: 1rem;
     font-weight: 600;
 }
@@ -2219,7 +2219,7 @@ textarea.rounded-md:focus {
 
 .admin-compact h2,
 .admin-compact h3 {
-    font-family: Poppins, system-ui, sans-serif;
+    font-family: var(--metro-font);
 }
 
 .admin-compact .text-5xl,
@@ -2625,8 +2625,8 @@ details.app-card > summary::-webkit-details-marker {
 .text-center { text-align: center !important; }
 .text-right { text-align: right !important; }
 .align-middle { vertical-align: middle !important; }
-.font-sans { font-family: Poppins, system-ui, sans-serif !important; }
-.font-display { font-family: Poppins, system-ui, sans-serif !important; }
+.font-sans { font-family: var(--metro-font) !important; }
+.font-display { font-family: var(--metro-display) !important; }
 .font-medium { font-weight: 500 !important; }
 .font-semibold { font-weight: 600 !important; }
 .font-bold { font-weight: 700 !important; }
@@ -2712,33 +2712,19 @@ details.app-card > summary::-webkit-details-marker {
 .public-body .home-screen-page .font-black,
 .public-body .public-page .fw-black,
 .public-body .home-screen-page .fw-black {
-    font-weight: 600 !important;
+    font-weight: 700 !important;
 }
 
 .public-body .public-page .font-bold,
 .public-body .home-screen-page .font-bold,
 .public-body .public-page .fw-bold,
 .public-body .home-screen-page .fw-bold {
-    font-weight: 500 !important;
+    font-weight: 600 !important;
 }
 
 .public-body .public-page .font-semibold,
 .public-body .home-screen-page .font-semibold {
-    font-weight: 400 !important;
-}
-
-.public-body .public-page .text-4xl,
-.public-body .home-screen-page .text-4xl {
-    font-size: 1.85rem !important;
-    line-height: 2.25rem !important;
-}
-
-.public-body .public-page .text-5xl,
-.public-body .home-screen-page .text-5xl,
-.public-body .public-page .lg\:text-5xl,
-.public-body .home-screen-page .lg\:text-5xl {
-    font-size: 2.25rem !important;
-    line-height: 1.12 !important;
+    font-weight: 500 !important;
 }
 
 @media (min-width: 640px) {

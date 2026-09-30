@@ -1,5 +1,3 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter+Tight:wght@400;500;600;700&family=Manrope:wght@500;600;700;800&display=swap');
-
 :root {
     --metro-primary: #021421;
     --metro-secondary: #F0F1F1;
@@ -14,8 +12,8 @@
     --metro-pill: 999px;
     --metro-container: 1280px;
 
-    --metro-font: "Inter Tight", Arial, sans-serif;
-    --metro-display: "Manrope", Arial, sans-serif;
+    --metro-font: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+    --metro-display: "Barlow Condensed", "Arial Narrow", sans-serif;
 }
 
 /* Reset */
@@ -260,8 +258,8 @@ p {
 /* =========================================================
    METROASIA TYPOGRAPHY UPDATE
    Modern sports-club style:
-   - Manrope for display headings
-   - Inter Tight for body and UI
+   - Barlow Condensed for display headings
+   - Inter for body and UI
    ========================================================= */
 
 html {

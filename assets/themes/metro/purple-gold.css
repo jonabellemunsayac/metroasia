@@ -196,11 +196,11 @@ body {
 }
 
 .metro-header.overlay {
-    background: linear-gradient(to bottom, rgba(39, 19, 63, 0.84), rgba(39, 19, 63, 0));
+    background: #fff;
 }
 
 .metro-header.overlay.scrolled {
-    background: rgba(39, 19, 63, 0.95);
+    background: #fff;
     box-shadow: 0 8px 30px rgba(39, 19, 63, 0.16);
 }
 

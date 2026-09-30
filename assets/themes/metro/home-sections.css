@@ -1,0 +1,57 @@
+.metro-home-page :is(.metro-sports-section,.metro-built-section,.metro-editorial-section) { padding-block:72px; }
+.metro-sports-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:24px; }
+.metro-sport-card { display:flex; flex-direction:column; justify-content:space-between; gap:32px; padding:32px; border:1px solid #dedede; border-radius:16px; background:#fff; color:var(--metro-primary); transition:border-color .25s ease,box-shadow .25s ease; }
+.metro-sport-card:hover,.metro-sport-card:focus-visible { border-color:var(--metro-accent); box-shadow:0 8px 24px rgba(39,19,63,.06); color:var(--metro-primary); }
+.metro-sport-icon { display:block; width:64px; height:64px; flex:none; }
+.metro-sport-caption { display:flex; justify-content:space-between; align-items:center; gap:16px; color:var(--metro-primary); }
+.metro-sport-caption h3 { margin:0; color:inherit; font-family:var(--metro-display); font-size:clamp(1.5rem,2.5vw,2.3rem); text-transform:uppercase; }
+.metro-sport-caption span { display:inline-block; font-size:1.6rem; transition:transform .35s ease; }
+.metro-sport-card:hover .metro-sport-caption span,.metro-sport-card:focus-visible .metro-sport-caption span { transform:translate(4px,-4px); }
+.metro-sport-card:focus-visible,.metro-editorial-photo:focus-visible { outline:3px solid var(--metro-accent); outline-offset:4px; }
+.metro-membership-intro .metro-eyebrow { display:block; margin-bottom:16px; }
+.metro-membership-section .metro-membership-top { grid-template-columns:1fr; justify-items:center; text-align:center; gap:0; }
+.metro-membership-description { border-left:2px solid var(--metro-accent); padding-left:40px; }
+.metro-membership-mark { display:block; margin-bottom:22px; font-family:var(--metro-display); font-size:2.5rem; color:var(--metro-primary); }
+.metro-built-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:40px; }
+.metro-built-grid article { padding-top:24px; border-top:1px solid var(--metro-border); }
+.metro-built-number { display:block; font-family:var(--metro-display); font-size:2.5rem; color:var(--metro-primary); margin-bottom:22px; }
+.metro-built-grid h3 { font-size:1.125rem; text-transform:uppercase; }
+.metro-built-grid p { font-size:.9375rem; max-width:32ch; }
+.metro-gallery-filters { display:flex; justify-content:center; flex-wrap:wrap; gap:0; margin-bottom:36px; }
+.metro-gallery-filters button { background:none; border:0; border-bottom:2px solid transparent; color:var(--metro-primary); padding:10px 20px; text-transform:uppercase; font-size:.75rem; cursor:pointer; }
+.metro-gallery-filters button+button { border-left:1px solid var(--metro-border); }
+.metro-gallery-filters button[aria-pressed="true"] { border-bottom-color:var(--metro-accent); font-weight:700; }
+.metro-gallery-filters button:focus-visible { outline:2px solid var(--metro-primary); outline-offset:2px; }
+[data-venue-panel][hidden] { display:none; }
+.metro-editorial-grid { display:grid; grid-template-columns:repeat(12,minmax(0,1fr)); grid-auto-rows:220px; gap:20px; }
+.metro-editorial-photo { display:block; padding:0; border:0; margin:0; overflow:hidden; background:var(--metro-secondary); grid-column:span 4; cursor:pointer; }
+.metro-editorial-photo:nth-child(6n+1) { grid-column:span 8; grid-row:span 2; }
+.metro-editorial-photo:nth-child(6n+4) { grid-column:span 4; }
+.metro-editorial-photo:nth-child(6n+5) { grid-column:span 8; }
+.metro-editorial-photo:nth-child(6n+6) { grid-column:span 12; }
+.metro-editorial-photo img { display:block; width:100%; height:100%; object-fit:cover; transition:transform .45s ease; }
+.metro-editorial-photo:hover img { transform:scale(1.025); }
+.metro-gallery-empty { text-align:center; padding:64px 24px; background:var(--metro-secondary); }
+@media(max-width:900px) {
+    .metro-sports-grid { gap:14px; }
+    .metro-sport-caption { inset:auto 16px 20px; }
+    .metro-built-grid { gap:24px; }
+    .metro-editorial-grid { grid-auto-rows:170px; gap:14px; }
+    .metro-membership-description { padding-left:24px; }
+}
+@media(max-width:620px) {
+    .metro-home-page :is(.metro-sports-section,.metro-built-section,.metro-editorial-section) { padding-block:44px; }
+    .metro-sports-grid,.metro-built-grid { grid-template-columns:1fr; }
+    .metro-sport-card { padding:24px; gap:24px; }
+    .metro-membership-description { margin-top:24px; }
+    .metro-gallery-filters button { padding:10px 12px; font-size:.6875rem; }
+    .metro-editorial-grid { grid-template-columns:repeat(2,minmax(0,1fr)); grid-auto-rows:150px; gap:10px; }
+    .metro-editorial-photo:nth-child(n) { grid-column:span 1; grid-row:span 1; }
+    .metro-editorial-photo:nth-child(3n+1) { grid-column:span 2; grid-row:span 2; }
+}
+@media(prefers-reduced-motion:reduce) {
+    .metro-sport-card::after,.metro-sport-caption span { transition:none; }
+    .metro-sport-card:hover .metro-sport-caption span,.metro-sport-card:focus-visible .metro-sport-caption span { transform:none; }
+    .metro-sport-card img,.metro-editorial-photo img { transition:none; }
+    .metro-sport-card:hover img,.metro-sport-card:focus-visible img,.metro-editorial-photo:hover img { transform:none; }
+}

@@ -1,0 +1,58 @@
+/* Shared typography and spacing scale; loaded after component styles. */
+:root {
+    --metro-font: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+    --metro-body-font: var(--metro-font);
+    --metro-display: "Barlow Condensed", "Arial Narrow", sans-serif;
+    --metro-ui-heading: var(--metro-display);
+    --bs-font-sans-serif: var(--metro-font);
+    --bs-body-font-family: var(--metro-font);
+    --space-4: 4px; --space-8: 8px; --space-12: 12px; --space-16: 16px;
+    --space-24: 24px; --space-32: 32px; --space-48: 48px; --space-64: 64px;
+    --space-96: 96px; --space-120: 120px;
+}
+body.public-body, body.admin-body {
+    font-family: var(--metro-font); font-size: 16px; font-weight: 400;
+    line-height: 1.6; -webkit-font-smoothing: antialiased;
+}
+/* Override legacy heading utility classes with one consistent hierarchy. */
+body:is(.public-body,.admin-body) :is(h1,h2,h3,h4,h5,h6), .admin-page-title, .stat-number {
+    font-family: var(--metro-display) !important; font-weight: 700 !important;
+    letter-spacing: .01em !important; line-height: 1.15 !important;
+}
+body:is(.public-body,.admin-body) h1 { font-size:48px !important; }
+body:is(.public-body,.admin-body) h2 { font-size:clamp(36px,3vw,40px) !important; }
+body:is(.public-body,.admin-body) h3 { font-size:clamp(22px,2vw,24px) !important; }
+body:is(.public-body,.admin-body) h4 { font-size:20px !important; }
+body:is(.public-body,.admin-body) :is(h5,h6) { font-size:18px !important; }
+body.public-body .metro-home-hero h1 {
+    font-size:clamp(64px,5.5vw,80px) !important; line-height:1.02 !important; text-transform:uppercase;
+}
+.metro-home-page h2, .metro-footer h3 { text-transform:uppercase; }
+body:is(.public-body,.admin-body) :is(p,input,select,textarea) {
+    font-family:var(--metro-font); font-size:16px; line-height:1.6;
+}
+body :is(button,.btn,.metro-btn,nav,table,label,.badge,.status-badge) { font-family:var(--metro-font); }
+body:is(.public-body,.admin-body) :is(.btn,.metro-btn,.metro-header-action,.metro-newsletter button,.metro-gallery-filters button) {
+    font-size:14px !important; font-weight:600 !important; line-height:1.4; letter-spacing:.02em;
+}
+body :is(small,.text-small,.form-text,.metro-copyright,.metro-footer-links a,.metro-footer-links span[aria-disabled]) {
+    font-family:var(--metro-font); font-size:14px; line-height:1.5;
+}
+.metro-eyebrow,.section-kicker,.member-kicker {
+    font-family:var(--metro-font); font-size:14px; font-weight:600; letter-spacing:.08em; line-height:1.4;
+}
+.metro-experience-track { font-family:var(--metro-display); font-weight:700; letter-spacing:.02em; }
+body :is(table,.admin-schedule-grid,.member-dashboard-stats,.stat-number) { font-variant-numeric:tabular-nums; }
+.metro-footer :is(p,a,input,button,.metro-copyright) { font-family:var(--metro-font); }
+.metro-footer-grid > * { min-width:0; }
+/* Inset text cards; keep photographic cards edge-to-edge. */
+.public-body .public-card,.admin-body .app-card > .card-body,.member-booking-card { padding:var(--space-32) !important; }
+@media(max-width:900px) {
+    body.public-body .metro-home-hero h1 { font-size:clamp(42px,6vw,48px) !important; }
+}
+@media(max-width:620px) {
+    .public-body .public-card,.admin-body .app-card > .card-body,.member-booking-card { padding:var(--space-24) !important; }
+    .metro-footer .metro-newsletter { flex-wrap:wrap; gap:var(--space-8); border-radius:16px; padding:var(--space-12); }
+    .metro-footer .metro-newsletter input { flex:1 1 100%; width:100%; padding:var(--space-12); }
+    .metro-footer .metro-newsletter button { width:100%; }
+}
