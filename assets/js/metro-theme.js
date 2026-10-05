@@ -172,7 +172,8 @@
     if (!images.length) return;
 
     galleryImages = images;
-    galleryIndex = 0;
+    const startIndex = Number(card.getAttribute('data-gallery-index'));
+    galleryIndex = Number.isInteger(startIndex) && startIndex >= 0 && startIndex < images.length ? startIndex : 0;
     galleryTitle = card.getAttribute('data-gallery-title') || '';
     galleryPreviousFocus = doc.activeElement;
 

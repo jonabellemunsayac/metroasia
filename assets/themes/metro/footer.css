@@ -4,7 +4,7 @@
 .metro-newsletter{display:flex;border:1px solid rgba(255,255,255,.14);border-radius:var(--metro-pill);padding:5px;margin-top:22px}
 .metro-newsletter input{flex:1;min-width:0;border:0;outline:0;background:transparent;color:#fff;padding:0 14px}
 .metro-newsletter button{border:0;border-radius:var(--metro-pill);background:var(--metro-accent);padding:10px 17px;font-weight:700;text-transform:uppercase;cursor:pointer}
-.metro-footer-links h3,.metro-footer-social h3{font-size:1.05rem}
+.metro-footer-links h3,.metro-footer-social h3{font-size:1.05rem;color:#fff}
 .metro-footer-links a,.metro-footer-links span[aria-disabled]{display:block;color:rgba(255,255,255,.62);margin:7px 0}
 .metro-footer-links a:hover{color:var(--metro-accent)}
 .metro-social{display:flex;gap:9px}

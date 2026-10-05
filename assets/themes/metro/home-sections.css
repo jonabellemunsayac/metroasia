@@ -1,13 +1,17 @@
 .metro-home-page :is(.metro-sports-section,.metro-built-section,.metro-editorial-section) { padding-block:72px; }
 .metro-sports-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:24px; }
-.metro-sport-card { display:flex; flex-direction:column; justify-content:space-between; gap:32px; padding:32px; border:1px solid #dedede; border-radius:16px; background:#fff; color:var(--metro-primary); transition:border-color .25s ease,box-shadow .25s ease; }
-.metro-sport-card:hover,.metro-sport-card:focus-visible { border-color:var(--metro-accent); box-shadow:0 8px 24px rgba(39,19,63,.06); color:var(--metro-primary); }
+.metro-sport-card { --sport-accent:var(--metro-primary); display:flex; flex-direction:column; justify-content:space-between; gap:32px; padding:32px; border:1px solid color-mix(in srgb,var(--sport-accent) 20%,white); border-radius:16px; background:color-mix(in srgb,var(--sport-accent) 5%,white); color:var(--metro-primary); transition:background-color .25s ease,border-color .25s ease,box-shadow .25s ease; }
+.metro-sport-card--pickleball { --sport-accent:var(--ma-primary); }
+.metro-sport-card--basketball { --sport-accent:var(--metro-accent); }
+.metro-sport-card--volleyball { --sport-accent:var(--metro-primary); }
+.metro-sport-card .metro-sport-icon,.metro-sport-card .metro-sport-caption span { color:var(--sport-accent); }
+.metro-sport-card:hover,.metro-sport-card:focus-visible { background:color-mix(in srgb,var(--sport-accent) 9%,white); border-color:color-mix(in srgb,var(--sport-accent) 55%,white); box-shadow:0 8px 24px color-mix(in srgb,var(--sport-accent) 10%,transparent); color:var(--metro-primary); }
 .metro-sport-icon { display:block; width:64px; height:64px; flex:none; }
 .metro-sport-caption { display:flex; justify-content:space-between; align-items:center; gap:16px; color:var(--metro-primary); }
 .metro-sport-caption h3 { margin:0; color:inherit; font-family:var(--metro-display); font-size:clamp(1.5rem,2.5vw,2.3rem); text-transform:uppercase; }
 .metro-sport-caption span { display:inline-block; font-size:1.6rem; transition:transform .35s ease; }
 .metro-sport-card:hover .metro-sport-caption span,.metro-sport-card:focus-visible .metro-sport-caption span { transform:translate(4px,-4px); }
-.metro-sport-card:focus-visible,.metro-editorial-photo:focus-visible { outline:3px solid var(--metro-accent); outline-offset:4px; }
+.metro-sport-card:focus-visible,.metro-editorial-photo:focus-visible { outline:3px solid var(--sport-accent,var(--metro-accent)); outline-offset:4px; }
 .metro-membership-intro .metro-eyebrow { display:block; margin-bottom:16px; }
 .metro-membership-section .metro-membership-top { grid-template-columns:1fr; justify-items:center; text-align:center; gap:0; }
 .metro-membership-description { border-left:2px solid var(--metro-accent); padding-left:40px; }
@@ -50,7 +54,7 @@
     .metro-editorial-photo:nth-child(3n+1) { grid-column:span 2; grid-row:span 2; }
 }
 @media(prefers-reduced-motion:reduce) {
-    .metro-sport-card::after,.metro-sport-caption span { transition:none; }
+    .metro-sport-card,.metro-sport-card::after,.metro-sport-caption span { transition:none; }
     .metro-sport-card:hover .metro-sport-caption span,.metro-sport-card:focus-visible .metro-sport-caption span { transform:none; }
     .metro-sport-card img,.metro-editorial-photo img { transition:none; }
     .metro-sport-card:hover img,.metro-sport-card:focus-visible img,.metro-editorial-photo:hover img { transform:none; }

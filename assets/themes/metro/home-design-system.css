@@ -20,9 +20,9 @@
 .metro-home-page .metro-gallery-empty { background:var(--home-raised); color:var(--home-copy); }
 .metro-home-page .metro-stats span { color:var(--home-copy); }
 
-/* Major sections share a generous rhythm and a quiet rule between sections. */
+/* Major sections share compact spacing and a quiet rule between sections. */
 .metro-home-page > section.metro-section {
-    padding-block:clamp(var(--space-96), 8vw, var(--space-120));
+    padding-block:clamp(var(--space-64), 5vw, 80px);
     margin-block:0;
 }
 .metro-home-page > section:not(.metro-home-hero):not([hidden]) { border-top:1px solid var(--home-divider); }
@@ -43,12 +43,12 @@
 .metro-header .metro-experience-strip { background:var(--metro-primary); color:#fff; }
 .metro-header .metro-experience-track i { color:var(--metro-accent); opacity:1; }
 @media(max-width:900px) {
-    .metro-home-page > section.metro-section { padding-block:72px; }
+    .metro-home-page > section.metro-section { padding-block:var(--space-48); }
     .metro-home-page :is(.metro-sports-grid,.metro-built-grid) { gap:var(--space-24); }
     .metro-home-page .metro-built-grid article { padding:var(--space-24); }
 }
 @media(max-width:620px) {
-    .metro-home-page > section.metro-section { padding-block:var(--space-64); }
+    .metro-home-page > section.metro-section { padding-block:40px; }
     .metro-home-page .metro-heading { margin-bottom:var(--space-32); }
     .metro-home-page .metro-gallery-filters { gap:var(--space-4); }
     .metro-home-page .metro-gallery-filters button { padding:var(--space-8) var(--space-12); }
