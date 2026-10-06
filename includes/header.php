@@ -6,7 +6,7 @@ $appBrand = 'Metro Asia';
 $appTitle = '';
 $pageTitle = $pageTitle ?? $appTitle;
 $active = $active ?? 'home';
-$assetVersion = $assetVersion ?? '3.1.90';
+$assetVersion = $assetVersion ?? '3.3.2';
 $themeName = $themeName ?? 'metro';
 $memberAccountStyles = $memberAccountStyles ?? false;
 $currentAdmin = current_admin();
@@ -14,9 +14,9 @@ $currentMember = current_member();
 $useAdminShell = $currentAdmin !== null && str_starts_with($active, 'admin');
 
 $publicNavItems = [
-    ['key' => 'home', 'label' => 'Sports', 'href' => app_url('ui/index.php#welcome')],
+    ['key' => 'home', 'label' => 'Sports', 'href' => app_url('ui/index.php#sports')],
     ['key' => 'membership', 'label' => 'Membership', 'href' => app_url('ui/index.php#membership')],
-    ['key' => 'about', 'label' => 'About', 'href' => app_url('ui/index.php#difference')],
+    ['key' => 'about', 'label' => 'About', 'href' => app_url('ui/index.php#about')],
     ['key' => 'gallery', 'label' => 'Gallery', 'href' => app_url('ui/index.php#gallery')],
     ['key' => 'contact', 'label' => 'Contact', 'href' => app_url('ui/index.php#contact-us')],
 ];
@@ -73,7 +73,7 @@ if ($active === 'member' && $pageTitle !== '') {
 
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@400;500;600;700&family=Manrope:wght@500;600;700&family=Poppins:wght@100;200;300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Barlow+Condensed:wght@600;700;800&display=swap" rel="stylesheet">
 
     <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
@@ -151,6 +151,12 @@ if ($active === 'member' && $pageTitle !== '') {
         rel="stylesheet"
         href="<?php echo htmlspecialchars(app_url('assets/themes/metro/purple-gold.css')); ?>?v=<?php echo htmlspecialchars($assetVersion); ?>"
     >
+    <link rel="stylesheet" href="<?php echo htmlspecialchars(app_url('assets/themes/metro/typography.css')); ?>?v=<?php echo htmlspecialchars($assetVersion); ?>">
+    <?php if ($isPublicHome): ?>
+        <link rel="stylesheet" href="<?php echo htmlspecialchars(app_url('assets/themes/metro/home-sections.css')); ?>?v=<?php echo htmlspecialchars($assetVersion); ?>">
+        <link rel="stylesheet" href="<?php echo htmlspecialchars(app_url('assets/themes/metro/home-design-system.css')); ?>?v=<?php echo htmlspecialchars($assetVersion); ?>">
+        <script defer src="<?php echo htmlspecialchars(app_url('assets/js/home-sections.js')); ?>?v=<?php echo htmlspecialchars($assetVersion); ?>"></script>
+    <?php endif; ?>
 </head>
 
 <body class="<?php echo $useAdminShell ? 'admin-body' : 'public-body'; ?>">
@@ -179,7 +185,7 @@ if ($active === 'member' && $pageTitle !== '') {
         <div class="metro-container metro-header-inner">
             <a href="<?php echo htmlspecialchars(app_url('ui/index.php')); ?>" class="metro-brand<?php echo $isPublicHome ? ' metro-brand-logo-only' : ''; ?>" aria-label="Metro Asia Arena home">
                 <img
-                    src="<?php echo htmlspecialchars(app_url($isPublicHome ? 'assets/images/metroasia_logo_transparent.png' : 'assets/logo.jpg')); ?>"
+                    src="<?php echo htmlspecialchars(app_url($isPublicHome ? 'assets/metroasia_logo_transparent.png' : 'assets/logo.jpg')); ?>"
                     alt="Metro Asia Arena"
                     onerror="this.style.display='none'; this.nextElementSibling.style.display='grid';"
                 >

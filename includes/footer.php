@@ -51,7 +51,7 @@ if ($useAdminShell):
                     <span aria-disabled="true">Terms of Service</span>
                     <span aria-disabled="true">Privacy Policy</span>
                     <span aria-disabled="true">FAQs</span>
-                    <a href="<?php echo htmlspecialchars(app_url('ui/index.php#difference')); ?>">About</a>
+                    <a href="<?php echo htmlspecialchars(app_url('ui/index.php#about')); ?>">About</a>
                     <a href="<?php echo htmlspecialchars(app_url('ui/index.php#contact-us')); ?>">Contact Us</a>
                 </section>
 
@@ -60,7 +60,7 @@ if ($useAdminShell):
                     <span aria-disabled="true">Be an OP Host</span>
                     <span aria-disabled="true">List your Club</span>
                     <span aria-disabled="true">Tournament</span>
-                    <a href="<?php echo htmlspecialchars(app_url('ui/index.php#difference')); ?>">About</a>
+                    <!-- <a href="<?php //echo htmlspecialchars(app_url('ui/index.php#about')); ?>">About</a> -->
                 </section>
 
                 <section class="metro-footer-social">

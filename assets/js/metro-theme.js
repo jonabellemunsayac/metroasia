@@ -172,7 +172,8 @@
     if (!images.length) return;
 
     galleryImages = images;
-    galleryIndex = 0;
+    const startIndex = Number(card.getAttribute('data-gallery-index'));
+    galleryIndex = Number.isInteger(startIndex) && startIndex >= 0 && startIndex < images.length ? startIndex : 0;
     galleryTitle = card.getAttribute('data-gallery-title') || '';
     galleryPreviousFocus = doc.activeElement;
 
@@ -309,7 +310,11 @@ const syncActiveNavSection = () => {
     headerOffset +
     Math.round(window.innerHeight * 0.22);
 
-  let activeSection = null;
+  const visibleSections = navSections
+    .filter(section => section.target.getClientRects().length > 0)
+    .sort((a, b) => a.target.getBoundingClientRect().top - b.target.getBoundingClientRect().top);
+  if (!visibleSections.length) return;
+  let activeSection = visibleSections[0];
 
   visibleSections.forEach(section => {
     if (section.target.getBoundingClientRect().top + window.scrollY <= marker) {
