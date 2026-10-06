@@ -6,7 +6,7 @@ $appBrand = 'Metro Asia';
 $appTitle = '';
 $pageTitle = $pageTitle ?? $appTitle;
 $active = $active ?? 'home';
-$assetVersion = $assetVersion ?? '3.1.80';
+$assetVersion = $assetVersion ?? '3.1.90';
 $themeName = $themeName ?? 'metro';
 $memberAccountStyles = $memberAccountStyles ?? false;
 $currentAdmin = current_admin();
@@ -14,16 +14,17 @@ $currentMember = current_member();
 $useAdminShell = $currentAdmin !== null && str_starts_with($active, 'admin');
 
 $publicNavItems = [
-    ['key' => 'home', 'label' => 'Home', 'href' => app_url('ui/index.php#welcome')],
+    ['key' => 'home', 'label' => 'Sports', 'href' => app_url('ui/index.php#welcome')],
+    ['key' => 'membership', 'label' => 'Membership', 'href' => app_url('ui/index.php#membership')],
+    ['key' => 'about', 'label' => 'About', 'href' => app_url('ui/index.php#difference')],
     ['key' => 'gallery', 'label' => 'Gallery', 'href' => app_url('ui/index.php#gallery')],
-    ['key' => 'about', 'label' => 'About', 'href' => app_url('ui/index.php#about')],
     ['key' => 'contact', 'label' => 'Contact', 'href' => app_url('ui/index.php#contact-us')],
 ];
 
 $isMemberArea = $currentMember !== null && in_array($active, ['member', 'member-profile'], true);
 if ($isMemberArea) {
     $publicNavItems = [
-        ['key' => 'member-home', 'label' => 'Home', 'href' => app_url('ui/index.php'), 'target' => '_blank'],
+        ['key' => 'member-home', 'label' => 'Sports', 'href' => app_url('ui/index.php'), 'target' => '_blank'],
         ['key' => 'member', 'label' => 'My Bookings', 'href' => app_url('ui/member.php')],
         ['key' => 'member-profile', 'label' => 'Member Profile', 'href' => app_url('ui/member-profile.php')],
         ['key' => 'member-logout', 'label' => 'Logout', 'href' => app_url('admin/logout.php?as=member')],
@@ -49,7 +50,7 @@ $memberCtaLabel = $currentMember ? 'My Bookings' : 'Login';
 $memberCtaHref = app_url($currentMember ? 'ui/member.php' : 'ui/member-login.php');
 $bookingCtaHref = app_url($currentMember ? 'ui/booking.php' : member_login_path('ui/booking.php'));
 $publicBreadcrumbLabels = [
-    'home' => 'Home',
+    'home' => 'Sports',
     'booking' => "Let's Play",
     'gallery' => 'Gallery',
     'rules' => 'Rules',
@@ -157,15 +158,35 @@ if ($active === 'member' && $pageTitle !== '') {
 <?php if (!$useAdminShell): ?>
 
     <header class="metro-header<?php echo $isPublicHome ? ' overlay' : ''; ?>">
+        <?php if ($isPublicHome): ?>
+    <!-- TEXT STRIP -->
+    <section class="metro-experience-strip" aria-hidden="true">
+        <div class="metro-experience-track" aria-hidden="true">
+            <div class="metro-experience-group">
+                <span>YOUR COURT. YOUR GAME. YOUR COMMUNITY.</span><i>&#10022;</i>
+                <span>YOUR COURT. YOUR GAME. YOUR COMMUNITY.</span><i>&#10022;</i>
+                <span>YOUR COURT. YOUR GAME. YOUR COMMUNITY.</span><i>&#10022;</i>
+            </div>
+            <div class="metro-experience-group">
+                <span>YOUR COURT. YOUR GAME. YOUR COMMUNITY.</span><i>&#10022;</i>
+                <span>YOUR COURT. YOUR GAME. YOUR COMMUNITY.</span><i>&#10022;</i>
+                <span>YOUR COURT. YOUR GAME. YOUR COMMUNITY.</span><i>&#10022;</i>
+            </div>
+        </div>
+    </section>
+
+        <?php endif; ?>
         <div class="metro-container metro-header-inner">
-            <a href="<?php echo htmlspecialchars(app_url('ui/index.php')); ?>" class="metro-brand" aria-label="Metro Asia Arena home">
+            <a href="<?php echo htmlspecialchars(app_url('ui/index.php')); ?>" class="metro-brand<?php echo $isPublicHome ? ' metro-brand-logo-only' : ''; ?>" aria-label="Metro Asia Arena home">
                 <img
-                    src="<?php echo htmlspecialchars(app_url('assets/logo.jpg')); ?>"
+                    src="<?php echo htmlspecialchars(app_url($isPublicHome ? 'assets/images/metroasia_logo_transparent.png' : 'assets/logo.jpg')); ?>"
                     alt="Metro Asia Arena"
                     onerror="this.style.display='none'; this.nextElementSibling.style.display='grid';"
                 >
                 <span class="metro-brand-fallback" style="display:none;">MA</span>
-                <span class="metro-brand-name">MetroAsia Arena</span>
+                <?php if (!$isPublicHome): ?>
+                    <span class="metro-brand-name">MetroAsia Arena</span>
+                <?php endif; ?>
             </a>
 
             <nav id="metroPublicNav" class="metro-nav" data-metro-nav aria-label="Primary navigation">
@@ -180,9 +201,6 @@ if ($active === 'member' && $pageTitle !== '') {
                 <?php endforeach; ?>
 
                 <div class="metro-nav-mobile-actions<?php echo $isMemberArea ? ' is-member-area' : ''; ?>">
-                    <a class="metro-header-action metro-header-action-primary" href="<?php echo htmlspecialchars($bookingCtaHref); ?>">
-                        Let's Play
-                    </a>
                     <?php if (!$isMemberArea): ?>
                     <a class="metro-header-action metro-header-action-secondary" href="<?php echo htmlspecialchars($memberCtaHref); ?>">
                         <?php echo htmlspecialchars($memberCtaLabel); ?>
@@ -192,10 +210,6 @@ if ($active === 'member' && $pageTitle !== '') {
             </nav>
 
             <div class="metro-header-actions">
-                <a class="metro-header-action metro-header-action-primary" href="<?php echo htmlspecialchars($bookingCtaHref); ?>">
-                    Let's Play
-                </a>
-
                 <?php if (!$isMemberArea): ?>
                 <a class="metro-header-action metro-header-action-secondary" href="<?php echo htmlspecialchars($memberCtaHref); ?>">
                     <?php echo htmlspecialchars($memberCtaLabel); ?>

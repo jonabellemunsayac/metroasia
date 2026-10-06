@@ -41,20 +41,20 @@ $memberAccountStyles = true;
 include __DIR__ . '/../includes/header.php';
 ?>
 <main class="public-page">
-    <section class="mx-auto grid max-w-[960px] gap-6 lg:grid-cols-[1fr_420px]">
-        <div class="public-card p-6">
+    <section class="mx-auto w-full" style="max-width: 420px;">
+        <!-- <div class="public-card p-6">
             <p class="text-sm font-black uppercase tracking-[.14em] text-primary"></p>
             <h1 class="mt-3 font-display text-4xl font-black leading-tight">Ready to Play?</h1>
             <p class="mt-4 text-sm font-semibold leading-7 text-muted">Create an account or log in to unlock the court schedule and start booking your next game.
 </p>
             <p class="mt-4 text-sm font-semibold leading-7 text-muted">It's quick, easy, and gives you access to available schedules, reservations, and your booking history.</p>
             <p class="mt-4 text-sm font-semibold leading-7 text-muted">Sign up, book your court, and let's play!</p>
-            <a href="<?php echo htmlspecialchars(app_url('ui/register.php?redirect=' . rawurlencode($memberRedirect))); ?>" class="mt-6 inline-flex rounded-full border border-line px-5 py-2.5 text-sm font-black transition hover:border-primary hover:text-primary">Create Player Account</a>
-        </div>
+            <a href="<?php //echo htmlspecialchars(app_url('ui/register.php?redirect=' . rawurlencode($memberRedirect))); ?>" class="mt-6 inline-flex rounded-full border border-line px-5 py-2.5 text-sm font-black transition hover:border-primary hover:text-primary">Create Player Account</a>
+        </div> -->
 
         <form method="post" action="<?php echo htmlspecialchars(app_url('login.php')); ?>" class="public-card p-5">
             <input type="hidden" name="redirect" value="<?php echo htmlspecialchars($memberRedirect); ?>">
-            <h2 class="text-xl font-black">Sign In</h2>
+            <h2 class="text-xl font-black">Welcome Back!</h2>
             <?php if ($error): ?>
                 <div class="mt-4 rounded-lg bg-rose-50 p-3 text-sm font-bold text-rose-700"><?php echo htmlspecialchars($error); ?></div>
             <?php endif; ?>
@@ -74,6 +74,10 @@ include __DIR__ . '/../includes/header.php';
                 >
                     Forgot password?
                 </a>
+            </div>
+            <div class="mt-4 text-center">
+                <p class="text-sm font-semibold">Don't have a MetroAsia account?</p>
+                <a href="<?php echo htmlspecialchars(app_url('ui/register.php?redirect=' . rawurlencode($memberRedirect))); ?>" class="btn btn-outline-primary w-full">BECOME A MEMBER</a>
             </div>
             <button class="btn btn-primary mt-5 w-full">Sign In</button>
             <p class="mt-4 text-center text-xs font-semibold text-muted"></p>
