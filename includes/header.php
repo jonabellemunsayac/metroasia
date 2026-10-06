@@ -24,7 +24,7 @@ $publicNavItems = [
 $isMemberArea = $currentMember !== null && in_array($active, ['member', 'member-profile'], true);
 if ($isMemberArea) {
     $publicNavItems = [
-        ['key' => 'member-home', 'label' => 'Home', 'href' => app_url('ui/index.php'), 'target' => '_blank'],
+        ['key' => 'member-home', 'label' => 'Sports', 'href' => app_url('ui/index.php'), 'target' => '_blank'],
         ['key' => 'member', 'label' => 'My Bookings', 'href' => app_url('ui/member.php')],
         ['key' => 'member-profile', 'label' => 'Member Profile', 'href' => app_url('ui/member-profile.php')],
         ['key' => 'member-logout', 'label' => 'Logout', 'href' => app_url('admin/logout.php?as=member')],
@@ -50,7 +50,7 @@ $memberCtaLabel = $currentMember ? 'My Bookings' : 'Login';
 $memberCtaHref = app_url($currentMember ? 'ui/member.php' : 'ui/member-login.php');
 $bookingCtaHref = app_url($currentMember ? 'ui/booking.php' : member_login_path('ui/booking.php'));
 $publicBreadcrumbLabels = [
-    'home' => 'Home',
+    'home' => 'Sports',
     'booking' => "Let's Play",
     'gallery' => 'Gallery',
     'rules' => 'Rules',

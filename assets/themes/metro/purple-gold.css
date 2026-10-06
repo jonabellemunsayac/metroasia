@@ -213,8 +213,8 @@ body {
 }
 
 .metro-experience-strip {
-    background: var(--metro-accent);
-    color: var(--metro-primary);
+    background: var(--metro-primary);
+    color: var(--metro-accent);
 }
 
 .metro-cta-overlay {
