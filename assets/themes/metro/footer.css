@@ -1,4 +1,4 @@
-.metro-footer{background:var(--metro-primary);color:#fff;padding:88px 0 16px}
+.metro-footer{background:#48246b;color:#fff;padding:88px 0 16px}
 .metro-footer-grid{display:grid;grid-template-columns:1.5fr 1fr 1fr .7fr;gap:40px}
 .metro-footer p{color:rgba(255,255,255,.82)}
 .metro-newsletter{display:flex;border:1px solid rgba(255,255,255,.14);border-radius:var(--metro-pill);padding:5px;margin-top:22px}

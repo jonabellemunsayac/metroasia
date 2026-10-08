@@ -144,7 +144,7 @@ if ($active === 'member' && $pageTitle !== '') {
                 href="<?php echo htmlspecialchars(app_url('assets/themes/metro/payment.css')); ?>?v=<?php echo htmlspecialchars($assetVersion); ?>"
             >
         <?php endif; ?>
-        <link rel="stylesheet" href="<?php echo htmlspecialchars(app_url('assets/themes/metro/footer.css')); ?>?v=<?php echo htmlspecialchars($assetVersion); ?>">
+        <link rel="stylesheet" href="<?php echo htmlspecialchars(app_url('assets/themes/metro/footer.css')); ?>?v=<?php echo htmlspecialchars(hash_file('sha256', __DIR__ . '/../assets/themes/metro/footer.css') ?: $assetVersion); ?>">
     <?php endif; ?>
 
     <link
@@ -169,21 +169,33 @@ if ($active === 'member' && $pageTitle !== '') {
     <section class="metro-experience-strip" aria-hidden="true">
         <div class="metro-experience-track" aria-hidden="true">
             <div class="metro-experience-group">
-                <span>EXPERIENCE METROASIA SPORTS CENTER AND BE MAD!</span><i>&#10022;</i>
-                <span>4 SPORTS 1 DESTINATION</span><i>&#10022;</i>
-                <span>OPEN DAILY</span><i>&#10022;</i>
-                <span>EXPERIENCE METROASIA SPORTS CENTER AND BE MAD!</span><i>&#10022;</i>
-                <span>4 SPORTS 1 DESTINATION</span><i>&#10022;</i>
-                <span>OPEN DAILY</span><i>&#10022;</i>
+                <span>EXPERIENCE METROASIA SPORTS CENTER AND BE MAD!</span><i class="metro-marquee-ball" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3v18M6 5c8 4 8 10 0 14M18 5c-8 4-8 10 0 14"/></svg></i>
+                <span>4 SPORTS 1 DESTINATION</span><i class="metro-marquee-ball" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 3c3 3 4 6 3 9M21 12c-4-1-7 0-9 3M12 21c1-4 0-7-3-9M3 12c4 1 7 0 9-3M6 5c0 4 2 7 6 10M18 19c0-4-2-7-6-10"/></svg></i>
+                <span>OPEN DAILY</span><i class="metro-marquee-ball" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><circle cx="9" cy="8" r="1"/><circle cx="15" cy="9" r="1"/><circle cx="8" cy="14" r="1"/><circle cx="14" cy="16" r="1"/><circle cx="17" cy="13" r="1"/></svg></i>
+                <span>EXPERIENCE METROASIA SPORTS CENTER AND BE MAD!</span><i class="metro-marquee-ball" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="m8 16-5-11 5-2 5 1 5 3 3 5-10 7ZM3 5l8 14M8 3l3 16M13 4l-2 15M18 7 8 16M8 16a3 3 0 1 0 3 3"/></svg></i>
+                <span>4 SPORTS 1 DESTINATION</span><i class="metro-marquee-ball" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3v18M6 5c8 4 8 10 0 14M18 5c-8 4-8 10 0 14"/></svg></i>
+                <span>OPEN DAILY</span><i class="metro-marquee-ball" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 3c3 3 4 6 3 9M21 12c-4-1-7 0-9 3M12 21c1-4 0-7-3-9M3 12c4 1 7 0 9-3M6 5c0 4 2 7 6 10M18 19c0-4-2-7-6-10"/></svg></i>
+                <span>EXPERIENCE METROASIA SPORTS CENTER AND BE MAD!</span><i class="metro-marquee-ball" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><circle cx="9" cy="8" r="1"/><circle cx="15" cy="9" r="1"/><circle cx="8" cy="14" r="1"/><circle cx="14" cy="16" r="1"/><circle cx="17" cy="13" r="1"/></svg></i>
+                <span>4 SPORTS 1 DESTINATION</span><i class="metro-marquee-ball" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="m8 16-5-11 5-2 5 1 5 3 3 5-10 7ZM3 5l8 14M8 3l3 16M13 4l-2 15M18 7 8 16M8 16a3 3 0 1 0 3 3"/></svg></i>
+                <span>OPEN DAILY</span><i class="metro-marquee-ball" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3v18M6 5c8 4 8 10 0 14M18 5c-8 4-8 10 0 14"/></svg></i>
+                <span>EXPERIENCE METROASIA SPORTS CENTER AND BE MAD!</span><i class="metro-marquee-ball" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 3c3 3 4 6 3 9M21 12c-4-1-7 0-9 3M12 21c1-4 0-7-3-9M3 12c4 1 7 0 9-3M6 5c0 4 2 7 6 10M18 19c0-4-2-7-6-10"/></svg></i>
+                <span>4 SPORTS 1 DESTINATION</span><i class="metro-marquee-ball" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><circle cx="9" cy="8" r="1"/><circle cx="15" cy="9" r="1"/><circle cx="8" cy="14" r="1"/><circle cx="14" cy="16" r="1"/><circle cx="17" cy="13" r="1"/></svg></i>
+                <span>OPEN DAILY</span><i class="metro-marquee-ball" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="m8 16-5-11 5-2 5 1 5 3 3 5-10 7ZM3 5l8 14M8 3l3 16M13 4l-2 15M18 7 8 16M8 16a3 3 0 1 0 3 3"/></svg></i>
             </div>
-            <div class="metro-experience-group">
-                <span>EXPERIENCE METROASIA SPORTS CENTER AND BE MAD!</span><i>&#10022;</i>
-                <span>4 SPORTS 1 DESTINATION</span><i>&#10022;</i>
-                <span>OPEN DAILY</span><i>&#10022;</i>
-                <span>EXPERIENCE METROASIA SPORTS CENTER AND BE MAD!</span><i>&#10022;</i>
-                <span>4 SPORTS 1 DESTINATION</span><i>&#10022;</i>
-                <span>OPEN DAILY</span><i>&#10022;</i>
-            </div>
+            <!-- <div class="metro-experience-group">
+                <span>EXPERIENCE METROASIA SPORTS CENTER AND BE MAD!</span><i class="metro-marquee-ball" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3v18M6 5c8 4 8 10 0 14M18 5c-8 4-8 10 0 14"/></svg></i>
+                <span>4 SPORTS 1 DESTINATION</span><i class="metro-marquee-ball" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 3c3 3 4 6 3 9M21 12c-4-1-7 0-9 3M12 21c1-4 0-7-3-9M3 12c4 1 7 0 9-3M6 5c0 4 2 7 6 10M18 19c0-4-2-7-6-10"/></svg></i>
+                <span>OPEN DAILY</span><i class="metro-marquee-ball" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><circle cx="9" cy="8" r="1"/><circle cx="15" cy="9" r="1"/><circle cx="8" cy="14" r="1"/><circle cx="14" cy="16" r="1"/><circle cx="17" cy="13" r="1"/></svg></i>
+                <span>EXPERIENCE METROASIA SPORTS CENTER AND BE MAD!</span><i class="metro-marquee-ball" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="m8 16-5-11 5-2 5 1 5 3 3 5-10 7ZM3 5l8 14M8 3l3 16M13 4l-2 15M18 7 8 16M8 16a3 3 0 1 0 3 3"/></svg></i>
+                <span>4 SPORTS 1 DESTINATION</span><i class="metro-marquee-ball" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3v18M6 5c8 4 8 10 0 14M18 5c-8 4-8 10 0 14"/></svg></i>
+                <span>OPEN DAILY</span><i class="metro-marquee-ball" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 3c3 3 4 6 3 9M21 12c-4-1-7 0-9 3M12 21c1-4 0-7-3-9M3 12c4 1 7 0 9-3M6 5c0 4 2 7 6 10M18 19c0-4-2-7-6-10"/></svg></i>
+                <span>EXPERIENCE METROASIA SPORTS CENTER AND BE MAD!</span><i class="metro-marquee-ball" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><circle cx="9" cy="8" r="1"/><circle cx="15" cy="9" r="1"/><circle cx="8" cy="14" r="1"/><circle cx="14" cy="16" r="1"/><circle cx="17" cy="13" r="1"/></svg></i>
+                <span>4 SPORTS 1 DESTINATION</span><i class="metro-marquee-ball" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="m8 16-5-11 5-2 5 1 5 3 3 5-10 7ZM3 5l8 14M8 3l3 16M13 4l-2 15M18 7 8 16M8 16a3 3 0 1 0 3 3"/></svg></i>
+                <span>OPEN DAILY</span><i class="metro-marquee-ball" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3v18M6 5c8 4 8 10 0 14M18 5c-8 4-8 10 0 14"/></svg></i>
+                <span>EXPERIENCE METROASIA SPORTS CENTER AND BE MAD!</span><i class="metro-marquee-ball" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 3c3 3 4 6 3 9M21 12c-4-1-7 0-9 3M12 21c1-4 0-7-3-9M3 12c4 1 7 0 9-3M6 5c0 4 2 7 6 10M18 19c0-4-2-7-6-10"/></svg></i>
+                <span>4 SPORTS 1 DESTINATION</span><i class="metro-marquee-ball" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><circle cx="9" cy="8" r="1"/><circle cx="15" cy="9" r="1"/><circle cx="8" cy="14" r="1"/><circle cx="14" cy="16" r="1"/><circle cx="17" cy="13" r="1"/></svg></i>
+                <span>OPEN DAILY</span><i class="metro-marquee-ball" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="m8 16-5-11 5-2 5 1 5 3 3 5-10 7ZM3 5l8 14M8 3l3 16M13 4l-2 15M18 7 8 16M8 16a3 3 0 1 0 3 3"/></svg></i>
+            </div> -->
         </div>
     </section>
 

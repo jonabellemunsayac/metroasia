@@ -50,8 +50,8 @@
 }
 
 .metro-brand.metro-brand-logo-only {
-    width: 108px;
-    height: 96px;
+    width: 84px;
+    height: 74px;
     justify-content: center;
     gap: 0;
 }
@@ -65,8 +65,8 @@
 
 @media (max-width: 900px) {
     .metro-brand.metro-brand-logo-only {
-        width: 86px;
-        height: 78px;
+        width: 68px;
+        height: 60px;
     }
 }
 
