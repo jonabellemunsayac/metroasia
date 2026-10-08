@@ -26,7 +26,7 @@ if ($useAdminShell):
                 <section class="metro-footer-intro">
                     <p>
                         Stay up to date with court schedules, announcements, events,
-                        and the latest updates from MetroAsia Arena.
+                        and the latest updates from MetroAsia Sports Center.
                     </p>
 
                     <!--
@@ -78,7 +78,7 @@ if ($useAdminShell):
                             </span>
                         </a> -->
 
-                        <a href="https://www.facebook.com/messages/t/61591142892175" target="_blank" aria-label="Contact MetroAsia Arena" title="Contact">
+                        <a href="https://www.facebook.com/messages/t/61591142892175" target="_blank" aria-label="Contact MetroAsia Sports Center" title="Contact">
                             <i data-lucide="message-circle" class="icon-sm"></i>
                         </a>
 
@@ -89,7 +89,7 @@ if ($useAdminShell):
 
             <div class="metro-copyright">
                 Copyright © <span data-metro-year><?php echo date('Y'); ?></span>
-                MetroAsia Arena | All rights reserved
+                MetroAsia Sports Center | All rights reserved
             </div>
         </div>
     </footer>

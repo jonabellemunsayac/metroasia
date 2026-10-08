@@ -1,13 +1,13 @@
 <?php
 $amenitySlides = [
- ['assets/images/metro_court_view1.jpg','Indoor Courts','A look inside MetroAsia Arena and its multi-sport court setup.'],
+ ['assets/images/metro_court_view1.jpg','Indoor Courts','A look inside MetroAsia Sports Center and its multi-sport court setup.'],
  ['assets/images/metro_court_view2.jpg','Court View','Spacious covered courts prepared for scheduled games and reservations.'],
  ['assets/images/metro_court_view3.jpg','Playing Area','Dedicated playing areas designed for organized and convenient court use.'],
  ['assets/images/lounge1.jpg','Player Lounge','A comfortable lounge area where players and guests can relax.'],
  ['assets/images/lounge2.jpg','Lounge Area','Additional seating and waiting space inside the arena.'],
  ['assets/images/mezzanine1.jpg','Mezzanine','An elevated venue area with another perspective of the arena.'],
  ['assets/images/parking1.jpg','Parking','On-site parking space for players and arena visitors.'],
- ['assets/images/outside_view1.jpg','Arena Exterior','The exterior view of MetroAsia Arena for easier arrival and identification.'],
+ ['assets/images/outside_view1.jpg','Arena Exterior','The exterior view of MetroAsia Sports Center for easier arrival and identification.'],
 ];
 ?>
 <section id="amenities" class="metro-section metro-amenities-section">
@@ -15,7 +15,7 @@ $amenitySlides = [
     <div class="metro-amenities-heading">
       <div>
         <span class="metro-eyebrow">Amenities &amp; Venue</span>
-        <h2>Explore MetroAsia Arena</h2>
+        <h2>Explore MetroAsia Sports Center</h2>
         <p>Take a closer look at the courts and venue amenities available to players and guests.</p>
       </div>
       <div class="metro-amenities-controls">

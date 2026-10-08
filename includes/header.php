@@ -153,7 +153,7 @@ if ($active === 'member' && $pageTitle !== '') {
     >
     <link rel="stylesheet" href="<?php echo htmlspecialchars(app_url('assets/themes/metro/typography.css')); ?>?v=<?php echo htmlspecialchars($assetVersion); ?>">
     <?php if ($isPublicHome): ?>
-        <link rel="stylesheet" href="<?php echo htmlspecialchars(app_url('assets/themes/metro/home-sections.css')); ?>?v=<?php echo htmlspecialchars($assetVersion); ?>">
+        <link rel="stylesheet" href="<?php echo htmlspecialchars(app_url('assets/themes/metro/home-sections.css')); ?>?v=<?php echo htmlspecialchars(hash_file('sha256', __DIR__ . '/../assets/themes/metro/home-sections.css') ?: $assetVersion); ?>">
         <link rel="stylesheet" href="<?php echo htmlspecialchars(app_url('assets/themes/metro/home-design-system.css')); ?>?v=<?php echo htmlspecialchars($assetVersion); ?>">
         <script defer src="<?php echo htmlspecialchars(app_url('assets/js/home-sections.js')); ?>?v=<?php echo htmlspecialchars($assetVersion); ?>"></script>
     <?php endif; ?>
@@ -191,7 +191,7 @@ if ($active === 'member' && $pageTitle !== '') {
                 >
                 <span class="metro-brand-fallback" style="display:none;">MA</span>
                 <?php if (!$isPublicHome): ?>
-                    <span class="metro-brand-name">MetroAsia Arena</span>
+                    <span class="metro-brand-name">MetroAsia Sports Center</span>
                 <?php endif; ?>
             </a>
 

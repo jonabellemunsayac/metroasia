@@ -1,5 +1,5 @@
 <?php
-$pageTitle = 'Metro Asia Arena';
+$pageTitle = 'MetroAsia Sports Center';
 $active = 'home';
 
 include __DIR__ . '/../includes/header.php';
@@ -9,8 +9,8 @@ $galleryItems = site_config_gallery($siteConfig);
 $messengerUrl = trim((string) ($siteConfig['messenger_url'] ?? ''));
 $contactHref = $messengerUrl !== '' ? $messengerUrl : app_url('ui/contact.php');
 
-$venueName = trim((string) ($siteConfig['venue_name'] ?? 'MetroAsia Arena'));
-$venueName = $venueName !== '' ? $venueName : 'MetroAsia Arena';
+$venueName = trim((string) ($siteConfig['venue_name'] ?? 'MetroAsia Sports Center'));
+$venueName = $venueName !== '' ? $venueName : 'MetroAsia Sports Center';
 $venueAddress = trim((string) ($siteConfig['address'] ?? ''));
 $mapQuery = $venueAddress !== '' ? $venueAddress : $venueName;
 $googleMapsUrl = 'https://www.google.com/maps/search/?api=1&query=' . rawurlencode($mapQuery);
@@ -78,7 +78,7 @@ for ($i = 1; $i <= 4; $i++) {
         <div class="metro-container metro-hero-inner">
             <div class="metro-hero-copy">
                 <h1>Where Passion Meets Performance</h1>
-                <p>MetroAsia Arena is open daily and ready for your next game.</p>
+                <p>MetroAsia Sports Center is open daily and ready for your next game.</p>
 
                 <div class="metro-actions">
                     <a href="<?php //echo htmlspecialchars(app_url('ui/booking.php')); ?>" class="metro-btn metro-btn-accent">
@@ -131,11 +131,11 @@ for ($i = 1; $i <= 4; $i++) {
 
         <div class="metro-container metro-hero-inner">
             <div class="metro-hero-copy">
-                <h1>MetroAsia Arena</h1>
+                <h1>MetroAsia Sports Center</h1>
                 <h1>One Arena. <br>Three Sports. <br>Endless Energy.</h1>
 
                 <!-- <p>
-                    MetroAsia Arena is open daily and ready for your next game.
+                    MetroAsia Sports Center is open daily and ready for your next game.
                 </p> -->
 
                 <!-- <div class="metro-actions">

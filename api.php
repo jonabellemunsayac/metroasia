@@ -969,7 +969,7 @@ function booking_rate_snapshot(array $source, array $rate, string $kind = 'court
 function normalize_supported_sports(array|string|null $value): array
 {
     $raw = is_array($value) ? $value : explode(',', (string) ($value ?? ''));
-    $valid = ['Pickleball', 'Basketball', 'Volleyball'];
+    $valid = ['Pickleball', 'Basketball', 'Volleyball', 'Badminton'];
     $sports = [];
     foreach ($raw as $sport) {
         $sport = trim((string) $sport);
@@ -983,7 +983,7 @@ function normalize_supported_sports(array|string|null $value): array
 
 function valid_booking_sports(): array
 {
-    return ['Pickleball', 'Basketball', 'Volleyball'];
+    return ['Pickleball', 'Basketball', 'Volleyball', 'Badminton'];
 }
 
 function ensure_core_booking_time_slots(PDO $pdo): void
@@ -1014,7 +1014,7 @@ function ensure_sport_time_slot_availability(PDO $pdo): void
     $pdo->exec(
         "CREATE TABLE IF NOT EXISTS sport_time_slot_availability (
             id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-            sport ENUM('Pickleball','Basketball','Volleyball') NOT NULL,
+            sport ENUM('Pickleball','Basketball','Volleyball','Badminton') NOT NULL,
             time_slot_id INT UNSIGNED NOT NULL,
             is_available TINYINT(1) NOT NULL DEFAULT 1,
             created_by INT UNSIGNED NULL,
@@ -1035,7 +1035,7 @@ function ensure_sport_time_slot_availability(PDO $pdo): void
          VALUES (?, ?, ?)'
     );
     foreach (valid_booking_sports() as $sport) {
-        $startThreshold = $sport === 'Pickleball' ? '07:00:00' : '05:00:00';
+        $startThreshold = in_array($sport, ['Pickleball', 'Badminton'], true) ? '07:00:00' : '05:00:00';
         foreach ($slotRows as $slot) {
             $insert->execute([
                 $sport,
@@ -1056,7 +1056,7 @@ function sport_time_slot_availability_payload(PDO $pdo): array
                 ts.label, ts.starts_at, ts.ends_at, ts.sort_order
          FROM sport_time_slot_availability sta
          JOIN time_slots ts ON ts.id = sta.time_slot_id
-         ORDER BY ts.sort_order, ts.id, FIELD(sta.sport, 'Pickleball', 'Basketball', 'Volleyball')"
+         ORDER BY ts.sort_order, ts.id, FIELD(sta.sport, 'Pickleball', 'Basketball', 'Volleyball', 'Badminton')"
     )->fetchAll();
 
     $availableSlotIds = array_fill_keys(valid_booking_sports(), []);
@@ -1120,6 +1120,7 @@ function court_payload(array $court): array
         'sports' => $sports,
         'isActive' => isset($court['is_active']) ? (bool) $court['is_active'] : true,
         'labels' => [
+            'Badminton' => public_court_name((int) $court['id'], 'Badminton'),
             'Pickleball' => public_court_name((int) $court['id'], 'Pickleball'),
             'Basketball' => public_court_name((int) $court['id'], 'Basketball'),
             'Volleyball' => public_court_name((int) $court['id'], 'Volleyball'),
@@ -1171,6 +1172,9 @@ function public_court_name(int $courtId, string $sport): string
         7 => 'Wooden Court 5',
         8 => 'Wooden Court 6',
         9 => 'Wooden Court 7',
+        10 => 'Wooden Court 8',
+        11 => 'Wooden Court 9',
+        12 => 'Wooden Court 10',
         default => $courtNames[$courtId] ?? 'Court ' . $courtId,
     };
 }
@@ -1234,7 +1238,7 @@ function court_block_applies(?int $blockCourtId, ?string $blockSport, int $court
     }
 
     if ($blockCourtId === $courtId) {
-        return $blockSport === null || $blockSport === $sport || in_array($courtId, [1, 2], true);
+        return $blockSport === null || $blockSport === $sport || in_array($courtId, [1, 2, 7, 8, 9, 10, 11, 12], true);
     }
 
     return court_booking_resources_conflict($blockCourtId, $courtId);
@@ -1247,7 +1251,7 @@ function is_miami_court(int $courtId): bool
 
 function is_wooden_court(int $courtId): bool
 {
-    return in_array($courtId, [7, 8, 9], true);
+    return in_array($courtId, [7, 8, 9, 10, 11, 12], true);
 }
 
 function court_booking_resources_conflict(int $existingCourtId, int $requestedCourtId): bool
@@ -1256,20 +1260,19 @@ function court_booking_resources_conflict(int $existingCourtId, int $requestedCo
         return true;
     }
 
-    return (is_miami_court($existingCourtId) && is_wooden_court($requestedCourtId))
-        || (is_wooden_court($existingCourtId) && is_miami_court($requestedCourtId));
+    return in_array($requestedCourtId, related_booking_conflict_court_ids($existingCourtId), true);
 }
 
 function related_booking_conflict_court_ids(int $courtId): array
 {
-    if (is_miami_court($courtId)) {
-        return [7, 8, 9];
-    }
-    if (is_wooden_court($courtId)) {
-        return [2];
-    }
-
-    return [];
+    // Database IDs 7-9 are Wooden Courts 5-7; IDs 10-12 are Wooden Courts 8-10.
+    return match ($courtId) {
+        1 => [10, 11, 12],
+        2 => [7, 8, 9],
+        7, 8, 9 => [2],
+        10, 11, 12 => [1],
+        default => [],
+    };
 }
 
 function active_block_conflict(PDO $pdo, string $date, int $slotId, int $courtId, string $sport): ?array
@@ -2336,7 +2339,7 @@ function admin_booking_request_options(): array
     }
 
     $sport = trim((string) ($_GET['sport'] ?? ''));
-    if (!in_array($sport, ['Pickleball', 'Basketball', 'Volleyball'], true)) {
+    if (!in_array($sport, ['Pickleball', 'Basketball', 'Volleyball', 'Badminton'], true)) {
         $sport = '';
     }
 
@@ -3098,7 +3101,7 @@ if ($action === 'book') {
         json_response(['ok' => false, 'message' => 'Past dates and time slots cannot be booked.'], 422);
     }
 
-    if (!in_array($sport, ['Pickleball', 'Basketball', 'Volleyball'], true)) {
+    if (!in_array($sport, ['Pickleball', 'Basketball', 'Volleyball', 'Badminton'], true)) {
         json_response(['ok' => false, 'message' => 'Invalid sport.'], 422);
     }
     if (!sport_time_slot_is_available($pdo, $sport, $slotId)) {
@@ -3374,7 +3377,7 @@ if ($action === 'admin-override-booking') {
     if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $date)) {
         json_response(['ok' => false, 'message' => 'Use a valid booking date.'], 422);
     }
-    if (!in_array($sport, ['Pickleball', 'Basketball', 'Volleyball'], true)) {
+    if (!in_array($sport, ['Pickleball', 'Basketball', 'Volleyball', 'Badminton'], true)) {
         json_response(['ok' => false, 'message' => 'Invalid sport.'], 422);
     }
     if (!in_array($status, ['Held', 'Booked'], true)) {
@@ -3619,7 +3622,7 @@ if ($action === 'admin-booking-update') {
     if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $date)) {
         json_response(['ok' => false, 'message' => 'Use a valid booking date.'], 422);
     }
-    if (!in_array($sport, ['Pickleball', 'Basketball', 'Volleyball'], true)) {
+    if (!in_array($sport, ['Pickleball', 'Basketball', 'Volleyball', 'Badminton'], true)) {
         json_response(['ok' => false, 'message' => 'Invalid sport.'], 422);
     }
 
@@ -3952,7 +3955,7 @@ if ($action === 'admin-rate-rule') {
     if (!valid_date_string($effectiveDate)) {
         json_response(['ok' => false, 'message' => 'Use a valid effective date.'], 422);
     }
-    if (!in_array($sport, ['Pickleball', 'Basketball', 'Volleyball'], true)) {
+    if (!in_array($sport, ['Pickleball', 'Basketball', 'Volleyball', 'Badminton'], true)) {
         json_response(['ok' => false, 'message' => 'Invalid sport.'], 422);
     }
     $hasDayRange = $dayRangeFrom !== '' || $dayRangeTo !== '';
@@ -4496,7 +4499,7 @@ if ($action === 'admin-court-block') {
     if (!in_array($reason, $allowedReasons, true)) {
         json_response(['ok' => false, 'message' => 'Invalid block reason.'], 422);
     }
-    if ($sport !== null && !in_array($sport, ['Pickleball', 'Basketball', 'Volleyball'], true)) {
+    if ($sport !== null && !in_array($sport, ['Pickleball', 'Basketball', 'Volleyball', 'Badminton'], true)) {
         json_response(['ok' => false, 'message' => 'Invalid sport.'], 422);
     }
     $allowedScopes = [
@@ -4506,6 +4509,15 @@ if ($action === 'admin-court-block') {
         '4|Pickleball' => 'Pickleball Pro Court 2',
         '5|Pickleball' => 'Pickleball Pro Court 3',
         '6|Pickleball' => 'Pickleball Pro Court 4',
+        '7|Badminton' => 'Wooden Court 5',
+        '8|Badminton' => 'Wooden Court 6',
+        '9|Badminton' => 'Wooden Court 7',
+        '10|Pickleball' => 'Wooden Court 8',
+        '11|Pickleball' => 'Wooden Court 9',
+        '12|Pickleball' => 'Wooden Court 10',
+        '10|Badminton' => 'Wooden Court 8',
+        '11|Badminton' => 'Wooden Court 9',
+        '12|Badminton' => 'Wooden Court 10',
         '7|Pickleball' => 'Wooden Court 5',
         '8|Pickleball' => 'Wooden Court 6',
         '9|Pickleball' => 'Wooden Court 7',

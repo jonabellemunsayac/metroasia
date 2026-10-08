@@ -18,6 +18,6 @@
     <i data-lucide="instagram" class="icon-sm"></i>
 </a>
 
-<a href="#" aria-label="Contact MetroAsia Arena" title="Contact">
+<a href="#" aria-label="Contact MetroAsia Sports Center" title="Contact">
     <i data-lucide="message-circle" class="icon-sm"></i>
 </a>

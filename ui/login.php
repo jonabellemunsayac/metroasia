@@ -75,12 +75,13 @@ include __DIR__ . '/../includes/header.php';
                     Forgot password?
                 </a>
             </div>
+            
+            <button class="btn btn-primary mt-5 w-full">Sign In</button>
+            <p class="mt-4 text-center text-xs font-semibold text-muted"></p>
             <div class="mt-4 text-center">
                 <p class="text-sm font-semibold">Don't have a MetroAsia account?</p>
                 <a href="<?php echo htmlspecialchars(app_url('ui/register.php?redirect=' . rawurlencode($memberRedirect))); ?>" class="btn btn-outline-primary w-full">BECOME A MEMBER</a>
             </div>
-            <button class="btn btn-primary mt-5 w-full">Sign In</button>
-            <p class="mt-4 text-center text-xs font-semibold text-muted"></p>
         </form>
     </section>
 </main>

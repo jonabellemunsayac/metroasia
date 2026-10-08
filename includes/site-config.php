@@ -6,7 +6,7 @@ require_once __DIR__ . '/../config/database.php';
 function site_config_defaults(): array
 {
     return [
-        'venue_name' => 'MetroAsia Arena',
+        'venue_name' => 'MetroAsia Sports Center',
         'address' => '65 Elizco Rd, Pasig, 1600 Metro Manila',
         'contact_phone' => '',
         'contact_email' => 'support@metroasia.test',

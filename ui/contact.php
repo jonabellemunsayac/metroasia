@@ -5,8 +5,8 @@ include __DIR__ . '/../includes/header.php';
 
 $siteConfig = site_config();
 $messengerUrl = trim((string) ($siteConfig['messenger_url'] ?? ''));
-$venueName = trim((string) ($siteConfig['venue_name'] ?? 'MetroAsia Arena'));
-$venueName = $venueName !== '' ? $venueName : 'MetroAsia Arena';
+$venueName = trim((string) ($siteConfig['venue_name'] ?? 'MetroAsia Sports Center'));
+$venueName = $venueName !== '' ? $venueName : 'MetroAsia Sports Center';
 $venueAddress = trim((string) ($siteConfig['address'] ?? ''));
 $mapQuery = $venueAddress !== '' ? $venueAddress : $venueName;
 $googleMapsUrl = 'https://www.google.com/maps/search/?api=1&query=' . rawurlencode($mapQuery);

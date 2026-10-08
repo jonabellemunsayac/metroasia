@@ -7,6 +7,8 @@ require_once dirname(__DIR__) . '/includes/site-config.php';
 require_once dirname(__DIR__) . '/includes/data-privacy.php';
 require_once dirname(__DIR__) . '/includes/terms-conditions.php';
 
+require_once dirname(__DIR__) . '/includes/badminton-migration.php';
+
 $messages = [];
 $error = null;
 
@@ -33,6 +35,7 @@ function run_setup(): array
 
 function migrate_database(PDO $pdo): void
 {
+    migrate_badminton($pdo);
     migrate_columns($pdo);
 }
 
@@ -87,7 +90,7 @@ function migrate_columns(PDO $pdo): void
     ensure_sport_time_slot_availability_table($pdo);
     ensure_rate_tables($pdo);
     if (!column_exists($pdo, 'court_bookings', 'sport')) {
-        $pdo->exec("ALTER TABLE court_bookings ADD sport ENUM('Pickleball','Basketball','Volleyball') NOT NULL DEFAULT 'Pickleball' AFTER court_id");
+        $pdo->exec("ALTER TABLE court_bookings ADD sport ENUM('Pickleball','Basketball','Volleyball','Badminton') NOT NULL DEFAULT 'Pickleball' AFTER court_id");
     }
     if (!column_exists($pdo, 'court_bookings', 'member_id')) {
         $pdo->exec('ALTER TABLE court_bookings ADD member_id INT UNSIGNED NULL AFTER id');
@@ -209,7 +212,7 @@ function migrate_columns(PDO $pdo): void
                 block_date DATE NOT NULL,
                 time_slot_id INT UNSIGNED NOT NULL,
                 court_id INT UNSIGNED NULL,
-                sport ENUM('Pickleball','Basketball','Volleyball') NULL,
+                sport ENUM('Pickleball','Basketball','Volleyball','Badminton') NULL,
                 reason VARCHAR(80) NOT NULL,
                 notes VARCHAR(255) NULL,
                 status ENUM('Active','Cancelled') NOT NULL DEFAULT 'Active',
@@ -470,7 +473,7 @@ function ensure_sport_time_slot_availability_table(PDO $pdo): void
     $pdo->exec(
         "CREATE TABLE IF NOT EXISTS sport_time_slot_availability (
             id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-            sport ENUM('Pickleball','Basketball','Volleyball') NOT NULL,
+            sport ENUM('Pickleball','Basketball','Volleyball','Badminton') NOT NULL,
             time_slot_id INT UNSIGNED NOT NULL,
             is_available TINYINT(1) NOT NULL DEFAULT 1,
             created_by INT UNSIGNED NULL,
@@ -494,8 +497,8 @@ function ensure_sport_time_slot_availability_table(PDO $pdo): void
         'INSERT IGNORE INTO sport_time_slot_availability (sport, time_slot_id, is_available)
          VALUES (?, ?, ?)'
     );
-    foreach (['Pickleball', 'Basketball', 'Volleyball'] as $sport) {
-        $startThreshold = $sport === 'Pickleball' ? '07:00:00' : '05:00:00';
+    foreach (['Pickleball', 'Basketball', 'Volleyball', 'Badminton'] as $sport) {
+        $startThreshold = in_array($sport, ['Pickleball', 'Badminton'], true) ? '07:00:00' : '05:00:00';
         foreach ($slotRows as $slot) {
             $insert->execute([
                 $sport,
@@ -530,7 +533,7 @@ function ensure_rate_tables(PDO $pdo): void
             "CREATE TABLE rates (
                 id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
                 court_id INT UNSIGNED NOT NULL,
-                sport ENUM('Pickleball','Basketball','Volleyball') NOT NULL,
+                sport ENUM('Pickleball','Basketball','Volleyball','Badminton') NOT NULL,
                 day_of_week ENUM('Any','Holiday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday') NOT NULL DEFAULT 'Any',
                 time_slot_id INT UNSIGNED NOT NULL,
                 rate_per_hour DECIMAL(10,2) NOT NULL,

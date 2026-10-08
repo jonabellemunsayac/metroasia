@@ -76,7 +76,7 @@
     els.grid.classList.remove('grid');
 
     if (noEnabledBookingDates) {
-      els.grid.innerHTML = '<div class="mobile-slot-empty">No booking dates are currently enabled. Please contact MetroAsia Arena.</div>';
+      els.grid.innerHTML = '<div class="mobile-slot-empty">No booking dates are currently enabled. Please contact MetroAsia Sports Center.</div>';
       renderBookingSelectionBar();
       return;
     }

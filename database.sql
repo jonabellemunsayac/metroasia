@@ -86,7 +86,7 @@ CREATE TABLE IF NOT EXISTS time_slots (
 
 CREATE TABLE IF NOT EXISTS sport_time_slot_availability (
     id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-    sport ENUM('Pickleball','Basketball','Volleyball') NOT NULL,
+    sport ENUM('Pickleball','Basketball','Volleyball','Badminton') NOT NULL,
     time_slot_id INT UNSIGNED NOT NULL,
     is_available TINYINT(1) NOT NULL DEFAULT 1,
     created_by INT UNSIGNED NULL,
@@ -103,7 +103,7 @@ CREATE TABLE IF NOT EXISTS sport_time_slot_availability (
 CREATE TABLE IF NOT EXISTS rates (
     id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     court_id INT UNSIGNED NOT NULL,
-    sport ENUM('Pickleball','Basketball','Volleyball') NOT NULL,
+    sport ENUM('Pickleball','Basketball','Volleyball','Badminton') NOT NULL,
     day_of_week ENUM('Any','Holiday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday') NOT NULL DEFAULT 'Any',
     time_slot_id INT UNSIGNED NOT NULL,
     rate_per_hour DECIMAL(10,2) NOT NULL,
@@ -213,7 +213,7 @@ CREATE TABLE IF NOT EXISTS court_blocks (
     block_date DATE NOT NULL,
     time_slot_id INT UNSIGNED NOT NULL,
     court_id INT UNSIGNED NULL,
-    sport ENUM('Pickleball','Basketball','Volleyball') NULL,
+    sport ENUM('Pickleball','Basketball','Volleyball','Badminton') NULL,
     reason VARCHAR(80) NOT NULL,
     notes VARCHAR(255) NULL,
     status ENUM('Active','Cancelled') NOT NULL DEFAULT 'Active',
@@ -249,7 +249,7 @@ CREATE TABLE IF NOT EXISTS court_bookings (
     booking_date DATE NOT NULL,
     time_slot_id INT UNSIGNED NOT NULL,
     court_id INT UNSIGNED NOT NULL,
-    sport ENUM('Pickleball','Basketball','Volleyball') NOT NULL DEFAULT 'Pickleball',
+    sport ENUM('Pickleball','Basketball','Volleyball','Badminton') NOT NULL DEFAULT 'Pickleball',
     status ENUM('Held','Booked','Cancelled') NOT NULL DEFAULT 'Held',
     customer_name VARCHAR(160) NOT NULL,
     player_nickname VARCHAR(80) NULL,

@@ -1,5 +1,5 @@
 <?php
-$homeSports = ['Pickleball', 'Basketball', 'Volleyball'];
+$homeSports = ['Pickleball', 'Basketball', 'Volleyball', 'Badminton'];
 $venuePhotos = [];
 foreach ($galleryItems as $item) {
     foreach ((array) ($item['images'] ?? [$item['image'] ?? '']) as $photo) {
@@ -35,6 +35,9 @@ $galleryCategories = ['courts' => 'Courts', 'parking' => 'Parking', 'lounge' => 
                                 <circle cx="51" cy="43" r="1.2"/>
                                 <circle cx="47" cy="47" r="1.2"/>
                             </g>
+                        <?php elseif ($sport === 'Badminton'): ?>
+                            <path d="M23 39 12 12 25 8 37 12 44 23 31 47Z M12 12 31 47 M25 8 31 47 M37 12 31 47 M44 23 23 39"/>
+                            <path d="M23 39a8 8 0 0 0 8 14 8 8 0 0 0 0-6Z"/>
                         <?php elseif ($sport === 'Basketball'): ?>
                             <circle cx="32" cy="32" r="23"/>
                             <g transform="rotate(-30 32 32)">
@@ -94,7 +97,7 @@ $galleryCategories = ['courts' => 'Courts', 'parking' => 'Parking', 'lounge' => 
                     <div class="metro-editorial-grid">
                         <?php foreach (array_slice($venuePhotos[$category], 0, 5) as $index => $photo): ?>
                             <button type="button" class="metro-editorial-photo" data-gallery-card data-gallery-images="<?php echo htmlspecialchars(json_encode($venuePhotos[$category], JSON_UNESCAPED_SLASHES), ENT_QUOTES); ?>" data-gallery-index="<?php echo $index; ?>" data-gallery-title="<?php echo htmlspecialchars($label); ?>" aria-label="View <?php echo htmlspecialchars($label); ?> photo <?php echo $index + 1; ?>">
-                                <img src="<?php echo htmlspecialchars($photo); ?>" alt="<?php echo htmlspecialchars($label); ?> at MetroAsia Arena" loading="lazy">
+                                <img src="<?php echo htmlspecialchars($photo); ?>" alt="<?php echo htmlspecialchars($label); ?> at MetroAsia Sports Center" loading="lazy">
                             </button>
                         <?php endforeach; ?>
                     </div>

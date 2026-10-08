@@ -9,7 +9,7 @@ function data_privacy_default_policy(): array
         'id' => 0,
         'title' => 'Data Privacy Policy',
         'version' => 'default',
-        'contentHtml' => '<p>MetroAsia Arena collects member information to manage accounts, bookings, payments, QR lookup, entrance-fee records, and platform support.</p><p>Personal data is used only for MetroAsia Arena services, operational verification, audit/history records, and legally required administration. Access is limited to authorized staff.</p><p>Members may request correction or deactivation of their account details through MetroAsia Arena administration.</p>',
+        'contentHtml' => '<p>MetroAsia Sports Center collects member information to manage accounts, bookings, payments, QR lookup, entrance-fee records, and platform support.</p><p>Personal data is used only for MetroAsia Sports Center services, operational verification, audit/history records, and legally required administration. Access is limited to authorized staff.</p><p>Members may request correction or deactivation of their account details through MetroAsia Sports Center administration.</p>',
         'status' => 'Active',
         'isActive' => true,
     ];

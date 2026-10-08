@@ -68,6 +68,7 @@ include __DIR__ . '/../includes/header.php';
                             <option value="Pickleball">Pickleball</option>
                             <option value="Basketball">Basketball</option>
                             <option value="Volleyball">Volleyball</option>
+                            <option value="Badminton">Badminton</option>
                         </select>
                     </label>
                     <label class="mb-0 small fw-bold d-flex align-items-center gap-1">

@@ -37,7 +37,7 @@ let adminCourtBlockSort = { column: 'date', direction: 'desc' };
 let adminCourtBlockPage = 1;
 let adminCourtBlockPageSize = 10;
 let adminQrStream = null;
-const supportedBookingSports = ['Pickleball', 'Basketball', 'Volleyball'];
+const supportedBookingSports = ['Pickleball', 'Basketball', 'Volleyball', 'Badminton'];
 let adminBookingSport = supportedBookingSports.includes(pageParams.get('sport')) ? pageParams.get('sport') : '';
 function normalizeBookingSport(value) {
     const requested = String(value || '').trim().toLowerCase();
@@ -772,7 +772,8 @@ function populateAdminRateOptions(rule) {
     setSelectOptions(els.adminRateSport, [
         ['Pickleball', 'Pickleball'],
         ['Basketball', 'Basketball'],
-        ['Volleyball', 'Volleyball']
+        ['Volleyball', 'Volleyball'],
+        ['Badminton', 'Badminton']
     ], rule.sport ?? '');
     syncAdminRateCourtOptions(rule.courtId ?? 'all');
     setSelectOptions(els.adminRateDayOfWeek, [
@@ -1244,7 +1245,7 @@ function isMiamiCourt(courtId) {
 }
 
 function isWoodenCourt(courtId) {
-    return [7, 8, 9].includes(Number(courtId));
+    return [7, 8, 9, 10, 11, 12].includes(Number(courtId));
 }
 
 function bookingResourcesConflict(existingCourtId, requestedCourtId) {
@@ -1252,8 +1253,13 @@ function bookingResourcesConflict(existingCourtId, requestedCourtId) {
     const requested = Number(requestedCourtId);
     if (existing === requested) return true;
 
-    return (isMiamiCourt(existing) && isWoodenCourt(requested))
-        || (isWoodenCourt(existing) && isMiamiCourt(requested));
+    // Database IDs 7-9 belong to Miami; IDs 10-12 belong to Lakers.
+    const related = {
+        1: [10, 11, 12], 2: [7, 8, 9],
+        7: [2], 8: [2], 9: [2],
+        10: [1], 11: [1], 12: [1]
+    };
+    return (related[existing] || []).includes(requested);
 }
 
 function courtDisplayName(courtInfo) {
@@ -1312,7 +1318,7 @@ function courtBlockApplies(blockCourtId, blockSport, courtId, sport) {
     if (blockCourt === null) return true;
 
     if (blockCourt === court) {
-        return !blockSport || blockSport === sport || [1, 2].includes(court);
+        return !blockSport || blockSport === sport || [1, 2, 7, 8, 9, 10, 11, 12].includes(court);
     }
 
     return bookingResourcesConflict(blockCourt, court);
@@ -1457,6 +1463,7 @@ function courtById(courtId) {
 function adminCourtOptionLabel(court) {
     const labels = [];
     if (court.sports.includes('Basketball') || court.sports.includes('Volleyball')) labels.push(court.name);
+    if (court.sports.includes('Badminton')) labels.push(court.labels?.Badminton || court.name);
     if (court.sports.includes('Pickleball')) labels.push(court.labels?.Pickleball || court.name);
     return [...new Set(labels)].join(' / ');
 }
@@ -2623,7 +2630,7 @@ function renderBookingGrid() {
     syncBookingDatePicker(date, today, maxDate, noEnabledBookingDates);
 
     if (noEnabledBookingDates) {
-        els.grid.innerHTML = '<div class="rounded-lg border border-dashed border-line bg-white p-5 text-sm fw-bold text-secondary">No booking dates are currently enabled. Please contact MetroAsia Arena.</div>';
+        els.grid.innerHTML = '<div class="rounded-lg border border-dashed border-line bg-white p-5 text-sm fw-bold text-secondary">No booking dates are currently enabled. Please contact MetroAsia Sports Center.</div>';
         renderBookingSelectionBar();
         return;
     }
@@ -3978,6 +3985,15 @@ function renderAdminCourtBlocks() {
             ['4|Pickleball', 'Pickleball Pro Court 2'],
             ['5|Pickleball', 'Pickleball Pro Court 3'],
             ['6|Pickleball', 'Pickleball Pro Court 4'],
+            ['7|Badminton', 'Wooden Court 5 (Badminton)'],
+            ['8|Badminton', 'Wooden Court 6 (Badminton)'],
+            ['9|Badminton', 'Wooden Court 7 (Badminton)'],
+            ['10|Pickleball', 'Wooden Court 8 (Pickleball)'],
+            ['11|Pickleball', 'Wooden Court 9 (Pickleball)'],
+            ['12|Pickleball', 'Wooden Court 10 (Pickleball)'],
+            ['10|Badminton', 'Wooden Court 8 (Badminton)'],
+            ['11|Badminton', 'Wooden Court 9 (Badminton)'],
+            ['12|Badminton', 'Wooden Court 10 (Badminton)'],
             ['7|Pickleball', 'Wooden Court 5'],
             ['8|Pickleball', 'Wooden Court 6'],
             ['9|Pickleball', 'Wooden Court 7']

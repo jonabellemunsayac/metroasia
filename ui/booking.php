@@ -14,6 +14,10 @@ include __DIR__ . '/../includes/header.php';
 $siteConfig = site_config();
 
 $sportOptions = [
+    'badminton' => [
+        'label' => 'Badminton',
+        'description' => 'Book Wooden Courts 5-10 for badminton practice and matches.',
+    ],
     'pickleball' => [
         'label' => 'Pickleball',
         'description' => 'Fast rallies, social play, and dedicated pickleball court schedules.',

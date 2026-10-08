@@ -344,7 +344,7 @@ include __DIR__ . '/../includes/header.php';
                                 <span>
                                     I have read and agree to the
                                     <button type="button" class="btn btn-link btn-sm p-0 align-baseline" data-open-privacy-policy>Data Privacy Policy</button>
-                                    and consent to the processing of my personal data for MetroAsia Arena platform services.
+                                    and consent to the processing of my personal data for MetroAsia Sports Center platform services.
                                 </span>
                             </label>
                             <label class="admin-active-check admin-player-field-full">

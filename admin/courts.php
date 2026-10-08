@@ -53,6 +53,9 @@ include __DIR__ . '/../includes/header.php';
                                 <legend class="small fw-bold mb-2">Supported Sports</legend>
                                 <div class="d-flex flex-wrap gap-2">
                                     <label class="form-check form-check-inline fw-semibold">
+                                        <input class="form-check-input" type="checkbox" name="sports[]" value="Badminton"> Badminton
+                                    </label>
+                                    <label class="form-check form-check-inline fw-semibold">
                                         <input class="form-check-input" type="checkbox" name="sports[]" value="Pickleball"> Pickleball
                                     </label>
                                     <label class="form-check form-check-inline fw-semibold">

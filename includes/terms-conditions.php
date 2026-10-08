@@ -21,7 +21,7 @@ function terms_conditions_default_content_html(): string
         . '<h3>Our Goal</h3>'
         . '<p>To build and serve a healthy, active, and welcoming community for everyone!</p>'
         . '<p>Thank you for your cooperation and understanding.</p>'
-        . '<p><strong>MAD MetroAsia Arena Team</strong></p>';
+        . '<p><strong>MAD MetroAsia Sports Center Team</strong></p>';
 }
 
 function terms_conditions_ensure_table(PDO $pdo): void
