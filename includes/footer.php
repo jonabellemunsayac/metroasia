@@ -17,7 +17,16 @@ if ($useAdminShell):
         </div>
     </footer>
 
-<?php else: ?>
+<?php else:
+    $footerConfig = site_config();
+    $footerSocialUrl = static function (string $key) use ($footerConfig): string {
+        $url = trim((string) ($footerConfig[$key] ?? ''));
+        return filter_var($url, FILTER_VALIDATE_URL)
+            && in_array(strtolower((string) parse_url($url, PHP_URL_SCHEME)), ['http', 'https'], true) ? $url : '';
+    };
+    $footerFacebookUrl = $footerSocialUrl('facebook_url');
+    $footerMessengerUrl = $footerSocialUrl('messenger_url');
+?>
 
     <footer class="metro-footer">
         <div class="metro-container">
@@ -68,9 +77,11 @@ if ($useAdminShell):
 
                     <div class="metro-social">
 
-                        <a href="https://www.facebook.com/profile.php?id=61591142892175" target="_blank" aria-label="Facebook" title="Facebook">
+                        <?php if ($footerFacebookUrl !== ''): ?>
+                        <a href="<?php echo htmlspecialchars($footerFacebookUrl); ?>" target="_blank" rel="noopener noreferrer" aria-label="Facebook" title="Facebook">
                             <span class="social-text-icon">f</span>
                         </a>
+                        <?php endif; ?>
 
                         <!-- <a href="#" aria-label="Instagram" title="Instagram">
                             <span class="instagram-icon" aria-hidden="true">
@@ -78,9 +89,11 @@ if ($useAdminShell):
                             </span>
                         </a> -->
 
-                        <a href="https://www.facebook.com/messages/t/61591142892175" target="_blank" aria-label="Contact MetroAsia Sports Center" title="Contact">
+                        <?php if ($footerMessengerUrl !== ''): ?>
+                        <a href="<?php echo htmlspecialchars($footerMessengerUrl); ?>" target="_blank" rel="noopener noreferrer" aria-label="Contact MetroAsia Sports Center" title="Contact">
                             <i data-lucide="message-circle" class="icon-sm"></i>
                         </a>
+                        <?php endif; ?>
 
                     </div>
                 </section>
@@ -157,7 +170,7 @@ if ($useAdminShell):
 <?php if (!$useAdminShell): ?>
     <!-- Mobile public navigation + Metro theme behavior. -->
     <script
-        src="<?php echo htmlspecialchars(app_url('assets/js/metro-theme.js')); ?>?v=<?php echo htmlspecialchars($assetVersion); ?>"
+        src="<?php echo htmlspecialchars(app_url('assets/js/metro-theme.js')); ?>?v=<?php echo htmlspecialchars(hash_file('sha256', __DIR__ . '/../assets/js/metro-theme.js') ?: $assetVersion); ?>"
     ></script>
 <?php endif; ?>
 

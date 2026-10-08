@@ -39,6 +39,7 @@ $fieldMeta = [
     'address' => ['Address', 'text'],
     'contact_phone' => ['Contact Phone', 'text'],
     'contact_email' => ['Contact Email', 'text'],
+    'facebook_url' => ['Facebook Page URL', 'url'],
     'messenger_url' => ['Facebook Messenger Link', 'url'],
     'map_embed_url' => ['Contact Map Embed Link', 'url'],
     'hero_image_path' => ['Home Hero Image Path', 'text'],
@@ -367,6 +368,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if (trim((string) ($_POST['contact_phone'] ?? '')) !== '' && !admin_is_valid_contact_phone((string) $_POST['contact_phone'])) {
                 throw new RuntimeException(admin_contact_phone_validation_message());
             }
+            foreach (['facebook_url', 'messenger_url'] as $socialKey) {
+                $socialUrl = trim((string) ($_POST[$socialKey] ?? ''));
+                if ($socialUrl !== '' && (!filter_var($socialUrl, FILTER_VALIDATE_URL)
+                    || !in_array(strtolower((string) parse_url($socialUrl, PHP_URL_SCHEME)), ['http', 'https'], true))) {
+                    throw new RuntimeException('Use a valid HTTP or HTTPS URL for ' . $fieldMeta[$socialKey][0] . '.');
+                }
+            }
             $bookingMaxDate = trim((string) ($_POST['booking_max_date'] ?? ''));
             if ($bookingMaxDate !== '' && !preg_match('/^\d{4}-\d{2}-\d{2}$/', $bookingMaxDate)) {
                 throw new RuntimeException('Use a valid Booking Max Date.');
@@ -422,7 +430,7 @@ include __DIR__ . '/../includes/header.php';
             <div>
                 <span class="section-kicker">Site Config</span>
                 <h2 class="mt-1 mb-1 fw-black">Public content and links</h2>
-                <p class="mb-0 small text-secondary fw-semibold">Update homepage gallery, address, contact map, and Messenger link from the database.</p>
+                <p class="mb-0 small text-secondary fw-semibold">Update homepage gallery, address, contact map, Facebook URL, and Messenger link from the database.</p>
             </div>
             <a href="<?php echo htmlspecialchars(app_url('ui/index.php')); ?>" class="btn btn-outline-primary btn-sm">View Site</a>
         </div>
@@ -439,7 +447,7 @@ include __DIR__ . '/../includes/header.php';
         <input type="hidden" name="action" value="site_config">
         <section class="app-card">
             <div class="row g-3">
-                <?php foreach (['venue_name', 'address', 'contact_phone', 'contact_email', 'messenger_url', 'map_embed_url', 'booking_max_date', 'hero_image_path', 'about_small_image_path', 'contact_image_path'] as $key): ?>
+                <?php foreach (['venue_name', 'address', 'contact_phone', 'contact_email', 'facebook_url', 'messenger_url', 'map_embed_url', 'booking_max_date', 'hero_image_path', 'about_small_image_path', 'contact_image_path'] as $key): ?>
                     <?php [$label, $type] = $fieldMeta[$key]; ?>
                     <label class="col-md-6 small fw-bold"><?php echo htmlspecialchars($label); ?>
                         <input

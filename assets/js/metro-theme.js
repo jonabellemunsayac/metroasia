@@ -283,7 +283,7 @@ const setActiveNavSection = activeHash => {
     link.classList.toggle('active', isActive);
 
     if (isActive) {
-      link.setAttribute('aria-current', 'page');
+      link.setAttribute('aria-current', 'location');
     } else {
       link.removeAttribute('aria-current');
     }
@@ -310,10 +310,6 @@ const syncActiveNavSection = () => {
     headerOffset +
     Math.round(window.innerHeight * 0.22);
 
-  const visibleSections = navSections
-    .filter(section => section.target.getClientRects().length > 0)
-    .sort((a, b) => a.target.getBoundingClientRect().top - b.target.getBoundingClientRect().top);
-  if (!visibleSections.length) return;
   let activeSection = visibleSections[0];
 
   visibleSections.forEach(section => {

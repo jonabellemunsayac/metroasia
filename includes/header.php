@@ -24,7 +24,7 @@ $publicNavItems = [
 $isMemberArea = $currentMember !== null && in_array($active, ['member', 'member-profile'], true);
 if ($isMemberArea) {
     $publicNavItems = [
-        ['key' => 'member-home', 'label' => 'Sports', 'href' => app_url('ui/index.php'), 'target' => '_blank'],
+        ['key' => 'home', 'label' => 'Sports', 'href' => app_url('ui/index.php#sports')],
         ['key' => 'member', 'label' => 'My Bookings', 'href' => app_url('ui/member.php')],
         ['key' => 'member-profile', 'label' => 'Member Profile', 'href' => app_url('ui/member-profile.php')],
         ['key' => 'member-logout', 'label' => 'Logout', 'href' => app_url('admin/logout.php?as=member')],
@@ -112,8 +112,8 @@ if ($active === 'member' && $pageTitle !== '') {
 
     <?php if (!$useAdminShell): ?>
         <link rel="stylesheet" href="<?php echo htmlspecialchars(app_url('assets/themes/metro/theme.css')); ?>?v=<?php echo htmlspecialchars($assetVersion); ?>">
-        <link rel="stylesheet" href="<?php echo htmlspecialchars(app_url('assets/themes/metro/header.css')); ?>?v=<?php echo htmlspecialchars($assetVersion); ?>">
-        <link rel="stylesheet" href="<?php echo htmlspecialchars(app_url('assets/themes/metro/home.css')); ?>?v=<?php echo htmlspecialchars($assetVersion); ?>">
+        <link rel="stylesheet" href="<?php echo htmlspecialchars(app_url('assets/themes/metro/header.css')); ?>?v=<?php echo htmlspecialchars(hash_file('sha256', __DIR__ . '/../assets/themes/metro/header.css') ?: $assetVersion); ?>">
+        <link rel="stylesheet" href="<?php echo htmlspecialchars(app_url('assets/themes/metro/home.css')); ?>?v=<?php echo htmlspecialchars(hash_file('sha256', __DIR__ . '/../assets/themes/metro/home.css') ?: $assetVersion); ?>">
         <link rel="stylesheet" href="<?php echo htmlspecialchars(app_url('assets/themes/metro/gallery-carousel.css')); ?>?v=<?php echo htmlspecialchars($assetVersion); ?>">
         <link rel="stylesheet" href="<?php echo htmlspecialchars(app_url('assets/themes/metro/contact-layout.css')); ?>?v=<?php echo htmlspecialchars($assetVersion); ?>">
 
@@ -121,7 +121,7 @@ if ($active === 'member' && $pageTitle !== '') {
         <link rel="stylesheet"
             href="<?php echo htmlspecialchars(app_url('assets/themes/metro/amenities-gallery.css')); ?>?v=<?php echo htmlspecialchars($assetVersion); ?>">
         <link rel="stylesheet"
-            href="<?php echo htmlspecialchars(app_url('assets/themes/metro/home-marquee.css')); ?>?v=<?php echo htmlspecialchars($assetVersion); ?>">
+            href="<?php echo htmlspecialchars(app_url('assets/themes/metro/home-marquee.css')); ?>?v=<?php echo htmlspecialchars(hash_file('sha256', __DIR__ . '/../assets/themes/metro/home-marquee.css') ?: $assetVersion); ?>">
         <link rel="stylesheet"
             href="<?php echo htmlspecialchars(app_url('assets/themes/metro/home-scroll-alignment.css')); ?>?v=<?php echo htmlspecialchars($assetVersion); ?>">
         <?php endif; ?>
@@ -155,7 +155,7 @@ if ($active === 'member' && $pageTitle !== '') {
     <?php if ($isPublicHome): ?>
         <link rel="stylesheet" href="<?php echo htmlspecialchars(app_url('assets/themes/metro/home-sections.css')); ?>?v=<?php echo htmlspecialchars(hash_file('sha256', __DIR__ . '/../assets/themes/metro/home-sections.css') ?: $assetVersion); ?>">
         <link rel="stylesheet" href="<?php echo htmlspecialchars(app_url('assets/themes/metro/home-design-system.css')); ?>?v=<?php echo htmlspecialchars($assetVersion); ?>">
-        <script defer src="<?php echo htmlspecialchars(app_url('assets/js/home-sections.js')); ?>?v=<?php echo htmlspecialchars($assetVersion); ?>"></script>
+        <script defer src="<?php echo htmlspecialchars(app_url('assets/js/home-sections.js')); ?>?v=<?php echo htmlspecialchars(hash_file('sha256', __DIR__ . '/../assets/js/home-sections.js') ?: $assetVersion); ?>"></script>
     <?php endif; ?>
 </head>
 
@@ -163,20 +163,26 @@ if ($active === 'member' && $pageTitle !== '') {
 
 <?php if (!$useAdminShell): ?>
 
-    <header class="metro-header<?php echo $isPublicHome ? ' overlay' : ''; ?>">
+    <header class="metro-header">
         <?php if ($isPublicHome): ?>
     <!-- TEXT STRIP -->
     <section class="metro-experience-strip" aria-hidden="true">
         <div class="metro-experience-track" aria-hidden="true">
             <div class="metro-experience-group">
-                <span>YOUR COURT. YOUR GAME. YOUR COMMUNITY.</span><i>&#10022;</i>
-                <span>YOUR COURT. YOUR GAME. YOUR COMMUNITY.</span><i>&#10022;</i>
-                <span>YOUR COURT. YOUR GAME. YOUR COMMUNITY.</span><i>&#10022;</i>
+                <span>EXPERIENCE METROASIA SPORTS CENTER AND BE MAD!</span><i>&#10022;</i>
+                <span>4 SPORTS 1 DESTINATION</span><i>&#10022;</i>
+                <span>OPEN DAILY</span><i>&#10022;</i>
+                <span>EXPERIENCE METROASIA SPORTS CENTER AND BE MAD!</span><i>&#10022;</i>
+                <span>4 SPORTS 1 DESTINATION</span><i>&#10022;</i>
+                <span>OPEN DAILY</span><i>&#10022;</i>
             </div>
             <div class="metro-experience-group">
-                <span>YOUR COURT. YOUR GAME. YOUR COMMUNITY.</span><i>&#10022;</i>
-                <span>YOUR COURT. YOUR GAME. YOUR COMMUNITY.</span><i>&#10022;</i>
-                <span>YOUR COURT. YOUR GAME. YOUR COMMUNITY.</span><i>&#10022;</i>
+                <span>EXPERIENCE METROASIA SPORTS CENTER AND BE MAD!</span><i>&#10022;</i>
+                <span>4 SPORTS 1 DESTINATION</span><i>&#10022;</i>
+                <span>OPEN DAILY</span><i>&#10022;</i>
+                <span>EXPERIENCE METROASIA SPORTS CENTER AND BE MAD!</span><i>&#10022;</i>
+                <span>4 SPORTS 1 DESTINATION</span><i>&#10022;</i>
+                <span>OPEN DAILY</span><i>&#10022;</i>
             </div>
         </div>
     </section>
@@ -185,8 +191,8 @@ if ($active === 'member' && $pageTitle !== '') {
         <div class="metro-container metro-header-inner">
             <a href="<?php echo htmlspecialchars(app_url('ui/index.php')); ?>" class="metro-brand<?php echo $isPublicHome ? ' metro-brand-logo-only' : ''; ?>" aria-label="Metro Asia Arena home">
                 <img
-                    src="<?php echo htmlspecialchars(app_url($isPublicHome ? 'assets/metroasia_logo_transparent.png' : 'assets/logo.jpg')); ?>"
-                    alt="Metro Asia Arena"
+                    src="<?php echo htmlspecialchars(app_url('assets/logo.png')); ?>"
+                    alt="MetroAsia Sports Center"
                     onerror="this.style.display='none'; this.nextElementSibling.style.display='grid';"
                 >
                 <span class="metro-brand-fallback" style="display:none;">MA</span>

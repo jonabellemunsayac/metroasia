@@ -108,31 +108,20 @@ for ($i = 1; $i <= 4; $i++) {
         class="metro-hero metro-home-hero"
         aria-label="<?php echo htmlspecialchars($venueName); ?> home"
     >
-        <video
-            class="metro-hero-video"
-            autoplay
-            muted
-            loop
-            playsinline
-            preload="auto"
-            poster="<?php echo htmlspecialchars(
-                app_url('assets/images/courts-aerial-poster.jpg')
-            ); ?>"
+        <img
+            class="metro-hero-image"
+            width="100%"
+            src="<?php echo htmlspecialchars(app_url('assets/hero_bg.jpg')); ?>"
+            alt=""
+            fetchpriority="high"
         >
-            <source
-                src="<?php echo htmlspecialchars(
-                    app_url('assets/videos/courts_aerial_view.mp4')
-                ); ?>"
-                type="video/mp4"
-            >
-        </video>
 
         <div class="metro-hero-video-overlay"></div>
 
         <div class="metro-container metro-hero-inner">
             <div class="metro-hero-copy">
                 <h1>MetroAsia Sports Center</h1>
-                <h1>One Arena. <br>Three Sports. <br>Endless Energy.</h1>
+                <h1>YOUR COURT. <br >YOUR GAME. <br >YOUR COMMUNITY.</h1>
 
                 <!-- <p>
                     MetroAsia Sports Center is open daily and ready for your next game.

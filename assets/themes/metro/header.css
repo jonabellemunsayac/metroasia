@@ -1,5 +1,6 @@
 .metro-header {
-    position: relative;
+    position: sticky;
+    top: 0;
     z-index: 99;
     background: #fff;
     color: var(--metro-primary);
@@ -297,3 +298,6 @@
         grid-template-columns: 1fr;
     }
 }
+
+/* Keep the document as the sticky header scroll container. */
+html:has(body.public-body), body.public-body { overflow-x: clip; }

@@ -3,11 +3,6 @@
     --metro-marquee-height: 36px;
 }
 
-.metro-home-page .metro-home-hero {
-    height: 100svh;
-    min-height: min(650px, 100svh);
-    max-height: none;
-}
 
 .metro-experience-strip {
     height: var(--metro-marquee-height);
@@ -46,11 +41,6 @@
         --metro-marquee-height: 30px;
     }
 
-    .metro-home-page .metro-home-hero {
-        height: 100svh;
-        min-height: min(650px, 100svh);
-        max-height: none;
-    }
 
     .metro-experience-strip {
         height: var(--metro-marquee-height);
@@ -71,11 +61,6 @@
         --metro-marquee-height: 34px;
     }
 
-    .metro-home-page .metro-home-hero {
-        height: 100svh;
-        min-height: min(650px, 100svh);
-        max-height: none;
-    }
 
     .metro-experience-strip {
         height: var(--metro-marquee-height);

@@ -10,6 +10,7 @@ function site_config_defaults(): array
         'address' => '65 Elizco Rd, Pasig, 1600 Metro Manila',
         'contact_phone' => '',
         'contact_email' => 'support@metroasia.test',
+        'facebook_url' => 'https://www.facebook.com/profile.php?id=61594912024370',
         'messenger_url' => 'https://www.facebook.com/messages/t/',
         'map_embed_url' => 'https://www.google.com/maps?q=65%20Elizco%20Rd%2C%20Pasig%2C%201600%20Metro%20Manila&output=embed',
         'hero_image_path' => 'assets/homepage-court.jpg',
