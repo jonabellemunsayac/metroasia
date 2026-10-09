@@ -1,0 +1,8 @@
+.open-play-session { display:flex; flex-direction:column; justify-content:center; gap:4px; padding:10px; background:#f1eafa; color:#48246b; border:1px solid #9b79bc; border-radius:8px; }
+.open-play-session:disabled { opacity:.65; cursor:not-allowed; }
+.open-play-picker { width:min(600px,calc(100% - 32px)); max-height:85dvh; overflow:auto; padding:24px; border:0; border-radius:16px; }
+.open-play-picker::backdrop { background:rgba(0,0,0,.55); }
+.open-play-seats { display:flex; flex-wrap:wrap; gap:12px; margin:20px 0; }
+.open-play-seats button { width:44px; height:44px; border-radius:50%; border:2px solid #48246b; background:white; color:#48246b; }
+.open-play-seats button[aria-pressed="true"] { background:#48246b; color:white; }
+.open-play-seats button:disabled { background:#ddd; color:#777; border-color:#bbb; }

@@ -16,7 +16,7 @@ foreach (['parking' => 5, 'lounge' => 7] as $category => $count) {
 }
 $galleryCategories = ['courts' => 'Courts', 'parking' => 'Parking', 'lounge' => 'Lounge', 'shower' => 'Shower Area', 'toilet' => 'Toilet'];
 ?>
-<section id="sports" class="metro-section metro-sports-section">
+<section id="sports" class="metro-section metro-sports-section" style="background: #f7f2e8;">
     <div class="metro-container">
         <div class="metro-heading"><h2>Choose your sports:</h2></div>
         <div class="metro-sports-grid">
@@ -51,7 +51,7 @@ $galleryCategories = ['courts' => 'Courts', 'parking' => 'Parking', 'lounge' => 
                             <path d="M32 32Q46 29 51.92 20.5M32 9Q33 21 45.95 26.54" transform="rotate(240 32 32)"/>
                         <?php endif; ?>
                     </svg>
-                    <div class="metro-sport-caption"><h3><?php echo htmlspecialchars($sport); ?></h3><span aria-hidden="true">&#8599;</span></div>
+                    <div class="metro-sport-caption"><h3><?php echo htmlspecialchars($sport); ?></h3></div>
                 </a>
             <?php endforeach; ?>
         </div>
@@ -68,13 +68,13 @@ $galleryCategories = ['courts' => 'Courts', 'parking' => 'Parking', 'lounge' => 
     </div>
 </section>
 
-<section id="about" class="metro-section metro-built-section">
+<section id="about" class="metro-section metro-built-section" style="background: #f7f2e8;">
     <div class="metro-container">
         <div class="metro-heading"><h2>Built for the Game</h2></div>
         <div class="metro-built-grid">
             <?php foreach ([
                 ['Premium Courts', 'Purpose-built spaces for competitive and casual play.'],
-                ['Multi-Sport Arena', 'Pickleball, basketball and volleyball under one roof.'],
+                ['Multi-Sport Arena', 'Pickleball, basketball, volleyball and badminton under one roof.'],
                 ['Easy Reservations', 'Choose your court and reserve your schedule online.'],
             ] as [$title, $description]): ?>
                 <article><h3><?php echo htmlspecialchars($title); ?></h3><p><?php echo htmlspecialchars($description); ?></p></article>

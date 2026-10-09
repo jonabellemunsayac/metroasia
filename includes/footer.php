@@ -163,10 +163,11 @@ if ($useAdminShell):
 
 <?php if (($active ?? '') === 'booking'): ?>
 <script
-    src="<?php echo htmlspecialchars(app_url('assets/js/mobile-booking.js')); ?>?v=<?php echo htmlspecialchars($assetVersion); ?>"
+    src="<?php echo htmlspecialchars(app_url('assets/js/mobile-booking.js')); ?>?v=<?php echo htmlspecialchars(hash_file('sha256', __DIR__ . '/../assets/js/mobile-booking.js') ?: $assetVersion); ?>"
 ></script>
 <?php endif; ?>
 
+<script src="<?php echo htmlspecialchars(app_url('assets/js/open-play.js')); ?>?v=<?php echo hash_file('sha256', __DIR__ . '/../assets/js/open-play.js'); ?>"></script>
 <?php if (!$useAdminShell): ?>
     <!-- Mobile public navigation + Metro theme behavior. -->
     <script

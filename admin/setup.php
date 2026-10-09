@@ -37,6 +37,8 @@ function migrate_database(PDO $pdo): void
 {
     migrate_badminton($pdo);
     migrate_columns($pdo);
+    require_once dirname(__DIR__) . '/includes/open-play-rates.php';
+    ensure_open_play_rates($pdo);
 }
 
 function migrate_columns(PDO $pdo): void

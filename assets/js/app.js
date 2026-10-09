@@ -800,7 +800,7 @@ function populateAdminRateOptions(rule) {
 }
 
 function syncAdminRateHolidayFields() {
-    const isHoliday = els.adminRateDayOfWeek?.value === 'Holiday';
+    const isHoliday = els.adminRateDayOfWeek?.value === 'Holiday' && !document.getElementById('adminRateOpenPlay')?.checked;
     const slots = sortedRateSlots();
     if (els.adminRateRangeWrap) els.adminRateRangeWrap.hidden = isHoliday;
     if (els.adminRateEffectiveWrap) els.adminRateEffectiveWrap.hidden = isHoliday;
@@ -890,6 +890,7 @@ function openAdminRateModal(ruleId = '') {
     const rule = { ...defaultRateRule(), ...(existing || {}) };
 
     populateAdminRateOptions(rule);
+    if (typeof configureOpenPlayRate === 'function') configureOpenPlayRate(rule);
     if (els.adminRateModalTitle) els.adminRateModalTitle.textContent = existing ? 'Edit Rate' : 'Add Rate';
     setAdminRateMode('range', Boolean(existing));
     if (els.adminRateId) els.adminRateId.value = rule.id || '';
@@ -1496,6 +1497,17 @@ function adminBookingCustomerDisplay(booking) {
 }
 
 function adminScheduleCell(date, time, column) {
+    const slot = state.slotDetails?.[time];
+    const openPlay = slot && (state.adminOpenPlayReservations || []).find(row =>
+        row.date === date && ['Held', 'Booked'].includes(row.status) &&
+        bookingResourcesConflict(row.court, column.court) &&
+        timeToMinutes(row.startsAt) < (timeToMinutes(slot.endsAt) || 1440) &&
+        (timeToMinutes(row.endsAt) || 1440) > timeToMinutes(slot.startsAt)
+    );
+    if (openPlay) {
+        return scheduleCell('OPEN PLAY', 'Booked', `${openPlay.occupied}/${openPlay.capacity} Players`,
+            `${openPlay.courtName}: OPEN PLAY ${openPlay.time}`, { reservationId: openPlay.id });
+    }
     const direct = directBookingAt(date, time, column.court);
     if (direct) {
         const customerName = adminBookingCustomerDisplay(direct);
@@ -1854,6 +1866,10 @@ function openSuperAdminRangeOverride() {
 }
 
 function openAdminCalendarBooking(button) {
+    if (button.dataset.reservationId?.startsWith('openplay:')) {
+        document.getElementById('adminOpenPlayRecords')?.scrollIntoView({behavior: 'smooth', block: 'start'});
+        return;
+    }
     if (!els.adminOverrideBookingForm || !state) return;
     const status = button.dataset.cellStatus || 'Available';
     if (status !== 'Available') {
@@ -2141,6 +2157,8 @@ function rateForSlot(time, courtId = null, sport = selectedSport, date = isoDate
 }
 
 function slotPrice(time, courtId = null, sport = selectedSport, date = isoDate(selectedDate)) {
+    const openSlot = [...activeBookingSlots, ...selectedBookingSlots].find(slot => slot.openPlay && slot.time === time && Number(slot.court) === Number(courtId) && slot.date === date);
+    if (openSlot) return openSlot.openPlay.price * openSlot.seats.length;
     return rateForSlot(time, courtId, sport, date).amount;
 }
 
@@ -2158,6 +2176,7 @@ function clearBookingSelection() {
 }
 
 function toggleBookingSelection(data) {
+    if (selectedBookingSlots.some(slot => slot.openPlay)) selectedBookingSlots = [];
     const slot = {
         date: data.bookDate,
         time: data.bookTime,
@@ -2274,7 +2293,7 @@ function bookingSlotSummaryRows(slots = activeBookingSlots) {
                 <td>${escapeHtml(niceDate(slot.date))}</td>
                 <td>${escapeHtml(compactTime(slot.time))}</td>
                 <td>${escapeHtml(slot.courtName || `Court ${slot.court}`)}</td>
-                <td>${escapeHtml(slot.sport)}</td>
+                <td>${escapeHtml(slot.sport)}${slot.openPlay ? `<br>OPEN PLAY - ${slot.seats.length} Players - ${peso.format(slot.openPlay.price)}/player` : ''}</td>
             </tr>
         `;
     }).join('');
@@ -2299,6 +2318,10 @@ function bookingDetailsTable(slots = activeBookingSlots, compact = false) {
 }
 
 function inlineReservationSummary(slots = activeBookingSlots) {
+    if (slots[0]?.openPlay) {
+        const slot = slots[0];
+        return '<div class="metro-reservation-summary"><strong>OPEN PLAY</strong><p>' + escapeHtml(slot.courtName + ' - ' + slot.sport + ' - ' + slot.date + ' - ' + slot.time) + '</p><p>Players: ' + slot.seats.join(', ') + '</p><p>' + peso.format(slot.openPlay.price) + ' per player for the entire session</p><strong>Total: ' + peso.format(slot.openPlay.price * slot.seats.length) + '</strong></div>';
+    }
     const sorted = [...slots].sort((a, b) => {
         if (a.date !== b.date) return a.date.localeCompare(b.date);
         if (Number(a.court) !== Number(b.court)) return Number(a.court) - Number(b.court);
@@ -3417,6 +3440,7 @@ function mergeConsecutiveRateRules(rules) {
         const last = merged[merged.length - 1];
         const canMerge = last
             && String(last.courtId) === String(rule.courtId)
+            && String(last.openPlayKey || '') === String(rule.openPlayKey || '')
             && String(last.sport || '') === String(rule.sport || '')
             && String(last.dayOfWeek || last.dayPattern || 'Any') === String(day)
             && Number(last.pricePerHour || 0).toFixed(2) === rateKey
@@ -3478,7 +3502,7 @@ function renderAdminRateSummary() {
             <td>${escapeHtml(rule.courtName || 'All courts')}</td>
             <td>${escapeHtml(rule.sport || 'All sports')}</td>
             <td>${escapeHtml(rule.dayOfWeek === 'Any' || !rule.dayOfWeek ? 'Any day' : rule.dayOfWeek)}</td>
-            <td>${formatRuleTime(rule.startsAt)}-${formatRuleTime(rule.endsAt)}</td>
+            <td>${formatRuleTime(rule.startsAt)}-${formatRuleTime(rule.endsAt)}${rule.openPlayKey ? `<br><strong>OPEN PLAY</strong> - Max ${rule.maxPlayers}<br>${peso.format(rule.ratePerPlayer)} / player` : ''}</td>
             <td>${escapeHtml(formatAdminHolidayDate(rateEffectiveDate(rule)))}</td>
             <td class="text-end">${peso.format(Number(rule.pricePerHour || 0))}</td>
             <td class="text-end">
@@ -4267,7 +4291,7 @@ async function submitPayment(event) {
         return;
     }
     if (els.modalSubmitButton) els.modalSubmitButton.disabled = true;
-    const endpoint = 'book';
+    const endpoint = activeBookingSlots[0]?.openPlay ? 'openplay-session-book' : 'book';
     const slots = activeBookingSlots.length > 0 ? [...activeBookingSlots] : [{
         date: document.getElementById('formDate').value,
         time: document.getElementById('formTime').value,
@@ -4287,6 +4311,7 @@ async function submitPayment(event) {
         formData.set('court', slot.court);
         formData.set('sport', slot.sport);
         formData.set('bookingReference', reservationReference);
+        if (slot.openPlay) { formData.set('rateKey', slot.openPlay.key); formData.set('seats', JSON.stringify(slot.seats)); }
 
         const response = await fetch(`${api}?action=${endpoint}`, { method: 'POST', body: formData });
         const payload = await response.json();
@@ -4301,6 +4326,7 @@ async function submitPayment(event) {
         saved += 1;
         if (payload.bookingReference && !references.includes(payload.bookingReference)) references.push(payload.bookingReference);
         state = payload.state;
+        if (slot.openPlay) openPlayDate = '';
     }
 
     if (!inlineForm && els.bookingReferencePanel && references.length > 0) {
@@ -5481,7 +5507,7 @@ async function saveRateRule(form, advanceBookingChoice = '') {
     const formData = new FormData(form);
     formData.set('reason', formData.get('reason') || 'Regular rate');
     formData.set('name', currentRateRuleName());
-    if (String(formData.get('dayOfWeek') || '') === 'Holiday') {
+    if (String(formData.get('dayOfWeek') || '') === 'Holiday' && !formData.get('openPlay')) {
         const slots = sortedRateSlots();
         formData.set('effectiveDate', todayIso);
         formData.set('rangeStart', slots[0]?.startsAt || '00:00');

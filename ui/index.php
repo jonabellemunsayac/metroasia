@@ -108,20 +108,25 @@ for ($i = 1; $i <= 4; $i++) {
         class="metro-hero metro-home-hero"
         aria-label="<?php echo htmlspecialchars($venueName); ?> home"
     >
-        <img
+        <!-- <img
             class="metro-hero-image"
+            hidden
             width="100%"
-            src="<?php echo htmlspecialchars(app_url('assets/hero_bg.jpg')); ?>"
+            src="<?php //echo htmlspecialchars(app_url('assets/hero_bg_3.jpg')); ?>"
             alt=""
             fetchpriority="high"
-        >
+        > -->
+
+        <video class="metro-hero-video" autoplay muted loop playsinline preload="metadata" aria-hidden="true">
+            <source src="<?php echo htmlspecialchars(app_url('assets/videos/courts_aerial_view.mp4')); ?>" type="video/mp4">
+        </video>
 
         <div class="metro-hero-video-overlay"></div>
 
         <div class="metro-container metro-hero-inner">
             <div class="metro-hero-copy">
-                <h1>MetroAsia Sports Center</h1>
-                <h1>YOUR COURT. <br >YOUR GAME. <br >YOUR COMMUNITY.</h1>
+                <!-- <h1>MetroAsia Sports Center</h1> -->
+                <!-- <h1>YOUR COURT. <br >YOUR GAME. <br >YOUR COMMUNITY.</h1> -->
 
                 <!-- <p>
                     MetroAsia Sports Center is open daily and ready for your next game.
@@ -229,7 +234,7 @@ for ($i = 1; $i <= 4; $i++) {
 
                     <section class="metro-contact-card-section">
                         <h3>Opening Hours</h3>
-                        <strong>8:00 AM - 12:00 MN</strong>
+                        <strong>7:00 AM - 12:00 MN</strong>
                         <p>Open 7 days a week</p>
                     </section>
 

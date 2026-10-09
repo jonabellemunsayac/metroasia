@@ -5,7 +5,7 @@ const vm = require('node:vm');
 
 const source = fs.readFileSync(path.join(__dirname, '../assets/js/app.js'), 'utf8');
 const names = [
-    'isActiveReservation', 'compactStatusLabel', 'isMiamiCourt', 'isWoodenCourt',
+    'isActiveReservation', 'compactStatusLabel', 'isMiamiCourt', 'isWoodenCourt', 'timeToMinutes',
     'bookingResourcesConflict', 'bookingsAt', 'directBookingAt', 'courtById',
     'courtBlockApplies', 'blockCell', 'scheduleCell', 'adminBookingCustomerDisplay',
     'adminScheduleCell', 'bookingFor', 'courtDisplayName', 'blockConflictFor', 'relatedConflictFor'
@@ -99,3 +99,24 @@ for (const court of [7, 8, 9, 10, 11, 12]) {
     }
 }
 console.log('Both sports share every wooden court and retain parent-court conflicts.');
+context.state.bookings = {};
+context.state.courtBlocks = [];
+context.state.slotDetails = {
+    [time]: { startsAt: '10:00', endsAt: '11:00' },
+    '12 PM - 1 PM': { startsAt: '12:00', endsAt: '13:00' }
+};
+context.state.adminOpenPlayReservations = [{
+    id: 'openplay:123', date, court: 7, startsAt: '09:00', endsAt: '12:00',
+    time: '9 AM - 12 PM', courtName: 'Wooden Court 5', status: 'Held', occupied: 6, capacity: 10
+}];
+for (const court of [7, 2]) {
+    const cell = context.adminScheduleCell(date, time, column(court));
+    assert.equal(cell.label, 'OPEN PLAY');
+    assert.equal(cell.sub, '6/10 Players');
+    assert.equal(cell.reservationId, 'openplay:123');
+}
+assert.equal(context.adminScheduleCell(date, time, column(1)).status, 'Available');
+assert.equal(context.adminScheduleCell(date, '12 PM - 1 PM', column(7)).status, 'Available');
+context.state.adminOpenPlayReservations[0].status = 'Cancelled';
+assert.equal(context.adminScheduleCell(date, time, column(7)).status, 'Available');
+console.log('Dashboard shows Open Play capacity and court conflicts only during active sessions.');

@@ -204,6 +204,16 @@ include __DIR__ . '/../includes/header.php';
                             <label id="adminRateEffectiveWrap" class="col-md-4 small fw-bold">Effective Date
                                 <input required type="date" name="effectiveDate" id="adminRateEffectiveFrom" class="form-input">
                             </label>
+                            <div class="col-12">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" name="openPlay" id="adminRateOpenPlay" value="1">
+                                    <label class="form-check-label" for="adminRateOpenPlay">Open Play</label>
+                                </div>
+                            </div>
+                            <div id="adminOpenPlayFields" class="row g-2" hidden>
+                                <label class="col-md-6 small fw-bold">Maximum Players<input type="number" name="maxPlayers" id="adminRateMaxPlayers" min="1" max="200" class="form-input"></label>
+                                <label class="col-md-6 small fw-bold">Rate Per Player<input type="number" name="ratePerPlayer" id="adminRatePerPlayer" min="0.01" step="0.01" class="form-input"></label>
+                            </div>
                             <p id="adminRateRangeHelp" class="col-12 small fw-semibold text-secondary mb-0">
                                 The rate will be applied to every existing hourly slot fully inside the selected time range and selected day range starting on the effective date. Previous rate versions stay intact.
                             </p>

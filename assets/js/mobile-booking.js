@@ -78,12 +78,14 @@
     if (noEnabledBookingDates) {
       els.grid.innerHTML = '<div class="mobile-slot-empty">No booking dates are currently enabled. Please contact MetroAsia Sports Center.</div>';
       renderBookingSelectionBar();
+    if (typeof applyOpenPlayGrid === 'function') applyOpenPlayGrid();
       return;
     }
 
     if (!courts.length || !times.length) {
       els.grid.innerHTML = '<div class="mobile-slot-empty">No court schedule is configured for this sport.</div>';
       renderBookingSelectionBar();
+    if (typeof applyOpenPlayGrid === 'function') applyOpenPlayGrid();
       return;
     }
 
@@ -245,6 +247,7 @@
     });
 
     renderBookingSelectionBar();
+    if (typeof applyOpenPlayGrid === 'function') applyOpenPlayGrid();
   }
 
   renderBookingGrid = function () {

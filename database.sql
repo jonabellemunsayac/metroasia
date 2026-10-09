@@ -101,6 +101,11 @@ CREATE TABLE IF NOT EXISTS sport_time_slot_availability (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS rates (
+    open_play_key VARCHAR(64) NULL,
+    max_players INT UNSIGNED NULL,
+    rate_per_player DECIMAL(10,2) NULL,
+    session_start TIME NULL,
+    session_end TIME NULL,
     id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     court_id INT UNSIGNED NOT NULL,
     sport ENUM('Pickleball','Basketball','Volleyball','Badminton') NOT NULL,
@@ -309,6 +314,12 @@ CREATE TABLE IF NOT EXISTS member_entrance_fee_payments (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS open_play_sessions (
+    rate_key VARCHAR(64) NULL,
+    court_id INT UNSIGNED NULL,
+    sport VARCHAR(30) NULL,
+    starts_at TIME NULL,
+    ends_at TIME NULL,
+    UNIQUE KEY uniq_open_play_rate_date (rate_key, session_date),
     id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     title VARCHAR(160) NOT NULL,
     session_date DATE NOT NULL,
@@ -322,6 +333,9 @@ CREATE TABLE IF NOT EXISTS open_play_sessions (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS open_play_reservations (
+    seat_number INT UNSIGNED NULL,
+    active_seat INT GENERATED ALWAYS AS (CASE WHEN status IN ('Held','Booked') THEN seat_number ELSE NULL END) STORED,
+    UNIQUE KEY uniq_open_play_active_seat (session_id, active_seat),
     id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     member_id INT UNSIGNED NULL,
     session_id INT UNSIGNED NOT NULL,

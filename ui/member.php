@@ -296,6 +296,33 @@ $reservationStmt = $pdo->prepare(
 $reservationStmt->execute([(int) $member['id']]);
 $reservations = member_group_reservations($reservationStmt->fetchAll());
 
+require_once __DIR__ . '/../includes/open-play-rates.php';
+ensure_open_play_rates($pdo);
+$openPlayStmt = $pdo->prepare(
+    "SELECT opr.id, CONCAT('OP-', ops.id, '-', opr.id) AS booking_reference,
+            ops.session_date AS date, ops.session_time, ops.starts_at, ops.ends_at,
+            ops.court_id AS court, COALESCE(c.name, ops.title) AS court_name,
+            COALESCE(ops.sport, 'Open Play') AS sport, opr.status, opr.payment_method,
+            opr.receipt_path, opr.final_amount, opr.created_at, opr.seat_number
+     FROM open_play_reservations opr
+     JOIN open_play_sessions ops ON ops.id = opr.session_id
+     LEFT JOIN courts c ON c.id = ops.court_id
+     WHERE opr.member_id = ?
+     ORDER BY ops.session_date DESC, ops.starts_at DESC, opr.id DESC"
+);
+$openPlayStmt->execute([(int) $member['id']]);
+foreach ($openPlayStmt->fetchAll() as $row) {
+    $group = member_group_reservations([$row])[0];
+    $group['openPlay'] = true;
+    $group['seat'] = $row['seat_number'];
+    foreach ($group['detailRows'] as &$detail) {
+        $detail['timeRanges'] = (string) $row['session_time'];
+    }
+    unset($detail);
+    $reservations[] = $group;
+}
+usort($reservations, static fn (array $a, array $b): int => $b['startTimestamp'] <=> $a['startTimestamp']);
+
 $now = time();
 $upcomingReservations = array_values(array_filter(
     $reservations,
@@ -426,6 +453,9 @@ include __DIR__ . '/../includes/header.php';
                             <div>
                                 <span class="member-reference"><?php echo htmlspecialchars($group['reference']); ?></span>
                                 <h3><?php echo htmlspecialchars($group['sport']); ?></h3>
+                                <?php if (!empty($group['openPlay'])): ?>
+                                    <p><strong>OPEN PLAY</strong><?php if ($group['seat'] !== null): ?> &middot; Player position <?php echo (int) $group['seat']; ?><?php endif; ?> &middot; <?php echo member_format_money((float) $group['amount']); ?> / player</p>
+                                <?php endif; ?>
                                 <p><?php echo htmlspecialchars(member_format_day_date($group['date'])); ?></p>
                             </div>
                             <span class="status-badge <?php echo member_status_badge_class((string) $group['status']); ?>">

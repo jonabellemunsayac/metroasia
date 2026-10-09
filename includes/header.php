@@ -157,6 +157,7 @@ if ($active === 'member' && $pageTitle !== '') {
         <link rel="stylesheet" href="<?php echo htmlspecialchars(app_url('assets/themes/metro/home-design-system.css')); ?>?v=<?php echo htmlspecialchars($assetVersion); ?>">
         <script defer src="<?php echo htmlspecialchars(app_url('assets/js/home-sections.js')); ?>?v=<?php echo htmlspecialchars(hash_file('sha256', __DIR__ . '/../assets/js/home-sections.js') ?: $assetVersion); ?>"></script>
     <?php endif; ?>
+    <link rel="stylesheet" href="<?php echo htmlspecialchars(app_url('assets/themes/metro/open-play.css')); ?>?v=<?php echo hash_file('sha256', __DIR__ . '/../assets/themes/metro/open-play.css'); ?>">
 </head>
 
 <body class="<?php echo $useAdminShell ? 'admin-body' : 'public-body'; ?>">
@@ -203,7 +204,7 @@ if ($active === 'member' && $pageTitle !== '') {
         <div class="metro-container metro-header-inner">
             <a href="<?php echo htmlspecialchars(app_url('ui/index.php')); ?>" class="metro-brand<?php echo $isPublicHome ? ' metro-brand-logo-only' : ''; ?>" aria-label="Metro Asia Arena home">
                 <img
-                    src="<?php echo htmlspecialchars(app_url('assets/logo.png')); ?>"
+                    src="<?php echo htmlspecialchars(app_url('assets/logo.jpg')); ?>"
                     alt="MetroAsia Sports Center"
                     onerror="this.style.display='none'; this.nextElementSibling.style.display='grid';"
                 >

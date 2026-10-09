@@ -4,6 +4,7 @@ declare(strict_types=1);
 require_once __DIR__ . '/includes/auth.php';
 require_once __DIR__ . '/includes/site-config.php';
 require_once __DIR__ . '/includes/data-privacy.php';
+require_once __DIR__ . '/includes/open-play-rates.php';
 
 header('Access-Control-Allow-Origin: *');
 
@@ -823,7 +824,7 @@ function rate_rules(PDO $pdo, bool $includeInactive = false): array
     $stmt = $pdo->query(
         "SELECT r.id, r.court_id, c.name AS court_name, r.sport, r.day_of_week, r.time_slot_id,
                 ts.label AS time_label, ts.starts_at, ts.ends_at,
-                r.rate_per_hour, r.effective_date, r.updated_at
+                r.rate_per_hour, r.effective_date, r.updated_at, r.open_play_key, r.max_players, r.rate_per_player
          FROM rates r
          JOIN courts c ON c.id = r.court_id
          JOIN time_slots ts ON ts.id = r.time_slot_id
@@ -845,6 +846,9 @@ function rate_rules(PDO $pdo, bool $includeInactive = false): array
         'endsAt' => substr((string) $row['ends_at'], 0, 5),
         'durationMinutes' => null,
         'durationLabel' => 'Time slot',
+        'openPlayKey' => $row['open_play_key'],
+        'maxPlayers' => (int) $row['max_players'],
+        'ratePerPlayer' => (float) $row['rate_per_player'],
         'pricePerHour' => (float) $row['rate_per_hour'],
         'memberPricePerHour' => null,
         'effectiveFrom' => $row['effective_date'] ?? '1970-01-01',
@@ -1307,8 +1311,10 @@ function active_block_conflict(PDO $pdo, string $date, int $slotId, int $courtId
     return null;
 }
 
-function active_court_conflict(PDO $pdo, string $date, int $slotId, int $courtId, string $sport, ?int $excludeBookingId = null, bool $forUpdate = false): ?array
+function active_court_conflict(PDO $pdo, string $date, int $slotId, int $courtId, string $sport, ?int $excludeBookingId = null, bool $forUpdate = false, bool $ignoreOpenPlay = false): ?array
 {
+    if ($forUpdate) open_play_lock_courts($pdo, $courtId);
+    if (!$ignoreOpenPlay && !($excludeBookingId !== null && !$forUpdate) && ($opConflict = open_play_resource_conflict($pdo, $date, $slotId, $courtId))) return $opConflict;
     $excludeSql = $excludeBookingId !== null ? 'AND cb.id <> ?' : '';
     $lockSql = $forUpdate ? ' FOR UPDATE' : '';
 
@@ -1377,6 +1383,11 @@ function active_court_conflict(PDO $pdo, string $date, int $slotId, int $courtId
 
 function active_bookings_for_block(PDO $pdo, string $date, int $slotId, ?int $courtId, ?string $sport): array
 {
+    foreach (open_play_offers($pdo,$date) as $offer) {
+        if ($offer['occupied'] && in_array($slotId,$offer['slotIds'],true) && ($courtId === null || court_booking_resources_conflict($courtId,$offer['court']))) {
+            json_response(['ok'=>false,'message'=>'Open Play players already occupy this time. Cancel those player reservations before blocking this court.'],409);
+        }
+    }
     $stmt = $pdo->prepare(
         "SELECT cb.id, cb.court_id, cb.sport, cb.status, cb.customer_name, ts.label AS time_label
          FROM court_bookings cb
@@ -1722,6 +1733,7 @@ function get_state(PDO $pdo, bool $includeAdmin = false): array
         $state['adminRoleOptions'] = $admin && admin_can_manage_staff($admin) ? admin_role_options() : [];
         $state['adminMenuCatalog'] = $admin && admin_can_manage_staff($admin) ? array_values(admin_menu_catalog()) : [];
         $state['adminRoleMenuPermissions'] = $admin && admin_can_manage_staff($admin) ? $rolePermissions : [];
+        $state['adminOpenPlayReservations'] = open_play_admin_rows($pdo);
         $state['adminReservations'] = [];
         $state['adminGroupedReservations'] = [];
         $state['adminBookingPagination'] = [
@@ -1733,6 +1745,10 @@ function get_state(PDO $pdo, bool $includeAdmin = false): array
             'to' => 0,
         ];
         $state['adminBookingStatusCounts'] = ['Held' => 0, 'Booked' => 0, 'Cancelled' => 0, 'All' => 0];
+        $state['adminDashboardCourtCounts'] = [];
+        foreach ($pdo->query("SELECT status, COUNT(DISTINCT COALESCE(NULLIF(booking_reference, ''), CONCAT('court:', id))) AS total FROM court_bookings GROUP BY status")->fetchAll() as $countRow) {
+            $state['adminDashboardCourtCounts'][$countRow['status']] = (int) $countRow['total'];
+        }
         $state['adminPaymentChannels'] = payment_channels($pdo, true);
         $state['adminRateRules'] = rate_rules($pdo, true);
         $state['adminRateAudit'] = rate_audit_logs($pdo);
@@ -3026,6 +3042,13 @@ function admin_booking_logs(PDO $pdo, int $bookingId, string $bookingReference =
 
 $action = $_GET['action'] ?? $_POST['action'] ?? 'state';
 $pdo = db_or_error();
+ensure_open_play_rates($pdo);
+if ($action === 'openplay-session-book') open_play_book_session($pdo, $receiptUploadDir);
+if ($action === 'openplay-offers') {
+    $date = (string) ($_GET['date'] ?? date('Y-m-d'));
+    if (!valid_date_string($date)) json_response(['ok'=>false],422);
+    json_response(['ok'=>true, 'offers'=>open_play_offers($pdo,$date)]);
+}
 
 if ($action === 'state') {
     json_response(['ok' => true, 'state' => get_state($pdo, current_admin() !== null)]);
@@ -3201,9 +3224,10 @@ if ($action === 'openplay') {
     }
     $phone = validate_phone_field($phone, true);
 
-    $stmt = $pdo->prepare('SELECT capacity, price, title, session_date, session_time FROM open_play_sessions WHERE id = ? AND is_active = 1');
+    $stmt = $pdo->prepare('SELECT capacity, price, title, session_date, session_time, rate_key FROM open_play_sessions WHERE id = ? AND is_active = 1');
     $stmt->execute([$sessionId]);
     $session = $stmt->fetch();
+    if (!empty($session['rate_key'])) json_response(['ok'=>false,'message'=>'Use the session player selector to book this Open Play.'],422);
     $capacity = (int) ($session['capacity'] ?? 0);
     if ($capacity === 0) {
         json_response(['ok' => false, 'message' => 'Open play session not found.'], 404);
@@ -3449,6 +3473,7 @@ if ($action === 'admin-override-booking') {
     }
     $isSuperAdminRangeOverride = $timeSlotIdsRaw !== '' && (string) ($admin['role'] ?? '') === 'super_admin';
     foreach ($slots as $slot) {
+        if (open_play_resource_conflict($pdo, $date, (int) $slot['id'], $courtId)) json_response(['ok'=>false,'message'=>'This time belongs to Open Play. Manage the session before overriding this court.'],409);
         if (!sport_time_slot_is_available($pdo, $sport, (int) $slot['id'])) {
             json_response(['ok' => false, 'message' => "{$sport} is not available for {$slot['label']}."], 422);
         }
@@ -3938,12 +3963,16 @@ if ($action === 'admin-rate-rule') {
     $daySelection = (string) ($_POST['dayOfWeek'] ?? 'Any');
     $dayRangeFrom = trim((string) ($_POST['dayRangeFrom'] ?? ''));
     $dayRangeTo = trim((string) ($_POST['dayRangeTo'] ?? ''));
-    $pricePerHour = (float) require_field('pricePerHour');
+    $openPlay = !empty($_POST['openPlay']);
+    $maxPlayers = (int) ($_POST['maxPlayers'] ?? 0);
+    $ratePerPlayer = (float) ($_POST['ratePerPlayer'] ?? 0);
+    if ($openPlay && ($maxPlayers < 1 || $maxPlayers > 200 || $ratePerPlayer <= 0)) json_response(['ok'=>false,'message'=>'Open Play requires 1-200 players and a positive rate per player.'],422);
+    $pricePerHour = $openPlay ? $ratePerPlayer : (float) require_field('pricePerHour');
     $reason = trim((string) ($_POST['reason'] ?? 'Regular rate'));
     $effectiveDate = trim((string) ($_POST['effectiveDate'] ?? date('Y-m-d')));
     $advanceBookingChoice = trim((string) ($_POST['advanceBookingChoice'] ?? ''));
     $isHolidayRate = $daySelection === 'Holiday';
-    if ($isHolidayRate) {
+    if ($isHolidayRate && !$openPlay) {
         $effectiveDate = date('Y-m-d');
         $dayRangeFrom = '';
         $dayRangeTo = '';
@@ -4024,7 +4053,7 @@ if ($action === 'admin-rate-rule') {
     };
 
     $slotRows = $pdo->query('SELECT id, starts_at, ends_at FROM time_slots ORDER BY sort_order, id')->fetchAll();
-    if ($isHolidayRate) {
+    if ($isHolidayRate && !$openPlay) {
         $slotIds = array_map('intval', array_column($slotRows, 'id'));
     } else {
         $rangeStart = $normalizeTime((string) ($_POST['rangeStart'] ?? ''));
@@ -4098,11 +4127,16 @@ if ($action === 'admin-rate-rule') {
     try {
         foreach ($courtIds as $courtId) {
             foreach ($daySelections as $dayOfWeek) {
+                $openPlayKey = $openPlay ? bin2hex(random_bytes(16)) : null;
                 foreach ($slotIds as $slotId) {
                     $selectPrevious->execute([$courtId, $sport, $dayOfWeek, $slotId, $effectiveDate]);
                     $previous = $selectPrevious->fetch() ?: null;
                     $insert->execute([$courtId, $sport, $dayOfWeek, $slotId, $pricePerHour, $effectiveDate]);
                     $currentId = (int) $pdo->lastInsertId();
+                    if ($openPlay) {
+                        $opUpdate = $pdo->prepare('UPDATE rates SET open_play_key=?,max_players=?,rate_per_player=?,session_start=?,session_end=? WHERE id=?');
+                        $opUpdate->execute([$openPlayKey,$maxPlayers,$ratePerPlayer,$rangeStart,$rangeEnd,$currentId]);
+                    }
                     $selectCurrent->execute([$currentId]);
                     $current = $selectCurrent->fetch();
                     $created++;
