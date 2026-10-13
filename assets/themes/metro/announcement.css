@@ -1,0 +1,49 @@
+#announcementPopup {
+    border: 0;
+    padding: 0;
+    margin: auto;
+    background: transparent;
+    overflow: visible;
+    max-width: calc(100vw - 32px);
+    max-height: calc(100dvh - 48px);
+    box-shadow: 0 12px 50px #0006;
+}
+#announcementPopup::backdrop { background: rgb(0 0 0 / 70%); }
+#announcementPopup img {
+    display: block;
+    width: auto;
+    height: auto;
+    max-width: min(680px, calc(100vw - 32px));
+    max-height: calc(100dvh - 48px);
+    object-fit: contain;
+}
+#announcementPopup .announcement-close {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    width: 30px;
+    height: 30px;
+    padding: 0;
+    display: grid;
+    place-items: center;
+    border: 1px solid #ffffff80;
+    border-radius: 50%;
+    background: #000b;
+    color: #fff;
+    font: 20px/1 Arial, sans-serif;
+    cursor: pointer;
+}
+#announcementPopup .announcement-close:focus-visible { outline: 3px solid #e1ad20; outline-offset: 2px; }
+html.announcement-visible,
+html.announcement-visible body {
+    overflow: hidden !important;
+    overscroll-behavior: none;
+}
+/* Fixed body also prevents background touch scrolling on mobile browsers. */
+html.announcement-visible body {
+    position: fixed !important;
+    top: var(--announcement-scroll-top, 0px);
+    left: 0;
+    right: 0;
+    width: 100%;
+}

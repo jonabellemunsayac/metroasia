@@ -80,7 +80,9 @@ include __DIR__ . '/../includes/header.php';
                 <h2 class="mt-1 mb-1 fw-black">Daily court matrix</h2>
                 <p class="mb-0 small text-secondary fw-semibold">Available cells can be booked by Admin or Super Admin. Occupied cells open details.</p>
             </div>
-            <div class="d-flex flex-wrap align-items-end gap-2">
+            <div class="matrix-filters">
+                <span class="matrix-filter-label">Filter Options</span>
+                <div class="d-flex flex-wrap align-items-end gap-2">
                 <label class="small fw-bold text-secondary">Sport
                     <select id="adminScheduleSportFilter" class="form-select form-select-sm">
                         <option value="Pickleball" selected>Pickleball</option>
@@ -107,7 +109,9 @@ include __DIR__ . '/../includes/header.php';
                     </button>
                 </div>
             </div>
+            </div>
         </div>
+        <div id="adminMatrixActions" class="matrix-actions border-bottom">
         <?php if (($admin['role'] ?? '') === 'super_admin'): ?>
         <div id="superAdminRangeOverride" class="super-admin-range-override border-bottom px-3 py-3">
             <div class="d-flex flex-wrap align-items-end gap-2">
@@ -132,7 +136,13 @@ include __DIR__ . '/../includes/header.php';
             <p id="superAdminRangeOverrideHelp" class="mb-0 mt-2 small fw-semibold text-secondary"></p>
         </div>
         <?php endif; ?>
-        <div class="table-responsive bg-light p-3">
+        <div id="adminOpenPlayToolbar" class="border-bottom p-3" hidden>
+            <button id="adminOpenPlaySet" class="btn btn-primary btn-sm" type="button" disabled>Set as Open Play</button>
+            <button id="adminOpenPlayClear" class="btn btn-outline-secondary btn-sm" type="button" hidden>Cancel selection</button>
+            <p id="adminOpenPlaySelectionHelp" class="small mt-2 mb-0" role="status">Drag consecutive available slots to set Open Play. Click for regular booking.</p>
+        </div>
+        </div>
+        <div id="adminScheduleScroll" class="table-responsive bg-light p-3" tabindex="0" role="region" aria-label="Scrollable court calendar">
             <div id="adminScheduleGrid" class="admin-schedule-grid grid rounded border bg-white"></div>
         </div>
         <div class="d-flex flex-wrap align-items-center gap-3 border-top px-3 py-2 small fw-bold text-secondary">

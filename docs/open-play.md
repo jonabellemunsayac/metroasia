@@ -1,30 +1,72 @@
-# Open Play through Rates Management
+# Open Play from the admin calendar
 
-In **Admin → Rates**, keep the usual sport, court, day, start/end and effective-date fields. Enable **Open Play**, then set **Maximum Players** and **Rate Per Player**. The hourly price remains available for the existing rate workflow; Open Play checkout charges the per-player price once for the entire session.
+In Admin Dashboard, choose the sport, court and date. Click-drag across consecutive available cells in that court's column. The selected cells and time range update while dragging. Dragging stops at booked, held, blocked, unavailable or missing hours and cannot cross courts, sports or dates. Click **Set as Open Play**, enter **Rate Per Player** and **Maximum Players**, then save.
 
-The booking grid merges the session's hourly cells into one block. Selecting that block opens numbered player positions. Each selected position creates its own reservation using the existing payment, receipt, confirmation and cancellation flow. All positions selected in one submission succeed or fail together. A held or booked player occupies a position; cancellation releases it.
+The calendar saves one dated session, displays its full time range and capacity as one block, and prevents its hours from being booked separately. Click the block for session details. Plain clicks still open normal calendar bookings. Shift-click selects a single slot or extends the highlighted range; Cancel selection or Escape clears it. Changing the calendar filters clears the selection.
 
-Admin Bookings includes an **OPEN PLAY bookings** table with individual players, session time, court/sport, session capacity, per-player charge, payment proof and confirmation/cancellation actions. Existing regular booking lists remain intact.
+Players see one session block and choose available numbered circles. Pricing is per selected player for the entire session. Held and Booked reservations occupy capacity; cancelling a player releases their position. Full sessions are disabled. Admin Bookings and My Bookings retain individual player records and the existing payment/receipt/status flow.
+
+## Rates Management and existing data
+
+Open Play fields and tags have been removed from Rates Management. Regular hourly rates, effective dates and holiday rules continue to work separately.
+
+Existing saved Open Play sessions and reservations remain in place with their original date, capacity and price. Old Open Play rate definitions no longer generate recurring sessions and are excluded from regular pricing. Definitions with no saved session must be recreated for the desired date using the calendar. Historical rate metadata remains for compatibility; saving a regular rate for the exact same court/sport/day/hour/effective date replaces that obsolete metadata without removing its sessions or audit payloads.
+
+No new database tables are needed. The existing open_play_sessions fields hold sport, court, date, start/end, capacity and per-player price. The legacy rate_key column is retained as an opaque unique session key, not a rate relationship. Existing numbered reservations and the unique active-seat constraint are reused. Time slots within the saved start/end range belong to the session.
 
 ## Deployment
 
-Deploy these files together:
+Deploy these changed files together:
 
-- `api.php`
-- `admin/rates.php`, `admin/setup.php`
-- `includes/open-play-rates.php`, `includes/header.php`, `includes/footer.php`
-- `assets/js/app.js`, `assets/js/mobile-booking.js`, `assets/js/open-play.js`
-- `assets/themes/metro/open-play.css`
-- `database.sql` for fresh installations
+- admin/dashboard.php and admin/rates.php
+- api.php and includes/open-play-rates.php
+- assets/js/app.js and assets/js/open-play.js
+- assets/themes/metro/open-play.css
 
-The API applies the additive schema update automatically on first load, using the existing database account. Setup also applies it. Do not reimport the database to update an existing installation.
+Keep the existing Open Play asset includes, mobile grid integration and My Bookings support from the earlier implementation. Asset URLs already use content hashes. Existing schema initialization remains compatible; do not reimport the database.
 
-Existing `rates` rows gain nullable session metadata. Existing `open_play_sessions` gain rate, court, sport and time references. Existing `open_play_reservations` gain a player-position number and a unique active-position constraint. Regular rates and legacy Open Play reservations remain valid.
+## Validation
 
-Effective dates and day/holiday priority follow regular rate selection. Booked sessions retain their capacity, price and occupied court even if their rate is superseded or deleted; those retained sessions stop accepting new players. Cancel their player reservations before adding a maintenance block over them.
+Run:
 
-The booking transaction locks the session and its physical court group. Wooden Courts 5–7 share Miami; Wooden Courts 8–10 share Lakers. This prevents duplicate positions and concurrent bookings exceeding capacity, and keeps regular bookings out of Open Play blocks.
+- php tests/open-play-rates.php
+- node tests/admin-court-conflicts.test.cjs
+- node tests/open-play-selection.test.cjs
+- php tests/badminton-conflicts.php
 
-## Verification
+The database test rolls back its fixtures. Session creation checks consecutive slots, date, active sport/court, disabled slots, regular reservations, maintenance blocks and other Open Play sessions. Creation and player booking use court-group locks and transactions; numbered seats retain a unique active-seat constraint. Wooden Courts 5-7 share Miami and Wooden Courts 8-10 share Lakers.
 
-Run `php tests/open-play-rates.php`, `php tests/badminton-conflicts.php`, and `node tests/admin-court-conflicts.test.cjs`. The Open Play database test uses a transaction and rolls its fixtures back. It requires an existing local database with the standard hourly slots.
+## Booking references and confirmation
+
+New Open Play submissions use OP<MMDD>-<start>-<end>-<sequence>, for example OP1009-9-12-01. Each new submission reserves one player position and receives its own reference. The counter starts at 01 for each dated session, is allocated under the existing transaction/session lock, and does not reset when a player cancels. Non-hour time blocks retain minutes in the time portion. Existing reservations retain their previous fallback reference.
+
+The confirmation uses the saved session date, full start/end times, court and sport instead of the refreshed hourly-slot dictionary. Regular booking references and summaries are unchanged.
+
+Deploy ui/member.php and database.sql (fresh installs only) alongside the files above. Existing installations automatically gain open_play_sessions.booking_sequence and open_play_reservations.booking_reference through the existing additive schema helper. Do not reimport database.sql. Run node tests/open-play-confirmation.test.cjs for the refreshed-state summary regression.
+
+## Admin session listing
+
+Open Play bookings are grouped by session in expandable summaries with date, time, court, sport, session rate and capacity. Each summary opens the individual players, references, payment status/proof and existing Confirm/Cancel actions. Pagination shows 10 sessions per page, not 10 players.
+
+Active/Pending includes upcoming sessions and any session with an unconfirmed player. Completed contains sessions whose end time has passed in venue time (UTC+08:00) and whose players are all Booked or Cancelled. Cancelled players do not prevent completion. Grouping refreshes after payment/status actions and checks elapsed end times every 30 seconds while the page is visible; no booking or payment statuses are changed by this grouping.
+
+Run node tests/open-play-session-list.test.cjs for session grouping and completion boundaries.
+
+## Booking concurrency and account sessions
+
+Deploy includes/account-sessions.php with includes/auth.php, ui/login.php, ui/forgot-password.php, api.php, includes/open-play-rates.php, assets/js/app.js and assets/js/open-play.js. Existing installations automatically create the additive account_sessions table on the first authenticated request/login; the database account needs CREATE permission. database.sql includes it for fresh installs only. Do not reimport database.sql over existing data.
+
+Only one browser session per Player/Admin account is accepted. A second login is rejected while the first remains active. Logout releases ownership immediately; the existing eight-hour inactivity timeout also releases it. Tabs sharing the same browser session continue to work. Existing browser sessions adopt ownership on their next authenticated request; any competing session is rejected. Expired session tokens cannot replace a newer login.
+
+Regular bookings, calendar Open Play, legacy Open Play, admin booking overrides/edits, confirmation/cancellation and court blocking now serialize their final checks and writes in transactions. Related parent/wooden courts use the same physical-resource locks. Rate/schema initialization runs before acquiring booking locks so DDL cannot implicitly commit an in-progress booking. Explicit admin override still requires the existing confirmation; newly arriving conflicts are rejected instead of silently cancelled.
+
+Each player may hold/book one position per Open Play session. The session row lock protects member uniqueness and total capacity, while the existing unique active-seat index protects individual circles. Cancellation frees the position and allows rebooking. Existing historical reservation records are not deleted or rewritten. Failed competing requests return HTTP 409, refreshed availability and: "This slot is already taken. Please select another available slot."
+
+Opt-in integration checks against a local Apache/MySQL instance (PowerShell):
+
+```powershell
+$env:RUN_DATABASE_CONCURRENCY_TESTS='1'
+node tests/booking-concurrency.test.cjs
+```
+
+The integration test creates temporary accounts, an isolated court and reservations, then removes them in a finally block. It exercises real parallel HTTP requests and database locks, account/session ownership, regular/admin booking races, Open Play seat/member/capacity races, confirmation and cancellation. PHP_BINARY and TEST_APP_URL can override local defaults.

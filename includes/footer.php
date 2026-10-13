@@ -2,7 +2,7 @@
 $useAdminShell = $useAdminShell ?? false;
 $assetVersion = $assetVersion ?? '3.0.21';
 $appJsPath = dirname(__DIR__) . '/assets/js/app.js';
-$appJsVersion = $assetVersion . (is_file($appJsPath) ? '.' . filemtime($appJsPath) : '');
+$appJsVersion = $assetVersion . (is_file($appJsPath) ? '.' . hash_file('sha256', $appJsPath) : '');
 
 if ($useAdminShell):
 ?>
@@ -181,5 +181,6 @@ if ($useAdminShell):
     }
 </script>
 
+<?php if (!$useAdminShell && ($active ?? '') === 'home') include __DIR__ . '/announcement-popup.php'; ?>
 </body>
 </html>

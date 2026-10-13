@@ -157,6 +157,9 @@ if ($active === 'member' && $pageTitle !== '') {
         <link rel="stylesheet" href="<?php echo htmlspecialchars(app_url('assets/themes/metro/home-design-system.css')); ?>?v=<?php echo htmlspecialchars($assetVersion); ?>">
         <script defer src="<?php echo htmlspecialchars(app_url('assets/js/home-sections.js')); ?>?v=<?php echo htmlspecialchars(hash_file('sha256', __DIR__ . '/../assets/js/home-sections.js') ?: $assetVersion); ?>"></script>
     <?php endif; ?>
+    <?php if ($useAdminShell && ($active ?? '') === 'admin-bookings'): ?>
+    <link rel="stylesheet" href="<?php echo htmlspecialchars(app_url('assets/themes/metro/admin-bookings.css')); ?>?v=<?php echo hash_file('sha256', __DIR__ . '/../assets/themes/metro/admin-bookings.css'); ?>">
+    <?php endif; ?>
     <link rel="stylesheet" href="<?php echo htmlspecialchars(app_url('assets/themes/metro/open-play.css')); ?>?v=<?php echo hash_file('sha256', __DIR__ . '/../assets/themes/metro/open-play.css'); ?>">
 </head>
 

@@ -1,0 +1,11 @@
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const vm = require('node:vm');
+const path = require('node:path');
+const source = fs.readFileSync(path.join(__dirname, '../assets/js/app.js'), 'utf8');
+const context = vm.createContext({ metroTimeZone: 'Asia/Manila' });
+vm.runInContext(source.match(/^function venueToday\([^]*?^}/m)[0], context);
+assert.equal(context.venueToday(new Date('2026-10-12T15:59:59Z')), '2026-10-12');
+assert.equal(context.venueToday(new Date('2026-10-12T16:00:00Z')), '2026-10-13');
+assert.equal(context.venueToday(new Date('2026-12-31T16:00:00Z')), '2027-01-01');
+console.log('Dashboard default date follows venue midnight and year rollover.');

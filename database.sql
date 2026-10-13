@@ -49,6 +49,14 @@ CREATE TABLE IF NOT EXISTS members (
     updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+CREATE TABLE IF NOT EXISTS account_sessions (
+    account_type VARCHAR(10) NOT NULL,
+    account_id INT UNSIGNED NOT NULL,
+    token_hash CHAR(64) NOT NULL,
+    last_seen BIGINT UNSIGNED NOT NULL,
+    PRIMARY KEY (account_type, account_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
 CREATE TABLE IF NOT EXISTS access_logs (
     id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     account_type ENUM('admin','member') NOT NULL,
@@ -314,6 +322,7 @@ CREATE TABLE IF NOT EXISTS member_entrance_fee_payments (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS open_play_sessions (
+    booking_sequence INT UNSIGNED NOT NULL DEFAULT 0,
     rate_key VARCHAR(64) NULL,
     court_id INT UNSIGNED NULL,
     sport VARCHAR(30) NULL,
@@ -333,6 +342,7 @@ CREATE TABLE IF NOT EXISTS open_play_sessions (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS open_play_reservations (
+    booking_reference VARCHAR(64) NULL,
     seat_number INT UNSIGNED NULL,
     active_seat INT GENERATED ALWAYS AS (CASE WHEN status IN ('Held','Booked') THEN seat_number ELSE NULL END) STORED,
     UNIQUE KEY uniq_open_play_active_seat (session_id, active_seat),

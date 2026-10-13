@@ -2,7 +2,70 @@
 .open-play-session:disabled { opacity:.65; cursor:not-allowed; }
 .open-play-picker { width:min(600px,calc(100% - 32px)); max-height:85dvh; overflow:auto; padding:24px; border:0; border-radius:16px; }
 .open-play-picker::backdrop { background:rgba(0,0,0,.55); }
+.op-session-tabs, .op-session-pagination { display:flex; align-items:center; flex-wrap:wrap; gap:10px; margin:12px 0; }
+.op-session-pagination { justify-content:space-between; font-size:.8rem; }
+.op-session { border:1px solid #ded5e8; border-radius:8px; margin:8px 0; overflow:hidden; }
+.op-session > summary { display:grid; grid-template-columns:repeat(6,minmax(0,1fr)); gap:12px; padding:12px; cursor:pointer; background:#f5f1fa; position:relative; padding-left:30px; font-size:.8rem; }
+.op-session > summary::before { content:'▸'; position:absolute; left:10px; top:15px; }
+.op-session[open] > summary::before { content:'▾'; }
+.op-session > summary small { display:block; color:#6b6275; font-size:.7rem; }
+.op-session > summary span { overflow-wrap:anywhere; }
+.op-session > .table-responsive { padding:12px; }
+@media (max-width:767px) { .op-session > summary { grid-template-columns:repeat(2,minmax(0,1fr)); } }
 .open-play-seats { display:flex; flex-wrap:wrap; gap:12px; margin:20px 0; }
 .open-play-seats button { width:44px; height:44px; border-radius:50%; border:2px solid #48246b; background:white; color:#48246b; }
 .open-play-seats button[aria-pressed="true"] { background:#48246b; color:white; }
 .open-play-seats button:disabled { background:#ddd; color:#777; border-color:#bbb; }
+.admin-schedule-action.open-play-selected { background:#48246b; color:#fff; outline:3px solid #d9a81d; outline-offset:-3px; }
+.admin-schedule-action.open-play-draggable { touch-action:none; user-select:none; -webkit-user-select:none; cursor:crosshair; }
+.admin-schedule-cell.open-play-calendar-block { border:2px solid #9b79bc; background:#f1eafa; }
+.open-play-calendar-block .admin-schedule-action { height:100%; background:#f1eafa; color:#48246b; }
+
+/* Keep actions outside the matrix's own scrolling viewport. */
+#schedule-dashboard { overflow:visible; }
+#schedule-dashboard > .card-header { border-radius:22px 22px 0 0; }
+#adminMatrixActions {
+    position:sticky;
+    top:var(--matrix-topbar-height, 78px);
+    z-index:20;
+    background:#fff;
+    box-shadow:0 3px 8px rgba(39,19,63,.08);
+}
+#schedule-dashboard #adminScheduleScroll {
+    height:clamp(120px, 70dvh, max(120px, calc(100dvh - var(--matrix-topbar-height, 78px) - var(--matrix-toolbar-height, 100px) - 48px)));
+    overflow:auto;
+    overscroll-behavior:contain;
+    scrollbar-gutter:stable;
+    position:relative;
+    padding-top:0 !important;
+}
+#adminScheduleScroll .admin-schedule-head {
+    position:sticky;
+    top:0;
+    z-index:5;
+    background:#eef3f8;
+    box-shadow:0 1px 0 rgba(39,19,63,.16);
+}
+
+#schedule-dashboard > .card-header { padding:10px 14px !important; gap:10px !important; }
+#schedule-dashboard > .card-header h2 { font-size:1.2rem; margin:2px 0 !important; }
+#schedule-dashboard .section-kicker, .matrix-filter-label { font-size:.65rem; letter-spacing:.06em; }
+.matrix-filter-label { display:block; font-weight:700; color:#6b6275; margin-bottom:3px; }
+#schedule-dashboard > .card-header p { font-size:.7rem; line-height:1.35; }
+#adminMatrixActions { display:flex; align-items:flex-start; gap:12px; padding:8px 14px; }
+#adminMatrixActions > #superAdminRangeOverride { flex:2 1 0; min-width:0; padding:0 !important; border:0 !important; background:none; }
+#adminMatrixActions > #adminOpenPlayToolbar { flex:1 1 0; min-width:0; padding:0 !important; border:0 !important; }
+#superAdminRangeOverride > div > .me-auto { flex-basis:100%; }
+#adminMatrixActions p { font-size:.67rem !important; line-height:1.35; margin-top:4px !important; font-weight:400 !important; color:#6b6275; }
+#adminOpenPlaySelectionHelp { overflow-wrap:anywhere; }
+#schedule-dashboard :is(.card-header, #adminMatrixActions) :is(.form-select, .btn) {
+    min-height:28px !important; height:auto; padding:3px 8px !important; font-size:.7rem !important; line-height:1.4;
+}
+#schedule-dashboard :is(.card-header, #adminMatrixActions) .form-select { padding-right:26px !important; }
+#schedule-dashboard :is(.card-header, #adminMatrixActions) label { font-size:.68rem !important; margin:0; }
+#adminMatrixActions .gap-2 { gap:6px !important; }
+@media (max-width:767px) {
+    #adminMatrixActions { flex-wrap:wrap; gap:8px; padding:8px 10px; }
+    #adminMatrixActions > #superAdminRangeOverride, #adminMatrixActions > #adminOpenPlayToolbar { flex-basis:100%; }
+    #schedule-dashboard > .card-header { padding:8px 10px !important; }
+}

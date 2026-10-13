@@ -30,6 +30,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
 
         $error = 'Invalid email or password.';
+    } catch (AccountSessionInUse $exception) {
+        $error = $exception->getMessage();
     } catch (Throwable) {
         $error = 'Database is not ready. Open setup.php first.';
     }

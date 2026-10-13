@@ -1,6 +1,33 @@
 <?php
 declare(strict_types=1);
 
+require_once __DIR__ . '/includes/error-logging.php';
+
+// Reserve enough memory to report fatal errors, including memory exhaustion.
+$apiErrorReserve = str_repeat(' ', 65536);
+register_shutdown_function(static function () use (&$apiErrorReserve): void {
+    $apiErrorReserve = null;
+    $error = error_get_last();
+    if (!$error || !in_array($error['type'], [E_ERROR, E_PARSE, E_CORE_ERROR, E_COMPILE_ERROR, E_USER_ERROR], true)) {
+        return;
+    }
+    error_log(sprintf('API fatal error: %s in %s:%d', $error['message'], $error['file'], $error['line']));
+    if (!headers_sent()) {
+        http_response_code(500);
+        header('Content-Type: application/json');
+        header('Cache-Control: no-store, private');
+        echo '{"ok":false,"message":"A fatal server error occurred. Check logs/php-error.log or the hosting PHP error log for the failing file and line."}';
+    }
+});
+
+set_exception_handler(static function (Throwable $exception): void {
+    error_log('API request failed: ' . $exception);
+    json_response([
+        'ok' => false,
+        'message' => 'The server could not complete this request. Please check the PHP error log for details.',
+    ], 500);
+});
+
 require_once __DIR__ . '/includes/auth.php';
 require_once __DIR__ . '/includes/site-config.php';
 require_once __DIR__ . '/includes/data-privacy.php';
@@ -26,10 +53,19 @@ foreach ([$receiptUploadDir, $paymentUploadDir, $memberUploadDir] as $dir) {
 
 function json_response(array $payload, int $status = 200): never
 {
+    $json = json_encode($payload, JSON_INVALID_UTF8_SUBSTITUTE | JSON_THROW_ON_ERROR);
     http_response_code($status);
     header('Content-Type: application/json');
-    echo json_encode($payload);
+    header('Cache-Control: no-store, private');
+    echo $json;
     exit;
+}
+
+function booking_taken(PDO $pdo, bool $includeAdmin = false): never
+{
+    if ($pdo->inTransaction()) $pdo->rollBack();
+    json_response(['ok'=>false,'message'=>'This slot is already taken. Please select another available slot.',
+        'availabilityChanged'=>true,'state'=>get_state($pdo,$includeAdmin)],409);
 }
 
 function db_datetime_to_ph_atom(?string $value): ?string
@@ -72,6 +108,7 @@ function db_or_error(): PDO
     try {
         return db();
     } catch (Throwable $exception) {
+        error_log('API database connection failed: ' . $exception);
         json_response([
             'ok' => false,
             'message' => 'Database is not ready. Open setup.php first, then try again.',
@@ -611,7 +648,7 @@ function is_database_write_conflict(Throwable $exception): bool
     $sqlState = (string) $exception->getCode();
     $driverCode = (int) ($exception->errorInfo[1] ?? 0);
 
-    return $sqlState === '40001' || in_array($driverCode, [1205, 1213], true);
+    return $sqlState === '40001' || in_array($driverCode, [1062, 1205, 1213], true);
 }
 
 function rate_snapshot(array $source, float $amount, string $kind = 'court'): string
@@ -824,10 +861,11 @@ function rate_rules(PDO $pdo, bool $includeInactive = false): array
     $stmt = $pdo->query(
         "SELECT r.id, r.court_id, c.name AS court_name, r.sport, r.day_of_week, r.time_slot_id,
                 ts.label AS time_label, ts.starts_at, ts.ends_at,
-                r.rate_per_hour, r.effective_date, r.updated_at, r.open_play_key, r.max_players, r.rate_per_player
+                r.rate_per_hour, r.effective_date, r.updated_at
          FROM rates r
          JOIN courts c ON c.id = r.court_id
          JOIN time_slots ts ON ts.id = r.time_slot_id
+         WHERE r.open_play_key IS NULL
          ORDER BY c.display_number, c.id, r.sport, FIELD(r.day_of_week, 'Any', 'Holiday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'), r.effective_date DESC, ts.sort_order, ts.id"
     );
 
@@ -846,9 +884,6 @@ function rate_rules(PDO $pdo, bool $includeInactive = false): array
         'endsAt' => substr((string) $row['ends_at'], 0, 5),
         'durationMinutes' => null,
         'durationLabel' => 'Time slot',
-        'openPlayKey' => $row['open_play_key'],
-        'maxPlayers' => (int) $row['max_players'],
-        'ratePerPlayer' => (float) $row['rate_per_player'],
         'pricePerHour' => (float) $row['rate_per_hour'],
         'memberPricePerHour' => null,
         'effectiveFrom' => $row['effective_date'] ?? '1970-01-01',
@@ -915,6 +950,7 @@ function calculate_booking_rate(PDO $pdo, int $courtId, string $sport, string $d
          FROM rates r
          JOIN time_slots ts ON ts.id = r.time_slot_id
          WHERE r.court_id = ? AND r.sport = ? AND r.time_slot_id = ?
+           AND r.open_play_key IS NULL
            AND r.day_of_week IN ('Any', ?)
            AND r.effective_date <= ?
          ORDER BY CASE WHEN r.day_of_week = ? THEN 0 ELSE 1 END,
@@ -1311,9 +1347,23 @@ function active_block_conflict(PDO $pdo, string $date, int $slotId, int $courtId
     return null;
 }
 
+// Read inside the booking transaction, after acquiring the court resource lock.
+function booking_resource_enabled(PDO $pdo, int $courtId, string $sport, int $slotId): bool
+{
+    $q=$pdo->prepare('SELECT is_active,supported_sports FROM courts WHERE id=?');
+    $q->execute([$courtId]); $court=$q->fetch();
+    if (!$court || !$court['is_active'] || !in_array($sport,normalize_supported_sports($court['supported_sports']),true)) return false;
+    $q=$pdo->prepare('SELECT ts.id,COALESCE(a.is_available,1) AS available FROM time_slots ts LEFT JOIN sport_time_slot_availability a ON a.time_slot_id=ts.id AND a.sport=? WHERE ts.id=?');
+    $q->execute([$sport,$slotId]); $slot=$q->fetch();
+    return $slot && (bool)$slot['available'];
+}
+
 function active_court_conflict(PDO $pdo, string $date, int $slotId, int $courtId, string $sport, ?int $excludeBookingId = null, bool $forUpdate = false, bool $ignoreOpenPlay = false): ?array
 {
-    if ($forUpdate) open_play_lock_courts($pdo, $courtId);
+    if ($forUpdate) {
+        open_play_lock_courts($pdo, $courtId);
+        if (!booking_resource_enabled($pdo,$courtId,$sport,$slotId)) return ['status'=>'Unavailable','message'=>'This slot is unavailable.'];
+    }
     if (!$ignoreOpenPlay && !($excludeBookingId !== null && !$forUpdate) && ($opConflict = open_play_resource_conflict($pdo, $date, $slotId, $courtId))) return $opConflict;
     $excludeSql = $excludeBookingId !== null ? 'AND cb.id <> ?' : '';
     $lockSql = $forUpdate ? ' FOR UPDATE' : '';
@@ -1385,6 +1435,7 @@ function active_bookings_for_block(PDO $pdo, string $date, int $slotId, ?int $co
 {
     foreach (open_play_offers($pdo,$date) as $offer) {
         if ($offer['occupied'] && in_array($slotId,$offer['slotIds'],true) && ($courtId === null || court_booking_resources_conflict($courtId,$offer['court']))) {
+            if ($pdo->inTransaction()) booking_taken($pdo,true);
             json_response(['ok'=>false,'message'=>'Open Play players already occupy this time. Cancel those player reservations before blocking this court.'],409);
         }
     }
@@ -1543,8 +1594,38 @@ function active_blocks_for_booking(PDO $pdo, string $date, int $slotId, int $cou
     return $matches;
 }
 
+function admin_booking_state(PDO $pdo): array
+{
+    $admin = require_admin_json();
+    $slots = [];
+    foreach ($pdo->query('SELECT id, label, starts_at, ends_at FROM time_slots ORDER BY id')->fetchAll() as $slot) {
+        $slots[$slot['label']] = [
+            'id' => (int) $slot['id'],
+            'startsAt' => substr((string) $slot['starts_at'], 0, 5),
+            'endsAt' => substr((string) $slot['ends_at'], 0, 5),
+        ];
+    }
+    return [
+        'currentAdmin' => [
+            'id' => (int) $admin['id'],
+            'role' => $admin['role'],
+            'canManageOperations' => admin_can_manage_operations($admin),
+            'canManageMembers' => admin_can_manage_members($admin),
+            'canManageStaff' => admin_can_manage_staff($admin),
+        ],
+        'slotDetails' => $slots,
+        'adminReservations' => [],
+        'adminGroupedReservations' => [],
+        'adminOpenPlayReservations' => open_play_admin_rows($pdo),
+        'paymentChannels' => payment_channels($pdo, false),
+    ];
+}
+
 function get_state(PDO $pdo, bool $includeAdmin = false): array
 {
+    if ($includeAdmin && ($_GET['stateContext'] ?? '') === 'bookings') {
+        return admin_booking_state($pdo);
+    }
     ensure_core_booking_time_slots($pdo);
     ensure_rate_management_schema($pdo);
     $sportSlotAvailability = sport_time_slot_availability_payload($pdo);
@@ -1554,7 +1635,7 @@ function get_state(PDO $pdo, bool $includeAdmin = false): array
          FROM rates r
          JOIN courts c ON c.id = r.court_id AND c.is_active = 1
          JOIN time_slots ts ON ts.id = r.time_slot_id
-         WHERE r.day_of_week = 'Any'
+         WHERE r.day_of_week = 'Any' AND r.open_play_key IS NULL
          ORDER BY r.sport, c.display_number, c.id, r.rate_per_hour, ts.sort_order"
     )->fetchAll();
     $rateGroups = [];
@@ -1663,7 +1744,7 @@ function get_state(PDO $pdo, bool $includeAdmin = false): array
 
     $openPlayReservations = [];
     $stmt = $pdo->query(
-        "SELECT opr.id, opr.member_id, opr.session_id, ops.title, ops.session_date, ops.session_time, opr.status,
+        "SELECT opr.id, opr.booking_reference, opr.member_id, opr.session_id, ops.title, ops.session_date, ops.session_time, opr.status,
                 opr.customer_name, opr.customer_email, opr.customer_phone, opr.payment_method,
                 opr.receipt_path, opr.final_amount, opr.created_at
          FROM open_play_reservations opr
@@ -1673,6 +1754,7 @@ function get_state(PDO $pdo, bool $includeAdmin = false): array
     foreach ($stmt->fetchAll() as $row) {
         $openPlayReservations[] = [
             'id' => 'openplay:' . $row['id'],
+            'bookingReference' => $row['booking_reference'] ?? null,
             'type' => 'openplay',
             'memberId' => $row['member_id'] !== null ? (int) $row['member_id'] : null,
             'sessionId' => (string) $row['session_id'],
@@ -1734,6 +1816,7 @@ function get_state(PDO $pdo, bool $includeAdmin = false): array
         $state['adminMenuCatalog'] = $admin && admin_can_manage_staff($admin) ? array_values(admin_menu_catalog()) : [];
         $state['adminRoleMenuPermissions'] = $admin && admin_can_manage_staff($admin) ? $rolePermissions : [];
         $state['adminOpenPlayReservations'] = open_play_admin_rows($pdo);
+        $state['adminOpenPlaySessions'] = open_play_calendar_sessions($pdo);
         $state['adminReservations'] = [];
         $state['adminGroupedReservations'] = [];
         $state['adminBookingPagination'] = [
@@ -3043,14 +3126,43 @@ function admin_booking_logs(PDO $pdo, int $bookingId, string $bookingReference =
 $action = $_GET['action'] ?? $_POST['action'] ?? 'state';
 $pdo = db_or_error();
 ensure_open_play_rates($pdo);
+if ($action === 'admin-openplay-session') {
+    $admin = require_operations_admin_json();
+    if ($_SERVER['REQUEST_METHOD'] !== 'POST') json_response(['ok'=>false,'message'=>'POST required.'],405);
+    $date = require_field('date');
+    require_booking_date_enabled($pdo, $date);
+    $ids = json_decode((string) ($_POST['slotIds'] ?? '[]'), true);
+    if (!is_array($ids) || !$ids || count($ids)>48) json_response(['ok'=>false,'message'=>'Select consecutive slots.'],422);
+    foreach ($ids as $id) if (filter_var($id,FILTER_VALIDATE_INT)===false || (int)$id<1) json_response(['ok'=>false,'message'=>'Invalid slot.'],422);
+    ensure_sport_time_slot_availability($pdo);
+    $pdo->exec('SET TRANSACTION ISOLATION LEVEL SERIALIZABLE');
+    $pdo->beginTransaction();
+    try {
+        $sessionId = open_play_create_calendar_session($pdo, $date, (int)($_POST['courtId'] ?? 0), (string)($_POST['sport'] ?? ''), array_map('intval',$ids), (int)($_POST['maxPlayers'] ?? 0), (float)($_POST['ratePerPlayer'] ?? 0));
+        write_override_log($pdo,(int)$admin['id'],'create-open-play','openplay',(string)$sessionId,'',[
+            'date'=>$date,'courtId'=>(int)$_POST['courtId'],'sport'=>$_POST['sport'],'slotIds'=>$ids,
+            'maxPlayers'=>(int)$_POST['maxPlayers'],'ratePerPlayer'=>(float)$_POST['ratePerPlayer']
+        ]);
+        $pdo->commit();
+    } catch (Throwable $e) {
+        if ($pdo->inTransaction()) $pdo->rollBack();
+        if ($e instanceof BookingUnavailable || is_database_write_conflict($e)) booking_taken($pdo,true);
+        json_response(['ok'=>false,'message'=>$e instanceof RuntimeException || $e instanceof InvalidArgumentException ? $e->getMessage() : 'Could not create the session. Refresh and try again.'], $e instanceof InvalidArgumentException ? 422 : 409);
+    }
+    json_response(['ok'=>true,'sessionId'=>$sessionId,'state'=>get_state($pdo,true)]);
+}
 if ($action === 'openplay-session-book') open_play_book_session($pdo, $receiptUploadDir);
 if ($action === 'openplay-offers') {
     $date = (string) ($_GET['date'] ?? date('Y-m-d'));
     if (!valid_date_string($date)) json_response(['ok'=>false],422);
-    json_response(['ok'=>true, 'offers'=>open_play_offers($pdo,$date)]);
+    $member = current_member();
+    json_response(['ok'=>true, 'offers'=>open_play_offers($pdo,$date,$member ? (int)$member['id'] : null)]);
 }
 
 if ($action === 'state') {
+    if (($_GET['stateContext'] ?? '') === 'bookings') {
+        json_response(['ok' => true, 'state' => admin_booking_state($pdo)]);
+    }
     json_response(['ok' => true, 'state' => get_state($pdo, current_admin() !== null)]);
 }
 
@@ -3148,15 +3260,15 @@ if ($action === 'book') {
     $pdo->beginTransaction();
     try {
         $conflict = active_court_conflict($pdo, $date, $slotId, $courtId, $sport, null, true);
-        if ($conflict !== null) {
+        if (slot_is_past($date,$slot) || $conflict !== null) {
             $pdo->rollBack();
-            json_response(['ok' => false, 'message' => 'That time slot is no longer available. Please choose another slot.'], 409);
+            booking_taken($pdo, current_admin() !== null);
         }
 
         $blockConflict = active_block_conflict($pdo, $date, $slotId, $courtId, $sport);
         if ($blockConflict !== null) {
             $pdo->rollBack();
-            json_response(['ok' => false, 'message' => 'That time slot is no longer available. Please choose another slot.'], 409);
+            booking_taken($pdo, current_admin() !== null);
         }
 
         $stmt = $pdo->prepare(
@@ -3194,7 +3306,7 @@ if ($action === 'book') {
             $pdo->rollBack();
         }
         if (is_database_write_conflict($exception)) {
-            json_response(['ok' => false, 'message' => 'That time slot is no longer available. Please choose another slot.'], 409);
+            booking_taken($pdo, current_admin() !== null);
         }
         json_response(['ok' => false, 'message' => 'Booking could not be saved. Please try again.'], 500);
     }
@@ -3217,6 +3329,7 @@ if ($action === 'openplay') {
     require_active_payment_channel($pdo, $paymentMethod);
     $receipt = save_receipt($receiptUploadDir);
     $member = current_member();
+    if (!$member) json_response(['ok'=>false,'message'=>'Sign in to book Open Play.'],401);
     if ($member !== null) {
         $name = (string) $member['name'];
         $phone = (string) $member['phone'];
@@ -3224,7 +3337,7 @@ if ($action === 'openplay') {
     }
     $phone = validate_phone_field($phone, true);
 
-    $stmt = $pdo->prepare('SELECT capacity, price, title, session_date, session_time, rate_key FROM open_play_sessions WHERE id = ? AND is_active = 1');
+    $stmt = $pdo->prepare('SELECT * FROM open_play_sessions WHERE id = ? AND is_active = 1');
     $stmt->execute([$sessionId]);
     $session = $stmt->fetch();
     if (!empty($session['rate_key'])) json_response(['ok'=>false,'message'=>'Use the session player selector to book this Open Play.'],422);
@@ -3238,11 +3351,22 @@ if ($action === 'openplay') {
     $pdo->exec('SET TRANSACTION ISOLATION LEVEL SERIALIZABLE');
     $pdo->beginTransaction();
     try {
+        if (!empty($session['court_id'])) open_play_lock_courts($pdo,(int)$session['court_id']);
+        $previousCourt=$session['court_id'] ?? null;
+        $lockedSession=$pdo->prepare('SELECT * FROM open_play_sessions WHERE id=? FOR UPDATE');
+        $lockedSession->execute([$sessionId]);
+        $session=$lockedSession->fetch();
+        if (!$session || !$session['is_active'] || !empty($session['rate_key']) || $session['session_date'] < date('Y-m-d') || $session['court_id']!=$previousCourt || open_play_session_has_conflict($pdo,$session)) booking_taken($pdo);
+        $capacity=(int)$session['capacity'];
+        $amount=(float)$session['price'];
+        $joined=$pdo->prepare("SELECT id FROM open_play_reservations WHERE session_id=? AND member_id=? AND status IN ('Held','Booked') FOR UPDATE");
+        $joined->execute([$sessionId,$member['id']]);
+        if ($joined->fetchColumn()) booking_taken($pdo);
         $stmt = $pdo->prepare("SELECT id FROM open_play_reservations WHERE session_id = ? AND status IN (" . BLOCKING_RESERVATION_STATUS_SQL . ") FOR UPDATE");
         $stmt->execute([$sessionId]);
         if (count($stmt->fetchAll()) >= $capacity) {
             $pdo->rollBack();
-            json_response(['ok' => false, 'message' => 'This open play is full.'], 409);
+            booking_taken($pdo);
         }
 
         $stmt = $pdo->prepare(
@@ -3275,7 +3399,7 @@ if ($action === 'openplay') {
             $pdo->rollBack();
         }
         if (is_database_write_conflict($exception)) {
-            json_response(['ok' => false, 'message' => 'This open play is full.'], 409);
+            booking_taken($pdo);
         }
         json_response(['ok' => false, 'message' => 'Open play reservation could not be saved. Please try again.'], 500);
     }
@@ -3308,68 +3432,95 @@ if ($action === 'admin-status') {
     $table = $type === 'court' ? 'court_bookings' : 'open_play_reservations';
     $nextStatus = $status;
 
-    $existsStmt = $pdo->prepare("SELECT id, status FROM {$table} WHERE id IN ({$idPlaceholders})");
-    $existsStmt->execute($reservationIds);
-    $statusRows = $existsStmt->fetchAll();
-    if (count($statusRows) !== count($reservationIds)) {
-        json_response(['ok' => false, 'message' => 'Reservation not found.'], 404);
-    }
-    $allowedTransitions = [
-        'Held' => ['Booked', 'Cancelled'],
-        'Booked' => ['Cancelled'],
-        'Cancelled' => [],
-    ];
-    foreach ($statusRows as $statusRow) {
-        $currentStatus = (string) $statusRow['status'];
-        if (!in_array($nextStatus, $allowedTransitions[$currentStatus] ?? [], true)) {
-            json_response(['ok' => false, 'message' => "Invalid transition from {$currentStatus} to {$nextStatus}."], 422);
+    $pdo->exec('SET TRANSACTION ISOLATION LEVEL SERIALIZABLE');
+    $pdo->beginTransaction();
+    try {
+        // Same court locks as player saves, before reading reservation state.
+        $pdo->query('SELECT id FROM courts ORDER BY id FOR UPDATE')->fetchAll();
+        if ($type === 'openplay') {
+            $q=$pdo->prepare('SELECT session_id FROM open_play_reservations WHERE id=?');
+            $q->execute([$reservationId]);
+            $q2=$pdo->prepare('SELECT id FROM open_play_sessions WHERE id=? FOR UPDATE');
+            $q2->execute([(int)$q->fetchColumn()]);
         }
-    }
+        $existsStmt = $pdo->prepare("SELECT id, status FROM {$table} WHERE id IN ({$idPlaceholders}) FOR UPDATE");
+        $existsStmt->execute($reservationIds);
+        $statusRows = $existsStmt->fetchAll();
+        if (count($statusRows) !== count($reservationIds)) {
+            $pdo->rollBack();
+            json_response(['ok' => false, 'message' => 'Reservation not found.'], 404);
+        }
+        $allowedTransitions = [
+            'Held' => ['Booked', 'Cancelled'],
+            'Booked' => ['Cancelled'],
+            'Cancelled' => [],
+        ];
+        foreach ($statusRows as $statusRow) {
+            $currentStatus = (string) $statusRow['status'];
+            if (!in_array($nextStatus, $allowedTransitions[$currentStatus] ?? [], true)) {
+                booking_taken($pdo, true);
+            }
+        }
 
-    if ($nextStatus === 'Booked') {
-        if ($type === 'court') {
-            $stmt = $pdo->prepare("SELECT id, booking_date, time_slot_id, court_id, sport FROM court_bookings WHERE id IN ({$idPlaceholders})");
-            $stmt->execute($reservationIds);
-            foreach ($stmt->fetchAll() as $booking) {
-                $conflict = active_court_conflict(
-                    $pdo,
-                    (string) $booking['booking_date'],
-                    (int) $booking['time_slot_id'],
-                    (int) $booking['court_id'],
-                    (string) $booking['sport'],
-                    (int) $booking['id']
+        if ($nextStatus === 'Booked') {
+            if ($type === 'court') {
+                $stmt = $pdo->prepare("SELECT id, booking_date, time_slot_id, court_id, sport FROM court_bookings WHERE id IN ({$idPlaceholders})");
+                $stmt->execute($reservationIds);
+                foreach ($stmt->fetchAll() as $booking) {
+                    $conflict = active_court_conflict(
+                        $pdo,
+                        (string) $booking['booking_date'],
+                        (int) $booking['time_slot_id'],
+                        (int) $booking['court_id'],
+                        (string) $booking['sport'],
+                        (int) $booking['id'],
+                        true
+                    );
+                    if ($conflict !== null) {
+                        booking_taken($pdo, true);
+                    }
+                }
+            } else {
+                $stmt = $pdo->prepare(
+                    'SELECT opr.session_id, opr.member_id, opr.seat_number, ops.*
+                     FROM open_play_reservations opr
+                     JOIN open_play_sessions ops ON ops.id = opr.session_id
+                     WHERE opr.id = ?'
                 );
-                if ($conflict !== null) {
-                    json_response(['ok' => false, 'message' => $conflict['message']], 409);
+                $stmt->execute([$reservationId]);
+                $reservation = $stmt->fetch();
+                if (!$reservation || !$reservation['is_active']) booking_taken($pdo,true);
+                $duplicate=$pdo->prepare("SELECT id FROM open_play_reservations WHERE session_id=? AND id<>? AND status IN ('Held','Booked') AND ((member_id IS NOT NULL AND member_id=?) OR (seat_number IS NOT NULL AND seat_number=?)) FOR UPDATE");
+                $duplicate->execute([$reservation['session_id'],$reservationId,$reservation['member_id'],$reservation['seat_number']]);
+                if ($duplicate->fetchColumn()) booking_taken($pdo,true);
+                if (open_play_session_has_conflict($pdo,$reservation)) booking_taken($pdo,true);
+                $active = $pdo->prepare("SELECT COUNT(*) FROM open_play_reservations WHERE session_id = ? AND status IN (" . BLOCKING_RESERVATION_STATUS_SQL . ") AND id <> ?");
+                $active->execute([$reservation['session_id'], $reservationId]);
+                if ((int) $active->fetchColumn() >= (int) $reservation['capacity']) {
+                    booking_taken($pdo, true);
                 }
             }
-        } else {
-            $stmt = $pdo->prepare(
-                'SELECT opr.session_id, ops.capacity
-                 FROM open_play_reservations opr
-                 JOIN open_play_sessions ops ON ops.id = opr.session_id
-                 WHERE opr.id = ?'
-            );
-            $stmt->execute([$reservationId]);
-            $reservation = $stmt->fetch();
-            $active = $pdo->prepare("SELECT COUNT(*) FROM open_play_reservations WHERE session_id = ? AND status IN (" . BLOCKING_RESERVATION_STATUS_SQL . ") AND id <> ?");
-            $active->execute([$reservation['session_id'], $reservationId]);
-            if ((int) $active->fetchColumn() >= (int) $reservation['capacity']) {
-                json_response(['ok' => false, 'message' => 'That open play session is already full.'], 409);
-            }
         }
-    }
 
-    if ($nextStatus === 'Booked') {
-        $stmt = $pdo->prepare("UPDATE {$table} SET status = 'Booked', reviewed_by = ?, reviewed_at = NOW(), cancelled_by = NULL, cancelled_at = NULL, cancel_reason = NULL WHERE id IN ({$idPlaceholders})");
-        $stmt->execute(array_merge([(int) $admin['id']], $reservationIds));
-    } elseif ($nextStatus === 'Cancelled') {
-        $reason = trim((string) ($_POST['reason'] ?? ''));
-        if ($reason === '') {
-            json_response(['ok' => false, 'message' => 'Cancellation reason is required.'], 422);
+        if ($nextStatus === 'Booked') {
+            $stmt = $pdo->prepare("UPDATE {$table} SET status = 'Booked', reviewed_by = ?, reviewed_at = NOW(), cancelled_by = NULL, cancelled_at = NULL, cancel_reason = NULL WHERE id IN ({$idPlaceholders})");
+            $stmt->execute(array_merge([(int) $admin['id']], $reservationIds));
+        } elseif ($nextStatus === 'Cancelled') {
+            $reason = trim((string) ($_POST['reason'] ?? ''));
+            if ($reason === '') {
+                $pdo->rollBack();
+                json_response(['ok' => false, 'message' => 'Cancellation reason is required.'], 422);
+            }
+            $stmt = $pdo->prepare("UPDATE {$table} SET status = 'Cancelled', cancelled_by = ?, cancelled_at = NOW(), cancel_reason = ? WHERE id IN ({$idPlaceholders})");
+            $stmt->execute(array_merge([(int) $admin['id'], $reason], $reservationIds));
         }
-        $stmt = $pdo->prepare("UPDATE {$table} SET status = 'Cancelled', cancelled_by = ?, cancelled_at = NOW(), cancel_reason = ? WHERE id IN ({$idPlaceholders})");
-        $stmt->execute(array_merge([(int) $admin['id'], $reason], $reservationIds));
+
+        $pdo->commit();
+    } catch (Throwable $exception) {
+        if ($pdo->inTransaction()) $pdo->rollBack();
+        if (is_database_write_conflict($exception)) booking_taken($pdo,true);
+        error_log('API admin-status failed: ' . $exception);
+        json_response(['ok'=>false,'message'=>'Could not update reservation. Please try again.'],500);
     }
 
     json_response([
@@ -3473,7 +3624,7 @@ if ($action === 'admin-override-booking') {
     }
     $isSuperAdminRangeOverride = $timeSlotIdsRaw !== '' && (string) ($admin['role'] ?? '') === 'super_admin';
     foreach ($slots as $slot) {
-        if (open_play_resource_conflict($pdo, $date, (int) $slot['id'], $courtId)) json_response(['ok'=>false,'message'=>'This time belongs to Open Play. Manage the session before overriding this court.'],409);
+        if (open_play_resource_conflict($pdo, $date, (int) $slot['id'], $courtId)) booking_taken($pdo,true);
         if (!sport_time_slot_is_available($pdo, $sport, (int) $slot['id'])) {
             json_response(['ok' => false, 'message' => "{$sport} is not available for {$slot['label']}."], 422);
         }
@@ -3501,17 +3652,37 @@ if ($action === 'admin-override-booking') {
     }
     $conflictSummaries = array_values(array_unique(array_merge(array_column($bookingConflicts, 'summary'), array_column($blockConflicts, 'summary'))));
 
+    // Bind the existing override confirmation to the conflicts the admin actually reviewed.
+    $bookingConflictIds=array_map('intval',array_column($bookingConflicts,'id'));
+    $blockConflictIds=array_map('intval',array_column($blockConflicts,'id'));
+    sort($bookingConflictIds); sort($blockConflictIds);
+    $conflictVersion=hash('sha256',json_encode([$bookingConflictIds,$blockConflictIds]));
+    if ($overrideConfirm && $conflictSummaries !== [] && !hash_equals($conflictVersion,(string)($_POST['conflictVersion'] ?? ''))) booking_taken($pdo,true);
+
     if ($conflictSummaries !== [] && !$overrideConfirm) {
         json_response([
             'ok' => false,
             'requiresOverride' => true,
+            'conflictVersion' => $conflictVersion,
             'message' => "Resource Conflict\n\n" . implode("\n\n", $conflictSummaries) . "\n\nBooking " . public_court_name($courtId, $sport) . " for {$sport} will conflict with this reservation.\n\nCancel conflicting reservation and continue?",
             'conflicts' => array_merge($bookingConflicts, $blockConflicts),
         ], 409);
     }
 
+    // Schema setup performs DDL; run it before taking booking locks.
+    ensure_rate_management_schema($pdo);
+    $pdo->exec('SET TRANSACTION ISOLATION LEVEL SERIALIZABLE');
     $pdo->beginTransaction();
     try {
+        open_play_lock_courts($pdo,$courtId);
+        $freshBookings=[]; $freshBlocks=[];
+        foreach ($slots as $slot) {
+            if (!booking_resource_enabled($pdo,$courtId,$sport,(int)$slot['id']) || open_play_resource_conflict($pdo,$date,(int)$slot['id'],$courtId)) booking_taken($pdo,true);
+            $freshBookings=array_merge($freshBookings,active_bookings_for_booking($pdo,$date,(int)$slot['id'],$courtId,$sport));
+            $freshBlocks=array_merge($freshBlocks,active_blocks_for_booking($pdo,$date,(int)$slot['id'],$courtId,$sport));
+        }
+        if (array_diff(array_column($freshBookings,'id'),array_column($bookingConflicts,'id')) || array_diff(array_column($freshBlocks,'id'),array_column($blockConflicts,'id'))) booking_taken($pdo,true);
+        $bookingConflicts=$freshBookings; $blockConflicts=$freshBlocks;
         if ($bookingConflicts !== []) {
             $cancel = $pdo->prepare(
                 "UPDATE court_bookings
@@ -3615,6 +3786,7 @@ if ($action === 'admin-override-booking') {
         if ($pdo->inTransaction()) {
             $pdo->rollBack();
         }
+        if (is_database_write_conflict($exception)) booking_taken($pdo,true);
         json_response(['ok' => false, 'message' => 'Override booking failed: ' . $exception->getMessage()], 500);
     }
 
@@ -3728,16 +3900,21 @@ if ($action === 'admin-booking-update') {
     $pdo->exec('SET TRANSACTION ISOLATION LEVEL SERIALIZABLE');
     $pdo->beginTransaction();
     try {
+        // Lock both old and new resources before inspecting or moving the booking.
+        $pdo->query('SELECT id FROM courts ORDER BY id FOR UPDATE')->fetchAll();
+        $fresh=$pdo->prepare('SELECT * FROM court_bookings WHERE id=? FOR UPDATE');
+        $fresh->execute([$bookingId]); $locked=$fresh->fetch();
+        if (!$locked || $locked['status']!==$existing['status'] || $locked['court_id']!=$existing['court_id'] || $locked['booking_date']!==$existing['booking_date'] || $locked['time_slot_id']!=$existing['time_slot_id']) booking_taken($pdo,true);
         $conflict = active_court_conflict($pdo, $date, $timeSlotId, $courtId, $sport, $bookingId, true);
         if ($conflict !== null) {
             $pdo->rollBack();
-            json_response(['ok' => false, 'message' => $conflict['message']], 409);
+            booking_taken($pdo,true);
         }
 
         $blockConflict = active_block_conflict($pdo, $date, $timeSlotId, $courtId, $sport);
         if ($blockConflict !== null) {
             $pdo->rollBack();
-            json_response(['ok' => false, 'message' => $blockConflict['message']], 409);
+            booking_taken($pdo,true);
         }
 
         $stmt = $pdo->prepare(
@@ -3815,7 +3992,7 @@ if ($action === 'admin-booking-update') {
             $pdo->rollBack();
         }
         if (is_database_write_conflict($exception)) {
-            json_response(['ok' => false, 'message' => 'That time slot is no longer available. Please choose another slot.'], 409);
+            booking_taken($pdo, current_admin() !== null);
         }
         json_response(['ok' => false, 'message' => 'Booking update failed: ' . $exception->getMessage()], 500);
     }
@@ -3955,6 +4132,7 @@ if ($action === 'admin-holiday-delete') {
 
 if ($action === 'admin-rate-rule') {
     $admin = function_exists('require_operations_admin_json') ? require_operations_admin_json() : require_admin_json();
+    if (!empty($_POST['openPlay'])) json_response(['ok'=>false,'message'=>'Create Open Play from the admin calendar.'],422);
     ensure_rate_management_schema($pdo);
 
     $id = (int) ($_POST['id'] ?? 0);
@@ -3963,16 +4141,12 @@ if ($action === 'admin-rate-rule') {
     $daySelection = (string) ($_POST['dayOfWeek'] ?? 'Any');
     $dayRangeFrom = trim((string) ($_POST['dayRangeFrom'] ?? ''));
     $dayRangeTo = trim((string) ($_POST['dayRangeTo'] ?? ''));
-    $openPlay = !empty($_POST['openPlay']);
-    $maxPlayers = (int) ($_POST['maxPlayers'] ?? 0);
-    $ratePerPlayer = (float) ($_POST['ratePerPlayer'] ?? 0);
-    if ($openPlay && ($maxPlayers < 1 || $maxPlayers > 200 || $ratePerPlayer <= 0)) json_response(['ok'=>false,'message'=>'Open Play requires 1-200 players and a positive rate per player.'],422);
-    $pricePerHour = $openPlay ? $ratePerPlayer : (float) require_field('pricePerHour');
+    $pricePerHour = (float) require_field('pricePerHour');
     $reason = trim((string) ($_POST['reason'] ?? 'Regular rate'));
     $effectiveDate = trim((string) ($_POST['effectiveDate'] ?? date('Y-m-d')));
     $advanceBookingChoice = trim((string) ($_POST['advanceBookingChoice'] ?? ''));
     $isHolidayRate = $daySelection === 'Holiday';
-    if ($isHolidayRate && !$openPlay) {
+    if ($isHolidayRate) {
         $effectiveDate = date('Y-m-d');
         $dayRangeFrom = '';
         $dayRangeTo = '';
@@ -4053,7 +4227,7 @@ if ($action === 'admin-rate-rule') {
     };
 
     $slotRows = $pdo->query('SELECT id, starts_at, ends_at FROM time_slots ORDER BY sort_order, id')->fetchAll();
-    if ($isHolidayRate && !$openPlay) {
+    if ($isHolidayRate) {
         $slotIds = array_map('intval', array_column($slotRows, 'id'));
     } else {
         $rangeStart = $normalizeTime((string) ($_POST['rangeStart'] ?? ''));
@@ -4081,7 +4255,7 @@ if ($action === 'admin-rate-rule') {
 
     $sameVersionCheck = $pdo->prepare(
         'SELECT COUNT(*) FROM rates
-         WHERE court_id = ? AND sport = ? AND day_of_week = ? AND time_slot_id = ? AND effective_date = ?'
+         WHERE court_id = ? AND sport = ? AND day_of_week = ? AND time_slot_id = ? AND effective_date = ? AND open_play_key IS NULL'
     );
     foreach ($courtIds as $courtId) {
         foreach ($daySelections as $dayOfWeek) {
@@ -4111,7 +4285,7 @@ if ($action === 'admin-rate-rule') {
     );
     $selectPrevious = $pdo->prepare(
         'SELECT * FROM rates
-         WHERE court_id = ? AND sport = ? AND day_of_week = ? AND time_slot_id = ? AND effective_date < ?
+         WHERE court_id = ? AND sport = ? AND day_of_week = ? AND time_slot_id = ? AND effective_date < ? AND open_play_key IS NULL
          ORDER BY effective_date DESC, id DESC
          LIMIT 1'
     );
@@ -4127,16 +4301,15 @@ if ($action === 'admin-rate-rule') {
     try {
         foreach ($courtIds as $courtId) {
             foreach ($daySelections as $dayOfWeek) {
-                $openPlayKey = $openPlay ? bin2hex(random_bytes(16)) : null;
                 foreach ($slotIds as $slotId) {
                     $selectPrevious->execute([$courtId, $sport, $dayOfWeek, $slotId, $effectiveDate]);
                     $previous = $selectPrevious->fetch() ?: null;
+                    // Replace obsolete Open Play rate metadata only when this exact regular rate is saved.
+                    // Sessions and historical audit payloads are stored separately and remain intact.
+                    $obsolete = $pdo->prepare('DELETE FROM rates WHERE court_id=? AND sport=? AND day_of_week=? AND time_slot_id=? AND effective_date=? AND open_play_key IS NOT NULL');
+                    $obsolete->execute([$courtId,$sport,$dayOfWeek,$slotId,$effectiveDate]);
                     $insert->execute([$courtId, $sport, $dayOfWeek, $slotId, $pricePerHour, $effectiveDate]);
                     $currentId = (int) $pdo->lastInsertId();
-                    if ($openPlay) {
-                        $opUpdate = $pdo->prepare('UPDATE rates SET open_play_key=?,max_players=?,rate_per_player=?,session_start=?,session_end=? WHERE id=?');
-                        $opUpdate->execute([$openPlayKey,$maxPlayers,$ratePerPlayer,$rangeStart,$rangeEnd,$currentId]);
-                    }
                     $selectCurrent->execute([$currentId]);
                     $current = $selectCurrent->fetch();
                     $created++;
@@ -4616,8 +4789,13 @@ if ($action === 'admin-court-block') {
          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
     );
 
+    $pdo->exec('SET TRANSACTION ISOLATION LEVEL SERIALIZABLE');
     $pdo->beginTransaction();
     try {
+        $pdo->query('SELECT id FROM courts ORDER BY id FOR UPDATE')->fetchAll();
+        if ($isActive) foreach ($timeSlotIds as $slotId) {
+            if (active_bookings_for_block($pdo,$blockDate,$slotId,$courtId,$sport)) booking_taken($pdo,true);
+        }
         if ($id > 0) {
             $stmt = $pdo->prepare('SELECT block_date, court_id FROM court_blocks WHERE id = ?');
             $stmt->execute([$id]);
@@ -4704,6 +4882,10 @@ if ($action === 'admin-court-block-status') {
         json_response(['ok' => false, 'message' => 'Choose at least one court block record.'], 422);
     }
 
+    $pdo->exec('SET TRANSACTION ISOLATION LEVEL SERIALIZABLE');
+    $pdo->beginTransaction();
+    try {
+    $pdo->query('SELECT id FROM courts ORDER BY id FOR UPDATE')->fetchAll();
     $placeholders = implode(',', array_fill(0, count($ids), '?'));
     $stmt = $pdo->prepare(
         "SELECT id, block_date, time_slot_id, court_id, sport, reason, notes, status
@@ -4713,6 +4895,7 @@ if ($action === 'admin-court-block-status') {
     $stmt->execute($ids);
     $rows = $stmt->fetchAll();
     if (count($rows) !== count($ids)) {
+        $pdo->rollBack();
         json_response(['ok' => false, 'message' => 'One or more court block records were not found.'], 404);
     }
 
@@ -4731,6 +4914,7 @@ if ($action === 'admin-court-block-status') {
             );
         }
         if ($conflicts !== []) {
+            $pdo->rollBack();
             json_response([
                 'ok' => false,
                 'message' => 'This block cannot be activated because it overlaps active reservations: ' . implode('; ', array_column($conflicts, 'summary')),
@@ -4761,6 +4945,7 @@ if ($action === 'admin-court-block-status') {
             }
 
             if ((int) $duplicateStmt->fetchColumn() > 0) {
+                $pdo->rollBack();
                 json_response(['ok' => false, 'message' => 'Another court blocking record already exists for the same date and court. Edit the block details to replace it.'], 409);
             }
         }
@@ -4799,6 +4984,12 @@ if ($action === 'admin-court-block-status') {
         ]
     );
 
+    $pdo->commit();
+    } catch (Throwable $exception) {
+        if ($pdo->inTransaction()) $pdo->rollBack();
+        if (is_database_write_conflict($exception)) booking_taken($pdo,true);
+        json_response(['ok'=>false,'message'=>'Could not update court blocking.'],500);
+    }
     json_response([
         'ok' => true,
         'message' => $isActive ? 'Court blocking activated.' : 'Court blocking set inactive.',

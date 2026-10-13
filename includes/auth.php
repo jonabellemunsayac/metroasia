@@ -1,7 +1,9 @@
 <?php
 declare(strict_types=1);
 
+require_once __DIR__ . '/error-logging.php';
 require_once __DIR__ . '/../config/database.php';
+require_once __DIR__ . '/account-sessions.php';
 
 if (session_status() !== PHP_SESSION_ACTIVE) {
     session_start();
@@ -142,6 +144,7 @@ function access_log_account_role(string $accountType, int $accountId): ?string
 
 function write_current_access_logout(string $reason = 'manual'): void
 {
+    release_account_session();
     $adminId = (int) ($_SESSION['admin_id'] ?? 0);
     if ($adminId > 0) {
         $role = $_SESSION['auth_role'] ?? access_log_account_role('admin', $adminId);
@@ -156,6 +159,21 @@ function write_current_access_logout(string $reason = 'manual'): void
 
 function start_access_session(string $accountType, int $accountId, ?string $role = null, string $reason = 'password'): void
 {
+    $owner = $accountType . ':' . $accountId;
+    if (($_SESSION['auth_lease_owner'] ?? '') !== $owner) {
+        release_account_session();
+        unset($_SESSION['auth_lease_token'], $_SESSION['auth_lease_owner']);
+    }
+    $token = $_SESSION['auth_lease_token'] ?? bin2hex(random_bytes(32));
+    try {
+        claim_account_session(db(),$accountType,$accountId,$token,time());
+    } catch (Throwable $exception) {
+        unset($_SESSION['admin_id'],$_SESSION['member_id']);
+        clear_access_session_metadata();
+        throw $exception;
+    }
+    $_SESSION['auth_lease_token']=$token;
+    $_SESSION['auth_lease_owner']=$owner;
     $_SESSION['auth_type'] = $accountType;
     $_SESSION['auth_login_at'] = time();
     $_SESSION['auth_last_activity_at'] = time();
@@ -165,7 +183,7 @@ function start_access_session(string $accountType, int $accountId, ?string $role
 
 function clear_access_session_metadata(): void
 {
-    unset($_SESSION['auth_type'], $_SESSION['auth_login_at'], $_SESSION['auth_last_activity_at'], $_SESSION['auth_role']);
+    unset($_SESSION['auth_type'], $_SESSION['auth_login_at'], $_SESSION['auth_last_activity_at'], $_SESSION['auth_role'], $_SESSION['auth_lease_token'], $_SESSION['auth_lease_owner']);
 }
 
 function expire_access_session_if_needed(string $accountType): bool
@@ -174,6 +192,13 @@ function expire_access_session_if_needed(string $accountType): bool
     $accountId = (int) ($_SESSION[$sessionKey] ?? 0);
     if ($accountId <= 0) {
         return false;
+    }
+
+    if (!validate_account_session($accountType,$accountId)) {
+        write_access_log('session_expired', $accountType, $accountId, $_SESSION['auth_role'] ?? null, ['reason'=>'Session expired or account session no longer valid']);
+        unset($_SESSION[$sessionKey]);
+        clear_access_session_metadata();
+        return true;
     }
 
     if (($_SESSION['auth_type'] ?? null) !== $accountType || empty($_SESSION['auth_login_at'])) {
@@ -423,6 +448,7 @@ function admin_menu_catalog(): array
         'admin-rates' => ['key' => 'admin-rates', 'label' => 'Rates', 'sub' => 'Court pricing', 'path' => 'admin/rates.php', 'icon' => 'badge-dollar-sign'],
         'admin-sport-time-slots' => ['key' => 'admin-sport-time-slots', 'label' => 'Sport Time Slots', 'sub' => 'Sport availability', 'path' => 'admin/sport-time-slots.php', 'icon' => 'clock-3'],
         'admin-payment' => ['key' => 'admin-payment', 'label' => 'Payment Setup', 'sub' => 'GCash and BDO', 'path' => 'admin/payment.php', 'icon' => 'credit-card'],
+        'admin-announcements' => ['key' => 'admin-announcements', 'label' => 'Announcements', 'sub' => 'Scheduled popup image', 'path' => 'admin/announcements.php', 'icon' => 'megaphone'],
         'admin-site-config' => ['key' => 'admin-site-config', 'label' => 'Site Config', 'sub' => 'Public content and links', 'path' => 'admin/site-config.php', 'icon' => 'settings'],
         'admin-terms' => ['key' => 'admin-terms', 'label' => 'Terms & Conditions', 'sub' => 'Policy content', 'path' => 'admin/terms-conditions.php', 'icon' => 'file-text'],
         'admin-data-privacy' => ['key' => 'admin-data-privacy', 'label' => 'Data Privacy', 'sub' => 'Policy content', 'path' => 'admin/data-privacy.php', 'icon' => 'file-lock-2'],

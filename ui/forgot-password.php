@@ -61,6 +61,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 start_access_session('member', $memberId, 'member', 'password_reset');
                 redirect_to($memberRedirect);
             }
+        } catch (AccountSessionInUse $exception) {
+            $error = $exception->getMessage();
         } catch (Throwable) {
             $error = 'Database is not ready. Open setup.php first.';
         }

@@ -249,6 +249,43 @@ function member_group_reservations(array $rows): array
     return array_values($groups);
 }
 
+function member_group_open_play_reservations(array $rows): array
+{
+    $byReference = [];
+    foreach ($rows as $row) {
+        // References restart per session, so identical labels across sessions stay separate.
+        $key = $row['session_id'] . ':' . member_reference_fallback($row);
+        $byReference[$key][] = $row;
+    }
+    $groups = [];
+    foreach ($byReference as $players) {
+        $group = member_group_reservations($players)[0];
+        $group['openPlay'] = true;
+        $group['playerCount'] = count($players);
+        $group['historyStatus'] = isset($group['statusSet']['Held']) ? 'Held'
+            : (isset($group['statusSet']['Booked']) ? 'Booked' : 'Cancelled');
+        $group['confirmedAmount'] = 0.0;
+        $group['confirmedHours'] = 0.0;
+        $group['detailRows'] = [];
+        foreach ($players as $player) {
+            $single = member_group_reservations([$player])[0];
+            $detail = $single['detailRows'][0];
+            $detail['timeRanges'] = (string) $player['session_time'];
+            $detail['seat'] = $player['seat_number'];
+            $detail['status'] = $player['status'];
+            $detail['receipt'] = $player['receipt_path'] ?? '';
+            $group['detailRows'][] = $detail;
+            if ($player['status'] === 'Booked') {
+                $group['confirmedAmount'] += (float) $player['final_amount'];
+                $group['confirmedHours'] += max(0, $single['endTimestamp'] - $single['startTimestamp']) / 3600;
+            }
+        }
+        usort($group['detailRows'], static fn(array $a, array $b): int => (int)$a['seat'] <=> (int)$b['seat']);
+        $groups[] = $group;
+    }
+    return $groups;
+}
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     try {
         $reservationIds = array_values(array_filter(array_map('intval', explode(',', (string) ($_POST['reservationIds'] ?? '')))));
@@ -299,7 +336,7 @@ $reservations = member_group_reservations($reservationStmt->fetchAll());
 require_once __DIR__ . '/../includes/open-play-rates.php';
 ensure_open_play_rates($pdo);
 $openPlayStmt = $pdo->prepare(
-    "SELECT opr.id, CONCAT('OP-', ops.id, '-', opr.id) AS booking_reference,
+    "SELECT opr.id, opr.session_id, COALESCE(opr.booking_reference, CONCAT('OP-', ops.id, '-', opr.id)) AS booking_reference,
             ops.session_date AS date, ops.session_time, ops.starts_at, ops.ends_at,
             ops.court_id AS court, COALESCE(c.name, ops.title) AS court_name,
             COALESCE(ops.sport, 'Open Play') AS sport, opr.status, opr.payment_method,
@@ -311,14 +348,7 @@ $openPlayStmt = $pdo->prepare(
      ORDER BY ops.session_date DESC, ops.starts_at DESC, opr.id DESC"
 );
 $openPlayStmt->execute([(int) $member['id']]);
-foreach ($openPlayStmt->fetchAll() as $row) {
-    $group = member_group_reservations([$row])[0];
-    $group['openPlay'] = true;
-    $group['seat'] = $row['seat_number'];
-    foreach ($group['detailRows'] as &$detail) {
-        $detail['timeRanges'] = (string) $row['session_time'];
-    }
-    unset($detail);
+foreach (member_group_open_play_reservations($openPlayStmt->fetchAll()) as $group) {
     $reservations[] = $group;
 }
 usort($reservations, static fn (array $a, array $b): int => $b['startTimestamp'] <=> $a['startTimestamp']);
@@ -326,22 +356,30 @@ usort($reservations, static fn (array $a, array $b): int => $b['startTimestamp']
 $now = time();
 $upcomingReservations = array_values(array_filter(
     $reservations,
-    static fn (array $group): bool => in_array($group['status'], ['Held', 'Booked'], true) && $group['endTimestamp'] >= $now
+    static fn (array $group): bool => in_array($group['historyStatus'] ?? $group['status'], ['Held', 'Booked'], true)
+        && ($group['endTimestamp'] >= $now || (!empty($group['openPlay']) && $group['historyStatus'] === 'Held'))
 ));
 usort($upcomingReservations, static fn (array $a, array $b): int => $a['startTimestamp'] <=> $b['startTimestamp']);
 $playedReservations = array_values(array_filter(
     $reservations,
-    static fn (array $group): bool => $group['status'] === 'Booked' && $group['endTimestamp'] < $now
+    static fn (array $group): bool => ($group['historyStatus'] ?? $group['status']) === 'Booked' && $group['endTimestamp'] < $now
 ));
 $cancelledReservations = array_values(array_filter(
     $reservations,
-    static fn (array $group): bool => $group['status'] === 'Cancelled'
+    static fn (array $group): bool => ($group['historyStatus'] ?? $group['status']) === 'Cancelled'
 ));
 
 $totalBookings = count($reservations);
 $hoursPlayed = 0.0;
 $totalSpent = 0.0;
 foreach ($reservations as $group) {
+    if (!empty($group['openPlay'])) {
+        if ($group['endTimestamp'] < $now) {
+            $totalSpent += $group['confirmedAmount'];
+            $hoursPlayed += $group['confirmedHours'];
+        }
+        continue;
+    }
     if ($group['status'] !== 'Booked' || $group['endTimestamp'] >= $now) {
         continue;
     }
@@ -454,7 +492,7 @@ include __DIR__ . '/../includes/header.php';
                                 <span class="member-reference"><?php echo htmlspecialchars($group['reference']); ?></span>
                                 <h3><?php echo htmlspecialchars($group['sport']); ?></h3>
                                 <?php if (!empty($group['openPlay'])): ?>
-                                    <p><strong>OPEN PLAY</strong><?php if ($group['seat'] !== null): ?> &middot; Player position <?php echo (int) $group['seat']; ?><?php endif; ?> &middot; <?php echo member_format_money((float) $group['amount']); ?> / player</p>
+                                    <p><strong>OPEN PLAY</strong> &middot; <?php echo (int) $group['playerCount']; ?> player(s) &middot; Total <?php echo member_format_money((float) $group['amount']); ?></p>
                                 <?php endif; ?>
                                 <p><?php echo htmlspecialchars(member_format_day_date($group['date'])); ?></p>
                             </div>
@@ -472,6 +510,7 @@ include __DIR__ . '/../includes/header.php';
                                             <th>Time</th>
                                             <th>Court</th>
                                             <th>Sport</th>
+                                            <?php if (!empty($group['openPlay'])): ?><th>Player / Status</th><?php endif; ?>
                                             <th>Receipt</th>
                                             <th class="text-end">Amount</th>
                                         </tr>
@@ -483,10 +522,14 @@ include __DIR__ . '/../includes/header.php';
                                                 <td><?php echo htmlspecialchars($detail['timeRanges']); ?></td>
                                                 <td><?php echo htmlspecialchars((string) $detail['courtName']); ?></td>
                                                 <td><?php echo htmlspecialchars((string) $detail['sport']); ?></td>
+                                                <?php if (!empty($group['openPlay'])): ?>
+                                                    <td>Player <?php echo (int) $detail['seat']; ?><br><?php echo htmlspecialchars((string) $detail['status']); ?></td>
+                                                <?php endif; ?>
                                                 <td>
-                                                    <?php if ($detailIndex === 0): ?>
-                                                        <?php if ($group['receipt']): ?>
-                                                            <a class="member-table-link" href="<?php echo htmlspecialchars(app_url((string) $group['receipt'])); ?>" target="_blank" rel="noopener">View receipt</a>
+                                                    <?php if ($detailIndex === 0 || !empty($group['openPlay'])): ?>
+                                                        <?php $detailReceipt = !empty($group['openPlay']) ? $detail['receipt'] : $group['receipt']; ?>
+                                                        <?php if ($detailReceipt): ?>
+                                                            <a class="member-table-link" href="<?php echo htmlspecialchars(app_url((string) $detailReceipt)); ?>" target="_blank" rel="noopener">View receipt</a>
                                                         <?php else: ?>
                                                             <span class="text-secondary">No receipt uploaded</span>
                                                         <?php endif; ?>

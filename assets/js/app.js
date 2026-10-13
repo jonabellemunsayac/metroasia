@@ -6,7 +6,6 @@ const metroTimeZone = 'Asia/Manila';
 
 let state = null;
 let selectedDate = new Date();
-let adminScheduleDate = new Date();
 let adminScheduleSportFilter = 'Pickleball';
 let adminScheduleCourtFilter = '';
 const adminReservationFilters = ['Held', 'Booked', 'Cancelled', 'All'];
@@ -14,7 +13,15 @@ function normalizeAdminFilter(value) {
     return adminReservationFilters.includes(value) ? value : 'Held';
 }
 const pageParams = new URLSearchParams(window.location.search);
-const todayIso = isoDate(new Date());
+function venueToday(date = new Date()) {
+    const parts = new Intl.DateTimeFormat('en-US', {
+        timeZone: metroTimeZone, year: 'numeric', month: '2-digit', day: '2-digit'
+    }).formatToParts(date);
+    const value = type => parts.find(part => part.type === type).value;
+    return `${value('year')}-${value('month')}-${value('day')}`;
+}
+const todayIso = venueToday();
+let adminScheduleDate = new Date(`${todayIso}T00:00:00`);
 let adminFilter = normalizeAdminFilter(pageParams.get('status'));
 let adminReferenceSearch = '';
 let adminBookingStartDate = pageParams.has('from') ? pageParams.get('from') : '';
@@ -354,10 +361,30 @@ function slotActualDate(date, time, sport = selectedSport) {
     return rolloverIndex >= 0 && slotIndex >= rolloverIndex ? addDaysIso(date, 1) : date;
 }
 
+async function readApiResponse(response) {
+    const body = await response.text();
+    if (!body.trim()) {
+        throw new Error(`The server returned an empty response (HTTP ${response.status}). Please refresh; if it continues, check the server error log.`);
+    }
+    try {
+        return JSON.parse(body);
+    } catch (error) {
+        throw new Error(`The server returned an incomplete or invalid response (HTTP ${response.status}). Please refresh; if it continues, check the server error log.`);
+    }
+}
+
+function adminStateUrl(action) {
+    return `${api}?action=${encodeURIComponent(action)}${els.admin ? '&stateContext=bookings' : ''}`;
+}
+
 async function loadState() {
     try {
-        const response = await fetch(`${api}?action=state`);
-        const payload = await response.json();
+        const response = await fetch(adminStateUrl('state'), { cache: 'no-store' });
+        const payload = await readApiResponse(response);
+        if (response.status === 401 && els.admin) {
+            window.location.href = adminLoginUrl;
+            return;
+        }
         if (!payload.ok) {
             showLoadError(payload.message || 'Could not load booking data.');
             return;
@@ -366,14 +393,15 @@ async function loadState() {
         renderAll();
     } catch (error) {
         console.error('Could not load application state.', error);
-        showLoadError('Could not load the latest data. Please refresh the page.');
+        showLoadError(error.message || 'Could not load the latest data. Please refresh the page.');
     }
 }
 
 function showLoadError(message) {
     const target = els.grid || els.admin || els.adminMembers;
     if (target) {
-        target.innerHTML = `<div class="rounded-lg border border-rose-200 bg-rose-50 p-5 text-sm font-bold text-rose-700">${message}</div>`;
+        const content = `<div role="alert" class="rounded-lg border border-rose-200 bg-rose-50 p-5 text-sm font-bold text-rose-700">${escapeHtml(message)}</div>`;
+        target.innerHTML = target.tagName === 'TBODY' ? `<tr><td colspan="8">${content}</td></tr>` : content;
     }
 }
 
@@ -528,8 +556,7 @@ function compactStatusLabel(status) {
 
 function publicSlotLabel(status, booking = null) {
     if (status === 'Booked' || status === 'Held') {
-        const nickname = String(booking?.playerNickname || '').trim();
-        return nickname ? `${status} - ${nickname}` : status;
+        return status.toUpperCase();
     }
     return compactStatusLabel(status);
 }
@@ -800,7 +827,7 @@ function populateAdminRateOptions(rule) {
 }
 
 function syncAdminRateHolidayFields() {
-    const isHoliday = els.adminRateDayOfWeek?.value === 'Holiday' && !document.getElementById('adminRateOpenPlay')?.checked;
+    const isHoliday = els.adminRateDayOfWeek?.value === 'Holiday';
     const slots = sortedRateSlots();
     if (els.adminRateRangeWrap) els.adminRateRangeWrap.hidden = isHoliday;
     if (els.adminRateEffectiveWrap) els.adminRateEffectiveWrap.hidden = isHoliday;
@@ -890,7 +917,6 @@ function openAdminRateModal(ruleId = '') {
     const rule = { ...defaultRateRule(), ...(existing || {}) };
 
     populateAdminRateOptions(rule);
-    if (typeof configureOpenPlayRate === 'function') configureOpenPlayRate(rule);
     if (els.adminRateModalTitle) els.adminRateModalTitle.textContent = existing ? 'Edit Rate' : 'Add Rate';
     setAdminRateMode('range', Boolean(existing));
     if (els.adminRateId) els.adminRateId.value = rule.id || '';
@@ -1498,15 +1524,15 @@ function adminBookingCustomerDisplay(booking) {
 
 function adminScheduleCell(date, time, column) {
     const slot = state.slotDetails?.[time];
-    const openPlay = slot && (state.adminOpenPlayReservations || []).find(row =>
-        row.date === date && ['Held', 'Booked'].includes(row.status) &&
+    const openPlay = slot && (state.adminOpenPlaySessions || []).find(row =>
+        row.date === date &&
         bookingResourcesConflict(row.court, column.court) &&
         timeToMinutes(row.startsAt) < (timeToMinutes(slot.endsAt) || 1440) &&
         (timeToMinutes(row.endsAt) || 1440) > timeToMinutes(slot.startsAt)
     );
     if (openPlay) {
-        return scheduleCell('OPEN PLAY', 'Booked', `${openPlay.occupied}/${openPlay.capacity} Players`,
-            `${openPlay.courtName}: OPEN PLAY ${openPlay.time}`, { reservationId: openPlay.id });
+        return scheduleCell(`OPEN PLAY ${openPlay.time}`, 'Blocked', `${openPlay.occupied}/${openPlay.capacity} Players${Number(openPlay.occupied) >= Number(openPlay.capacity) ? ' - FULL' : ''}`,
+            `${openPlay.courtName}: ${openPlay.sport} OPEN PLAY ${openPlay.time}`, { openPlaySession: openPlay, reservationId: `openplay-session:${openPlay.sessionId}` });
     }
     const direct = directBookingAt(date, time, column.court);
     if (direct) {
@@ -1580,8 +1606,20 @@ function renderAdminSchedule() {
             </div>
         ` : '';
         const timeCell = `<div class="admin-schedule-time">${compactTimeHeader(time)}</div>`;
-        const cells = columns.map(column => {
+        const cells = columns.map((column, columnIndex) => {
             const cell = adminScheduleCell(cellDate, time, column);
+            const session = cell.openPlaySession;
+            const mergeSession = Boolean(session);
+            let rowSpan = 1;
+            if (mergeSession) {
+                const previousTime = slots[index - 1];
+                if (previousTime && adminScheduleCell(scheduleCellDate(date, previousTime, adminScheduleSportFilter || selectedSport), previousTime, column).openPlaySession?.sessionId === session.sessionId) return '';
+                while (index + rowSpan < slots.length) {
+                    const nextTime = slots[index + rowSpan];
+                    if (adminScheduleCell(scheduleCellDate(date, nextTime, adminScheduleSportFilter || selectedSport), nextTime, column).openPlaySession?.sessionId !== session.sessionId) break;
+                    rowSpan++;
+                }
+            }
             const selection = adminColumnSelection(column, cell);
             const slot = state.slotDetails?.[time] || {};
             const isPastAvailable = cell.status === 'Available' && slotIsPast(date, time);
@@ -1591,7 +1629,7 @@ function renderAdminSchedule() {
             const cellTitle = isPastAvailable ? 'Past dates and time slots cannot be overridden.' : cell.title;
             const actionable = cell.status === 'Available' ? (adminCanManageOperations() && !isPastAvailable) : true;
             return `
-                <div class="admin-schedule-cell">
+                <div class="admin-schedule-cell ${mergeSession ? 'open-play-calendar-block' : ''}" style="grid-column:${columnIndex + 2};grid-row:span ${rowSpan};">
                     <button type="button"
                         title="${escapeHtml(cellTitle)}"
                         class="admin-schedule-action ${adminScheduleCellClass(cellStatus)}"
@@ -1866,6 +1904,10 @@ function openSuperAdminRangeOverride() {
 }
 
 function openAdminCalendarBooking(button) {
+    if (button.dataset.reservationId?.startsWith('openplay-session:')) {
+        if (typeof showAdminOpenPlaySession === 'function') showAdminOpenPlaySession(Number(button.dataset.reservationId.split(':')[1]));
+        return;
+    }
     if (button.dataset.reservationId?.startsWith('openplay:')) {
         document.getElementById('adminOpenPlayRecords')?.scrollIntoView({behavior: 'smooth', block: 'start'});
         return;
@@ -2380,10 +2422,16 @@ function inlineReservationSummary(slots = activeBookingSlots) {
 }
 
 function slotStartMinutes(slot) {
+    if (slot.openPlay) return timeToMinutes(slot.openPlay.start);
     return timeToMinutes(state?.slotDetails?.[slot.time]?.startsAt || '00:00');
 }
 
 function slotEndMinutes(slot) {
+    if (slot.openPlay) {
+        const start = timeToMinutes(slot.openPlay.start);
+        const end = timeToMinutes(slot.openPlay.end);
+        return end <= start ? end + 1440 : end;
+    }
     const details = state?.slotDetails?.[slot.time];
     if (!details) return slotStartMinutes(slot);
     let end = timeToMinutes(details.endsAt);
@@ -3029,8 +3077,8 @@ async function loadAdminBookings(queryKey) {
     if (!state || adminBookingsLoading) return;
     adminBookingsLoading = true;
     try {
-        const response = await fetch(`${api}?${queryKey}`);
-        const payload = await response.json();
+        const response = await fetch(`${api}?${queryKey}`, { cache: 'no-store' });
+        const payload = await readApiResponse(response);
         if (!payload.ok) {
             if (els.admin) {
                 els.admin.innerHTML = `<tr><td colspan="8" class="text-danger fw-bold">${escapeHtml(payload.message || 'Could not load bookings.')}</td></tr>`;
@@ -3048,7 +3096,7 @@ async function loadAdminBookings(queryKey) {
     } catch (error) {
         console.error('Could not load admin bookings.', error);
         if (els.admin) {
-            els.admin.innerHTML = '<tr><td colspan="8" class="text-danger fw-bold">Could not load bookings. Please refresh the page.</td></tr>';
+            showLoadError(error.message || 'Could not load bookings. Please refresh the page.');
         }
     } finally {
         adminBookingsLoading = false;
@@ -3178,9 +3226,10 @@ function renderAdmin() {
             </td>
             <td>
                 <p class="mb-1 fw-black">${escapeHtml(item.customerName)}</p>
-                ${item.playerNickname ? `<p class="mb-0 text-xs text-secondary">Nickname: ${escapeHtml(item.playerNickname)}</p>` : ''}
-                <p class="mb-0 text-xs text-secondary">${escapeHtml(item.customerPhone || 'No phone')}</p>
-                <p class="mb-0 text-xs text-secondary">${escapeHtml(item.customerEmail || 'No email')}</p>
+                ${item.playerNickname && item.playerNickname.trim().toLowerCase() !== String(item.customerName || '').trim().toLowerCase() ? `<p class="mb-0 text-xs text-secondary">Nickname: ${escapeHtml(item.playerNickname)}</p>` : ''}
+                ${item.customerPhone ? `<p class="mb-0 text-xs text-secondary">${escapeHtml(item.customerPhone)}</p>` : ''}
+                ${item.customerEmail ? `<p class="mb-0 text-xs text-secondary">${escapeHtml(item.customerEmail)}</p>` : ''}
+                ${!item.customerPhone && !item.customerEmail ? '<p class="mb-0 text-xs text-secondary">No contact details</p>' : ''}
                 ${item.memberName ? `<p class="mb-0 text-xs fw-black text-primary">Member: ${escapeHtml(item.memberName)}</p>` : ''}
             </td>
             <td>
@@ -3235,15 +3284,15 @@ function renderAdminFilterButtons() {
 }
 
 function adminReservationActions(item) {
-    const logsButton = `<button type="button" class="btn btn-outline-secondary btn-sm" data-admin-booking-logs="${escapeHtml(item.id)}" data-booking-reference="${escapeHtml(item.bookingReference || '')}">Logs / History</button>`;
+    const logsButton = `<button type="button" class="btn btn-outline-secondary btn-sm" data-admin-booking-logs="${escapeHtml(item.id)}" data-booking-reference="${escapeHtml(item.bookingReference || '')}" title="Booking logs and history">History</button>`;
     if (!adminCanManageOperations()) {
         return logsButton;
     }
     if (item.status === 'Held') {
         return `
-            <div class="d-inline-flex flex-wrap justify-content-end gap-1">
+            <div class="d-inline-flex flex-wrap justify-content-end gap-1 booking-row-actions">
                 ${logsButton}
-                <button data-admin-id="${item.id}" data-status="Booked" class="btn btn-success btn-sm">Verify / Confirm</button>
+                <button data-admin-id="${item.id}" data-status="Booked" class="btn btn-success btn-sm" title="Verify payment and confirm booking">Confirm</button>
                 <button data-admin-id="${item.id}" data-status="Cancelled" class="btn btn-outline-danger btn-sm">Cancel</button>
             </div>
         `;
@@ -3251,7 +3300,7 @@ function adminReservationActions(item) {
 
     if (item.status === 'Booked') {
         return `
-            <div class="d-inline-flex flex-wrap justify-content-end gap-1">
+            <div class="d-inline-flex flex-wrap justify-content-end gap-1 booking-row-actions">
                 ${logsButton}
                 <button data-admin-id="${item.id}" data-status="Cancelled" class="btn btn-outline-danger btn-sm">Cancel</button>
             </div>
@@ -3259,7 +3308,7 @@ function adminReservationActions(item) {
     }
 
     return `
-        <div class="d-inline-flex flex-wrap justify-content-end gap-1">
+        <div class="d-inline-flex flex-wrap justify-content-end gap-1 booking-row-actions">
             ${logsButton}
         </div>
     `;
@@ -3440,7 +3489,6 @@ function mergeConsecutiveRateRules(rules) {
         const last = merged[merged.length - 1];
         const canMerge = last
             && String(last.courtId) === String(rule.courtId)
-            && String(last.openPlayKey || '') === String(rule.openPlayKey || '')
             && String(last.sport || '') === String(rule.sport || '')
             && String(last.dayOfWeek || last.dayPattern || 'Any') === String(day)
             && Number(last.pricePerHour || 0).toFixed(2) === rateKey
@@ -3502,7 +3550,7 @@ function renderAdminRateSummary() {
             <td>${escapeHtml(rule.courtName || 'All courts')}</td>
             <td>${escapeHtml(rule.sport || 'All sports')}</td>
             <td>${escapeHtml(rule.dayOfWeek === 'Any' || !rule.dayOfWeek ? 'Any day' : rule.dayOfWeek)}</td>
-            <td>${formatRuleTime(rule.startsAt)}-${formatRuleTime(rule.endsAt)}${rule.openPlayKey ? `<br><strong>OPEN PLAY</strong> - Max ${rule.maxPlayers}<br>${peso.format(rule.ratePerPlayer)} / player` : ''}</td>
+            <td>${formatRuleTime(rule.startsAt)}-${formatRuleTime(rule.endsAt)}</td>
             <td>${escapeHtml(formatAdminHolidayDate(rateEffectiveDate(rule)))}</td>
             <td class="text-end">${peso.format(Number(rule.pricePerHour || 0))}</td>
             <td class="text-end">
@@ -4317,13 +4365,26 @@ async function submitPayment(event) {
         const payload = await response.json();
         lastPayload = payload;
         if (!payload.ok) {
-            showFormMessage(`${saved} of ${slots.length} saved. ${payload.message || 'Could not save one of the selected slots.'}`, false);
             if (payload.state) state = payload.state;
+            if (payload.availabilityChanged) {
+                selectedBookingSlots = [];
+                activeBookingSlots = [];
+                bookingModalCloseUnlocked = true;
+            }
             renderAll();
-            if (els.modalSubmitButton) els.modalSubmitButton.disabled = false;
+            showFormMessage(payload.availabilityChanged ? payload.message : `${saved} of ${slots.length} saved. ${payload.message || 'Could not save one of the selected slots.'}`, false);
+            if (els.modalSubmitButton) els.modalSubmitButton.disabled = Boolean(payload.availabilityChanged);
             return;
         }
         saved += 1;
+        if (slot.openPlay && payload.openPlayBooking) {
+            Object.assign(slot, {
+                date: payload.openPlayBooking.date, time: payload.openPlayBooking.time,
+                court: payload.openPlayBooking.court, courtName: payload.openPlayBooking.courtName,
+                sport: payload.openPlayBooking.sport,
+                openPlay: {...slot.openPlay, ...payload.openPlayBooking}
+            });
+        }
         if (payload.bookingReference && !references.includes(payload.bookingReference)) references.push(payload.bookingReference);
         state = payload.state;
         if (slot.openPlay) openPlayDate = '';
@@ -5241,16 +5302,22 @@ async function updateStatus(id, status) {
     formData.append('id', id);
     formData.append('status', status);
 
-    const response = await fetch(`${api}?action=admin-status`, { method: 'POST', body: formData });
-    const payload = await response.json();
-    if (payload.ok) {
-        state = payload.state;
-        renderAll();
-        showAdminToast(payload.message || 'Reservation status updated successfully.');
-    } else if (response.status === 401) {
-        window.location.href = adminLoginUrl;
-    } else {
-        alert(payload.message || 'Could not update status.');
+    try {
+        const response = await fetch(adminStateUrl('admin-status'), { method: 'POST', body: formData });
+        const payload = await readApiResponse(response);
+        if (payload.availabilityChanged && payload.state) { state = payload.state; renderAll(); }
+        if (payload.ok) {
+            state = payload.state;
+            renderAll();
+            showAdminToast(payload.message || 'Reservation status updated successfully.');
+        } else if (response.status === 401) {
+            window.location.href = adminLoginUrl;
+        } else {
+            alert(payload.message || 'Could not update status.');
+        }
+    } catch (error) {
+        console.error('Could not verify reservation update.', error);
+        alert('Could not verify whether the reservation was updated. Refresh the page to check its status before trying again.');
     }
 }
 
@@ -5283,8 +5350,9 @@ async function submitCancelReservation(event) {
     const formData = new FormData(form);
     formData.set('status', 'Cancelled');
 
-    const response = await fetch(`${api}?action=admin-status`, { method: 'POST', body: formData });
+    const response = await fetch(adminStateUrl('admin-status'), { method: 'POST', body: formData });
     const payload = await response.json();
+    if (payload.availabilityChanged && payload.state) { state = payload.state; renderAll(); }
     if (els.adminCancelReservationMessage) {
         els.adminCancelReservationMessage.textContent = payload.message || 'Saved.';
         els.adminCancelReservationMessage.className = `rounded-md p-2 text-xs font-bold mt-3 ${payload.ok ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-700'}`;
@@ -5324,7 +5392,7 @@ async function submitReceiptUpload(event) {
     const form = event.currentTarget;
     if (!form.reportValidity()) return;
     const formData = new FormData(form);
-    const response = await fetch(`${api}?action=admin-receipt-upload`, { method: 'POST', body: formData });
+    const response = await fetch(adminStateUrl('admin-receipt-upload'), { method: 'POST', body: formData });
     const payload = await response.json();
     if (els.adminReceiptUploadMessage) {
         els.adminReceiptUploadMessage.textContent = payload.message || 'Saved.';
@@ -5507,7 +5575,7 @@ async function saveRateRule(form, advanceBookingChoice = '') {
     const formData = new FormData(form);
     formData.set('reason', formData.get('reason') || 'Regular rate');
     formData.set('name', currentRateRuleName());
-    if (String(formData.get('dayOfWeek') || '') === 'Holiday' && !formData.get('openPlay')) {
+    if (String(formData.get('dayOfWeek') || '') === 'Holiday') {
         const slots = sortedRateSlots();
         formData.set('effectiveDate', todayIso);
         formData.set('rangeStart', slots[0]?.startsAt || '00:00');
@@ -5683,6 +5751,7 @@ async function submitCourtBlockStatus(button) {
     button.disabled = true;
     const response = await fetch(`${api}?action=admin-court-block-status`, { method: 'POST', body: formData });
     const payload = await response.json();
+    if (payload.availabilityChanged && payload.state) { state = payload.state; renderAll(); }
     button.disabled = false;
 
     if (payload.ok) {
@@ -5707,6 +5776,7 @@ async function saveCourtBlock(form) {
 
     const response = await fetch(`${api}?action=admin-court-block`, { method: 'POST', body: formData });
     const payload = await response.json();
+    if (payload.availabilityChanged && payload.state) { state = payload.state; renderAll(); }
 
     if (response.status === 409 && (payload.requiresBlockConflict || payload.requiresAvailabilityConfirm)) {
         showCourtBlockConflictModal(form, payload);
@@ -5732,11 +5802,14 @@ async function submitAdminOverrideBooking(event) {
     await saveAdminOverrideBooking(event.currentTarget, false);
 }
 
-async function saveAdminOverrideBooking(form, confirmedOverride = false) {
+async function saveAdminOverrideBooking(form, confirmedOverride = false, conflictVersion = '') {
     const message = els.adminOverrideBookingMessage || form.querySelector('[data-admin-override-message]');
     const submitButton = form.querySelector('button[type="submit"]');
     const formData = new FormData(form);
-    if (confirmedOverride) formData.set('overrideConfirm', '1');
+    if (confirmedOverride) {
+        formData.set('overrideConfirm', '1');
+        formData.set('conflictVersion', conflictVersion);
+    }
     const endpoint = formData.get('bookingId') ? 'admin-booking-update' : 'admin-override-booking';
 
     if (submitButton) submitButton.disabled = true;
@@ -5752,6 +5825,7 @@ async function saveAdminOverrideBooking(form, confirmedOverride = false) {
         const text = await response.text();
         try {
             payload = text ? JSON.parse(text) : {};
+            if (payload.availabilityChanged && payload.state) { state = payload.state; renderAll(); }
         } catch (error) {
             throw new Error(text || 'Server returned an invalid response.');
         }
@@ -5774,7 +5848,7 @@ async function saveAdminOverrideBooking(form, confirmedOverride = false) {
     if (response.status === 409 && payload?.requiresOverride) {
         const confirmed = window.confirm(payload.message || 'Resource Conflict\n\nCancel conflicting reservation and continue?');
         if (confirmed) {
-            await saveAdminOverrideBooking(form, true);
+            await saveAdminOverrideBooking(form, true, payload.conflictVersion || '');
         } else if (submitButton) {
             submitButton.disabled = false;
         }

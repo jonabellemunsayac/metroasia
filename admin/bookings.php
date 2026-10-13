@@ -5,7 +5,7 @@ $pageTitle = 'Bookings';
 $active = 'admin-bookings';
 include __DIR__ . '/../includes/header.php';
 ?>
-<main data-needs-state class="app-main admin-compact">
+<main data-needs-state class="app-main admin-compact admin-bookings-page">
     <section class="app-card mb-3">
         <div class="d-flex flex-wrap align-items-center justify-content-between gap-3">
             <div>
@@ -18,19 +18,19 @@ include __DIR__ . '/../includes/header.php';
     </section>
 
     <section class="row g-3 mb-3">
-        <div class="col-8 col-lg-4">
+        <div class="col-4">
             <a class="stat-card h-100 d-block text-decoration-none text-reset" href="<?php echo htmlspecialchars(app_url('admin/bookings.php?status=Held')); ?>">
                 <p class="mb-1 small text-secondary fw-bold text-uppercase">Needs Review</p>
                 <p id="adminPendingCount" class="mb-0 stat-number">0</p>
             </a>
         </div>
-        <div class="col-8 col-lg-4">
+        <div class="col-4">
             <a class="stat-card h-100 d-block text-decoration-none text-reset" href="<?php echo htmlspecialchars(app_url('admin/bookings.php?status=Booked')); ?>">
                 <p class="mb-1 small text-secondary fw-bold text-uppercase">Booked</p>
                 <p id="adminBookedCount" class="mb-0 stat-number">0</p>
             </a>
         </div>
-        <div class="col-8 col-lg-4">
+        <div class="col-4">
             <a class="stat-card h-100 d-block text-decoration-none text-reset" href="<?php echo htmlspecialchars(app_url('admin/bookings.php?status=Cancelled')); ?>">
                 <p class="mb-1 small text-secondary fw-bold text-uppercase">Cancelled</p>
                 <p id="adminCancelledCount" class="mb-0 stat-number">0</p>
@@ -97,7 +97,7 @@ include __DIR__ . '/../includes/header.php';
                 <thead>
                     <tr class="small text-secondary">
                         <th>Reservation</th>
-                        <th>Reference Number</th>
+                        <th>Reference</th>
                         <th>Customer/Member</th>
                         <th>Created</th>
                         <th>Payment</th>
