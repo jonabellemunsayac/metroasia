@@ -19,4 +19,17 @@ assert.equal(context.groupOpenPlayAdminSessions([{...row,startsAt:'21:00:00',end
 assert.equal(context.groupOpenPlayAdminSessions([{...row,startsAt:'21:00:00',endsAt:'00:00:00'}],Date.parse('2026-10-11T00:01:00+08:00'))[0].completed,true);
 assert.equal(context.groupOpenPlayAdminSessions([row,{...row,sessionId:2}],now).length,2);
 assert.equal(row.status,'Booked');
+groups = context.groupOpenPlayAdminSessions([],now,[{...row,sessionCancelledAt:'2026-10-10 10:00:00',sessionCancelReason:'Maintenance'}]);
+assert.equal(groups.length,1);
+assert.equal(groups[0].players.length,0);
+assert.equal(groups[0].cancelled,true);
+assert.equal(groups[0].sessionCancelReason,'Maintenance');
+context.adminCanManageOperations = () => false;
+context.escapeHtml = text => text.replaceAll('<','&lt;');
+vm.runInContext(source.match(/^function openPlaySessionActions\([^]*?^}/m)[0], context);
+assert.equal(context.openPlaySessionActions({sessionId:1}), '');
+context.adminCanManageOperations = () => true;
+assert.match(context.openPlaySessionActions({sessionId:1}), /Cancel Session/);
+assert.doesNotMatch(context.openPlaySessionActions(groups[0]), /data-op-session-cancel/);
+assert.match(context.openPlaySessionActions({...groups[0],sessionCancelReason:'<script>'}), /&lt;script>/);
 console.log('Session grouping: pending review, confirmed future sessions, ended sessions, cancelled players and midnight boundaries passed without status changes.');

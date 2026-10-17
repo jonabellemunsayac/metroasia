@@ -50,6 +50,8 @@ Open Play bookings are grouped by session in expandable summaries with date, tim
 
 Active/Pending includes upcoming sessions and any session with an unconfirmed player. Completed contains sessions whose end time has passed in venue time (UTC+08:00) and whose players are all Booked or Cancelled. Cancelled players do not prevent completion. Grouping refreshes after payment/status actions and checks elapsed end times every 30 seconds while the page is visible; no booking or payment statuses are changed by this grouping.
 
+Admin and Super Admin can use **Cancel Session** in an expanded session or the calendar session dialog. A reason is required. Cancellation disables the session, cancels its Held/Booked players in the same transaction, releases the court hours, and records the staff member, timestamp and reason in the audit log. Previously cancelled player records retain their reasons. The **Cancelled** tab retains session history and displays the reason, including for sessions that had no players. Other roles cannot cancel sessions. Existing databases add the session cancellation columns through the normal API schema initialization.
+
 Run node tests/open-play-session-list.test.cjs for session grouping and completion boundaries.
 
 ## Booking concurrency and account sessions

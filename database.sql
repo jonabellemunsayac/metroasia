@@ -338,6 +338,9 @@ CREATE TABLE IF NOT EXISTS open_play_sessions (
     level_label VARCHAR(80) NOT NULL,
     description TEXT NOT NULL,
     is_active TINYINT(1) NOT NULL DEFAULT 1,
+    cancel_reason VARCHAR(255) NULL,
+    cancelled_by INT UNSIGNED NULL,
+    cancelled_at DATETIME NULL,
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 

@@ -11,8 +11,9 @@ register_shutdown_function(static function () use (&$apiErrorReserve): void {
     if (!$error || !in_array($error['type'], [E_ERROR, E_PARSE, E_CORE_ERROR, E_COMPILE_ERROR, E_USER_ERROR], true)) {
         return;
     }
-    error_log(sprintf('API fatal error: %s in %s:%d', $error['message'], $error['file'], $error['line']));
+    $logDestination = app_log_error(sprintf('API fatal error: %s in %s:%d', $error['message'], $error['file'], $error['line']));
     if (!headers_sent()) {
+        header('X-App-Error-Log: ' . $logDestination);
         http_response_code(500);
         header('Content-Type: application/json');
         header('Cache-Control: no-store, private');
@@ -21,7 +22,8 @@ register_shutdown_function(static function () use (&$apiErrorReserve): void {
 });
 
 set_exception_handler(static function (Throwable $exception): void {
-    error_log('API request failed: ' . $exception);
+    $logDestination = app_log_error('API request failed: ' . $exception);
+    if (!headers_sent()) header('X-App-Error-Log: ' . $logDestination);
     json_response([
         'ok' => false,
         'message' => 'The server could not complete this request. Please check the PHP error log for details.',
@@ -1617,6 +1619,7 @@ function admin_booking_state(PDO $pdo): array
         'adminReservations' => [],
         'adminGroupedReservations' => [],
         'adminOpenPlayReservations' => open_play_admin_rows($pdo),
+        'adminOpenPlaySessionRecords' => open_play_admin_session_records($pdo),
         'paymentChannels' => payment_channels($pdo, false),
     ];
 }
@@ -1816,6 +1819,7 @@ function get_state(PDO $pdo, bool $includeAdmin = false): array
         $state['adminMenuCatalog'] = $admin && admin_can_manage_staff($admin) ? array_values(admin_menu_catalog()) : [];
         $state['adminRoleMenuPermissions'] = $admin && admin_can_manage_staff($admin) ? $rolePermissions : [];
         $state['adminOpenPlayReservations'] = open_play_admin_rows($pdo);
+        $state['adminOpenPlaySessionRecords'] = open_play_admin_session_records($pdo);
         $state['adminOpenPlaySessions'] = open_play_calendar_sessions($pdo);
         $state['adminReservations'] = [];
         $state['adminGroupedReservations'] = [];
@@ -2182,10 +2186,22 @@ function admin_members(PDO $pdo): array
                 m.terms_conditions_agree, m.terms_agreed_at,
                 m.data_privacy_act_agree, m.data_privacy_policy_version, m.data_privacy_agreed_at,
                 m.member_lookup_token, m.is_active, m.last_login_at, m.created_at,
-                (SELECT COUNT(*) FROM court_bookings cb WHERE cb.member_id = m.id) AS court_bookings_count,
-                (SELECT COUNT(*) FROM court_bookings cb WHERE cb.member_id = m.id AND cb.status = 'Booked') AS confirmed_court_count,
-                (SELECT COALESCE(SUM(ef.amount), 0) FROM member_entrance_fee_payments ef WHERE ef.member_id = m.id) AS entrance_fee_total
+                COALESCE(booking_totals.total, 0) AS court_bookings_count,
+                COALESCE(booking_totals.confirmed, 0) AS confirmed_court_count,
+                COALESCE(entrance_totals.total, 0) AS entrance_fee_total
          FROM members m
+         LEFT JOIN (
+             SELECT member_id, COUNT(*) AS total,
+                    SUM(CASE WHEN status = 'Booked' THEN 1 ELSE 0 END) AS confirmed
+             FROM court_bookings
+             WHERE member_id IS NOT NULL
+             GROUP BY member_id
+         ) booking_totals ON booking_totals.member_id = m.id
+         LEFT JOIN (
+             SELECT member_id, SUM(amount) AS total
+             FROM member_entrance_fee_payments
+             GROUP BY member_id
+         ) entrance_totals ON entrance_totals.member_id = m.id
          ORDER BY m.created_at DESC, m.id DESC"
     );
 
@@ -3126,6 +3142,21 @@ function admin_booking_logs(PDO $pdo, int $bookingId, string $bookingReference =
 $action = $_GET['action'] ?? $_POST['action'] ?? 'state';
 $pdo = db_or_error();
 ensure_open_play_rates($pdo);
+if ($action === 'admin-openplay-session-cancel') {
+    $admin = require_operations_admin_json();
+    if ($_SERVER['REQUEST_METHOD'] !== 'POST') json_response(['ok'=>false,'message'=>'POST required.'],405);
+    $reason = require_field('reason');
+    $pdo->beginTransaction();
+    try {
+        cancel_open_play_session($pdo, (int) ($_POST['sessionId'] ?? 0), (int) $admin['id'], $reason);
+        $pdo->commit();
+    } catch (Throwable $exception) {
+        if ($pdo->inTransaction()) $pdo->rollBack();
+        if ($exception instanceof InvalidArgumentException) json_response(['ok'=>false,'message'=>$exception->getMessage()],422);
+        throw $exception;
+    }
+    json_response(['ok'=>true,'message'=>'Open Play session and its active reservations cancelled.','state'=>get_state($pdo,true)]);
+}
 if ($action === 'admin-openplay-session') {
     $admin = require_operations_admin_json();
     if ($_SERVER['REQUEST_METHOD'] !== 'POST') json_response(['ok'=>false,'message'=>'POST required.'],405);

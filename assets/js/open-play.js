@@ -117,8 +117,9 @@ let openPlayAdminPage = 1;
 const openPlayAdminPageSize = 10;
 const openPlayExpandedSessions = new Set();
 
-function groupOpenPlayAdminSessions(rows, now = Date.now()) {
+function groupOpenPlayAdminSessions(rows, now = Date.now(), records = []) {
     const groups = new Map();
+    for (const record of records) groups.set(String(record.sessionId), {...record, key: String(record.sessionId), players: []});
     for (const row of rows) {
         const key = String(row.sessionId);
         if (!groups.has(key)) groups.set(key, {...row, key, players: []});
@@ -130,6 +131,7 @@ function groupOpenPlayAdminSessions(rows, now = Date.now()) {
         if (endTime && endTime <= String(session.startsAt || '').slice(0,8)) end += 86400000;
         session.completed = Number.isFinite(end) && end <= now && session.players.every(player => ['Booked','Cancelled'].includes(player.status));
         session.pending = session.players.filter(player => player.status === 'Held').length;
+        session.cancelled = Boolean(session.sessionCancelledAt);
         session.players.sort((a,b) => Number(a.seat)-Number(b.seat) || String(a.id).localeCompare(String(b.id)));
         return session;
     }).sort((a,b) => Number(a.completed)-Number(b.completed) || (a.completed ? -1 : 1) * (a.date.localeCompare(b.date) || String(a.startsAt).localeCompare(String(b.startsAt))) || Number(a.sessionId)-Number(b.sessionId));
@@ -154,16 +156,17 @@ function renderOpenPlayAdmin() {
         rows.forEach(row => { counts[row.status] = (counts[row.status] || 0) + 1; });
         renderAdminStats(counts);
     }
-    const sessions = groupOpenPlayAdminSessions(rows);
-    const activeCount = sessions.filter(session => !session.completed).length;
-    const completedCount = sessions.length - activeCount;
-    const filtered = sessions.filter(session => session.completed === (openPlayAdminTab === 'completed'));
+    const sessions = groupOpenPlayAdminSessions(rows, Date.now(), state?.adminOpenPlaySessionRecords || []);
+    const activeCount = sessions.filter(session => !session.cancelled && !session.completed).length;
+    const completedCount = sessions.filter(session => !session.cancelled && session.completed).length;
+    const cancelledCount = sessions.filter(session => session.cancelled).length;
+    const filtered = sessions.filter(session => openPlayAdminTab === 'cancelled' ? session.cancelled : !session.cancelled && session.completed === (openPlayAdminTab === 'completed'));
     const pages = Math.max(1, Math.ceil(filtered.length / openPlayAdminPageSize));
     openPlayAdminPage = Math.max(1, Math.min(openPlayAdminPage, pages));
     const first = (openPlayAdminPage - 1) * openPlayAdminPageSize;
     const visible = filtered.slice(first, first + openPlayAdminPageSize);
     panel.innerHTML = '<h2>OPEN PLAY bookings</h2><div class="op-session-tabs" role="tablist" aria-label="Open Play session status">' +
-        [['active','Active/Pending',activeCount],['completed','Completed',completedCount]].map(([key,label,count]) => '<button type="button" role="tab" aria-selected="' + (key===openPlayAdminTab) + '" data-op-tab="' + key + '" class="btn btn-sm ' + (key===openPlayAdminTab ? 'btn-primary' : 'btn-outline-primary') + '">' + label + ' (' + count + ')</button>').join('') +
+        [['active','Active/Pending',activeCount],['completed','Completed',completedCount],['cancelled','Cancelled',cancelledCount]].map(([key,label,count]) => '<button type="button" role="tab" aria-selected="' + (key===openPlayAdminTab) + '" data-op-tab="' + key + '" class="btn btn-sm ' + (key===openPlayAdminTab ? 'btn-primary' : 'btn-outline-primary') + '">' + label + ' (' + count + ')</button>').join('') +
         '</div><p class="small text-secondary">Completed sessions have ended and have no players awaiting confirmation. Expand a session to review its players.</p><div class="op-session-list">' + visible.map(session =>
             '<details class="op-session" data-op-session="' + escapeHtml(session.key) + '"' + (openPlayExpandedSessions.has(session.key) ? ' open' : '') + '><summary>' +
             '<span><small>Date</small><strong>' + escapeHtml(session.date) + '</strong></span>' +
@@ -172,7 +175,7 @@ function renderOpenPlayAdmin() {
             '<span><small>Sport</small>' + escapeHtml(session.sport) + '</span>' +
             '<span><small>Rate / Player</small>' + peso.format(session.ratePerPlayer ?? session.finalAmount) + '</span>' +
             '<span><small>Capacity</small>' + Number(session.occupied) + '/' + Number(session.capacity) + ' Players' + (session.pending ? '<small>' + session.pending + ' pending</small>' : '') + '</span></summary>' +
-            '<div class="table-responsive"><table class="table table-sm"><thead><tr><th>Player / Reference</th><th>Amount</th><th>Status / Payment</th><th>Proof</th><th>Actions</th></tr></thead><tbody>' + openPlayPlayerRows(session.players) + '</tbody></table></div></details>'
+            openPlaySessionActions(session) + '<div class="table-responsive"><table class="table table-sm"><thead><tr><th>Player / Reference</th><th>Amount</th><th>Status / Payment</th><th>Proof</th><th>Actions</th></tr></thead><tbody>' + openPlayPlayerRows(session.players) + '</tbody></table></div></details>'
         ).join('') + (visible.length ? '' : '<p class="text-secondary">No sessions in this tab.</p>') + '</div>' +
         '<div class="op-session-pagination"><button class="btn btn-sm btn-outline-primary" data-op-page="previous"' + (openPlayAdminPage===1 ? ' disabled' : '') + '>Previous</button><span>' + (filtered.length ? first+1 : 0) + '-' + Math.min(first+openPlayAdminPageSize,filtered.length) + ' of ' + filtered.length + ' sessions | Page ' + openPlayAdminPage + ' of ' + pages + '</span><button class="btn btn-sm btn-outline-primary" data-op-page="next"' + (openPlayAdminPage===pages ? ' disabled' : '') + '>Next</button></div>';
     panel.querySelectorAll('[data-op-tab]').forEach(button => button.onclick = () => {
@@ -186,6 +189,7 @@ function renderOpenPlayAdmin() {
         if (!details.isConnected) return;
         details.open ? openPlayExpandedSessions.add(details.dataset.opSession) : openPlayExpandedSessions.delete(details.dataset.opSession);
     });
+    panel.querySelectorAll('[data-op-session-cancel]').forEach(button => button.onclick = () => cancelOpenPlaySession(button.dataset.opSessionCancel));
     panel.querySelectorAll('[data-op-confirm]').forEach(button => button.onclick = () => updateStatus(button.dataset.opConfirm,'Booked'));
     panel.querySelectorAll('[data-op-cancel]').forEach(button => button.onclick = async () => {
         const reason = window.prompt('Cancellation reason');
@@ -373,6 +377,10 @@ function showAdminOpenPlaySession(id) {
     dialog.className = 'open-play-picker';
     dialog.innerHTML = '<h2>OPEN PLAY</h2><p>' + escapeHtml(session.courtName) + ' - ' + escapeHtml(session.sport) + '<br>' + escapeHtml(session.date) + ' | ' + escapeHtml(session.time) + '</p><p>' + Number(session.occupied) + '/' + Number(session.capacity) + ' Players - ' + peso.format(session.price) + ' / player</p><ul>' + rows.map(row => '<li>Player ' + Number(row.seat) + ': ' + escapeHtml(row.customerName) + ' - ' + escapeHtml(row.status) + '</li>').join('') + '</ul><button type="button" class="btn btn-primary">Close</button>';
     dialog.querySelector('button').onclick = () => dialog.close();
+    if (adminCanManageOperations()) {
+        const button = document.createElement('button'); button.className = 'btn btn-danger'; button.textContent = 'Cancel Session';
+        button.onclick = () => { dialog.close(); cancelOpenPlaySession(id); }; dialog.append(button);
+    }
     dialog.addEventListener('close', () => dialog.remove());
     document.body.append(dialog); dialog.showModal();
 }
@@ -425,3 +433,19 @@ function showAdminOpenPlaySession(id) {
     window.addEventListener('pointercancel', stop);
     window.addEventListener('blur', stop);
 })();
+
+function openPlaySessionActions(session) {
+    if (session.cancelled) return '<p class="text-danger"><strong>Cancelled</strong> - ' + escapeHtml(session.sessionCancelReason || '') + '</p>';
+    return adminCanManageOperations() ? '<button type="button" class="btn btn-outline-danger btn-sm m-2" data-op-session-cancel="' + Number(session.sessionId) + '">Cancel Session</button>' : '';
+}
+async function cancelOpenPlaySession(sessionId) {
+    const reason = window.prompt('Cancel this Open Play session and all its active player reservations? Enter the cancellation reason:');
+    if (!reason?.trim()) return;
+    const data = new FormData(); data.set('sessionId', sessionId); data.set('reason', reason.trim());
+    try {
+        const response = await fetch(adminStateUrl('admin-openplay-session-cancel'), {method:'POST',body:data});
+        const payload = await readApiResponse(response);
+        if (!payload.ok) throw new Error(payload.message || 'Unable to cancel session.');
+        state = payload.state; renderAll(); showAdminToast(payload.message);
+    } catch (error) { window.alert(error.message); }
+}

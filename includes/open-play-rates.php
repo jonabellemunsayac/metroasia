@@ -3,6 +3,24 @@ declare(strict_types=1);
 
 class BookingUnavailable extends RuntimeException {}
 
+function cancel_open_play_session(PDO $pdo, int $sessionId, int $adminId, string $reason): void
+{
+    $reason = trim($reason);
+    if ($sessionId < 1 || $reason === '' || strlen($reason) > 255) {
+        throw new InvalidArgumentException('Enter a brief cancellation reason. The reason is required and must not exceed the text limit.');
+    }
+    // Use the same lock order as player booking and confirmation.
+    $pdo->query('SELECT id FROM courts ORDER BY id FOR UPDATE')->fetchAll();
+    $q = $pdo->prepare('SELECT id, cancelled_at FROM open_play_sessions WHERE id=? AND rate_key IS NOT NULL FOR UPDATE');
+    $q->execute([$sessionId]);
+    $session = $q->fetch();
+    if (!$session) throw new InvalidArgumentException('Open Play session not found.');
+    if ($session['cancelled_at']) throw new InvalidArgumentException('This session is already cancelled.');
+    $pdo->prepare('UPDATE open_play_sessions SET is_active=0, cancel_reason=?, cancelled_by=?, cancelled_at=NOW() WHERE id=?')->execute([$reason,$adminId,$sessionId]);
+    $pdo->prepare("UPDATE open_play_reservations SET status='Cancelled', cancel_reason=?, cancelled_by=?, cancelled_at=NOW() WHERE session_id=? AND status IN ('Held','Booked')")->execute([$reason,$adminId,$sessionId]);
+    write_override_log($pdo,$adminId,'cancel-open-play','openplay',(string)$sessionId,$reason,['reason'=>$reason]);
+}
+
 function ensure_open_play_rates(PDO $pdo): void
 {
     $columns = [
@@ -11,6 +29,9 @@ function ensure_open_play_rates(PDO $pdo): void
         'open_play_reservations' => ['booking_reference' => 'VARCHAR(64) NULL', 'seat_number' => 'INT UNSIGNED NULL', 'active_seat' => "INT GENERATED ALWAYS AS (CASE WHEN status IN ('Held','Booked') THEN seat_number ELSE NULL END) STORED"],
     ];
     foreach ($columns as $table => $definitions) {
+        if ($table === 'open_play_sessions') {
+            $definitions += ['cancel_reason' => 'VARCHAR(255) NULL', 'cancelled_by' => 'INT UNSIGNED NULL', 'cancelled_at' => 'DATETIME NULL'];
+        }
         $existing = $pdo->query("SHOW COLUMNS FROM `$table`")->fetchAll(PDO::FETCH_COLUMN);
         foreach ($definitions as $name => $definition) {
             if (!in_array($name, $existing, true)) $pdo->exec("ALTER TABLE `$table` ADD `$name` $definition");
@@ -56,6 +77,11 @@ function open_play_offers(PDO $pdo, string $date, ?int $memberId = null): array
         ];
     }
     return $offers;
+}
+
+function open_play_admin_session_records(PDO $pdo): array
+{
+    return $pdo->query("SELECT s.id AS sessionId,s.session_date AS date,s.session_time AS time,s.starts_at AS startsAt,s.ends_at AS endsAt,s.sport,s.capacity,s.price AS ratePerPlayer,c.name AS courtName,s.cancel_reason AS sessionCancelReason,s.cancelled_at AS sessionCancelledAt,(SELECT COUNT(*) FROM open_play_reservations r WHERE r.session_id=s.id AND r.status IN ('Held','Booked')) AS occupied FROM open_play_sessions s LEFT JOIN courts c ON c.id=s.court_id WHERE s.rate_key IS NOT NULL")->fetchAll();
 }
 
 function open_play_calendar_sessions(PDO $pdo): array
@@ -213,5 +239,5 @@ function open_play_book_session(PDO $pdo, string $receiptDir): never
 
 function open_play_admin_rows(PDO $pdo): array
 {
-    return $pdo->query("SELECT CONCAT('openplay:',r.id) AS id,r.booking_reference AS bookingReference,r.customer_name AS customerName,r.status,r.payment_method AS paymentMethod,r.receipt_path AS receipt,r.final_amount AS finalAmount,r.seat_number AS seat,s.session_date AS date,s.session_time AS time,s.sport,s.id AS sessionId,s.court_id AS court,s.starts_at AS startsAt,s.ends_at AS endsAt,c.name AS courtName,s.capacity,s.price AS ratePerPlayer,(SELECT COUNT(*) FROM open_play_reservations a WHERE a.session_id=s.id AND a.status IN ('Held','Booked')) AS occupied FROM open_play_reservations r JOIN open_play_sessions s ON s.id=r.session_id LEFT JOIN courts c ON c.id=s.court_id WHERE s.rate_key IS NOT NULL ORDER BY r.created_at DESC,r.id DESC")->fetchAll();
+    return $pdo->query("SELECT CONCAT('openplay:',r.id) AS id,r.booking_reference AS bookingReference,r.customer_name AS customerName,r.status,s.cancel_reason AS sessionCancelReason,s.cancelled_at AS sessionCancelledAt,r.cancel_reason AS cancelReason,r.payment_method AS paymentMethod,r.receipt_path AS receipt,r.final_amount AS finalAmount,r.seat_number AS seat,s.session_date AS date,s.session_time AS time,s.sport,s.id AS sessionId,s.court_id AS court,s.starts_at AS startsAt,s.ends_at AS endsAt,c.name AS courtName,s.capacity,s.price AS ratePerPlayer,(SELECT COUNT(*) FROM open_play_reservations a WHERE a.session_id=s.id AND a.status IN ('Held','Booked')) AS occupied FROM open_play_reservations r JOIN open_play_sessions s ON s.id=r.session_id LEFT JOIN courts c ON c.id=s.court_id WHERE s.rate_key IS NOT NULL ORDER BY r.created_at DESC,r.id DESC")->fetchAll();
 }
