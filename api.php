@@ -30,7 +30,20 @@ set_exception_handler(static function (Throwable $exception): void {
     ], 500);
 });
 
+if (($_GET['action'] ?? $_POST['action'] ?? '') === 'session-status') define('ACCOUNT_SESSION_PROBE', true);
 require_once __DIR__ . '/includes/auth.php';
+// Validate before dispatch, even public actions carrying an invalidated cookie.
+foreach (['admin', 'member'] as $accountType) {
+    if (!empty($_SESSION[$accountType . '_id'])) expire_access_session_if_needed($accountType);
+}
+if (!empty($_SESSION['auth_failure'])) {
+    json_response(['ok' => false, 'code' => $_SESSION['auth_failure'],
+        'message' => $_SESSION['auth_failure'] === 'session_replaced' ? ACCOUNT_REPLACED_MESSAGE : 'Your session has expired. Please sign in again.'], 401);
+}
+if (defined('ACCOUNT_SESSION_PROBE')) {
+    $authenticated = !empty($_SESSION['admin_id']) || !empty($_SESSION['member_id']);
+    json_response(['ok' => $authenticated], $authenticated ? 200 : 401);
+}
 require_once __DIR__ . '/includes/site-config.php';
 require_once __DIR__ . '/includes/data-privacy.php';
 require_once __DIR__ . '/includes/open-play-rates.php';

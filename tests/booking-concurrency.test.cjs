@@ -46,7 +46,9 @@ async function run() {
         const a=client(),b=client();
         const logins=await Promise.all([login(a,f.members[0]),login(b,f.members[0])]);
         assert.deepEqual(logins.map(r=>r.status),[302,302]);
-        const players=[a,client(),client(),client()];
+        const statuses=await Promise.all([a,b].map(c=>request(c,'/api.php?action=session-status')));
+        assert.equal(statuses.filter(r=>r.status===200).length,1);
+        const players=[statuses[0].status===200?a:b,client(),client(),client()];
         for(let i=1;i<4;i++) assert.equal((await login(players[i],f.members[i])).status,302);
         const admins=[client(),client()];
         for(let i=0;i<2;i++) assert.equal((await login(admins[i],f.admins[i])).status,302);

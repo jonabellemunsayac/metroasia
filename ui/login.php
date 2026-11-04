@@ -37,6 +37,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
+if (!$error && !empty($_SESSION['auth_failure'])) {
+    $error = $_SESSION['auth_failure'] === 'session_replaced' ? ACCOUNT_REPLACED_MESSAGE : 'Your session has expired. Please sign in again.';
+}
 $pageTitle = 'Sign In';
 $active = 'member';
 $memberAccountStyles = true;

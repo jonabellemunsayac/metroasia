@@ -6,7 +6,10 @@ require_once __DIR__ . '/../config/database.php';
 require_once __DIR__ . '/account-sessions.php';
 
 if (session_status() !== PHP_SESSION_ACTIVE) {
+    ini_set('session.use_strict_mode', '1');
+    session_set_cookie_params(['httponly' => true, 'secure' => !empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off', 'samesite' => 'Lax']);
     session_start();
+    header('Cache-Control: no-store, private');
 }
 
 const ACCESS_SESSION_TIMEOUT_SECONDS = 28800; // 8 hrs
@@ -164,7 +167,8 @@ function start_access_session(string $accountType, int $accountId, ?string $role
         release_account_session();
         unset($_SESSION['auth_lease_token'], $_SESSION['auth_lease_owner']);
     }
-    $token = $_SESSION['auth_lease_token'] ?? bin2hex(random_bytes(32));
+    $token = bin2hex(random_bytes(32));
+    unset($_SESSION['auth_failure']);
     try {
         claim_account_session(db(),$accountType,$accountId,$token,time());
     } catch (Throwable $exception) {
@@ -201,32 +205,8 @@ function expire_access_session_if_needed(string $accountType): bool
         return true;
     }
 
-    if (($_SESSION['auth_type'] ?? null) !== $accountType || empty($_SESSION['auth_login_at'])) {
-        start_access_session($accountType, $accountId, access_log_account_role($accountType, $accountId), 'existing_session');
-        return false;
-    }
-
-    $now = time();
-    $lastActivity = (int) ($_SESSION['auth_last_activity_at'] ?? 0);
-    if ($lastActivity <= 0) {
-        $_SESSION['auth_type'] = $accountType;
-        $_SESSION['auth_login_at'] = $_SESSION['auth_login_at'] ?? $now;
-        $_SESSION['auth_last_activity_at'] = $now;
-        return false;
-    }
-
-    if (($now - $lastActivity) <= ACCESS_SESSION_TIMEOUT_SECONDS) {
-        $_SESSION['auth_last_activity_at'] = $now;
-        return false;
-    }
-
-    $role = $_SESSION['auth_role'] ?? access_log_account_role($accountType, $accountId);
-    write_access_log('session_expired', $accountType, $accountId, is_string($role) ? $role : null, [
-        'expiredAfterSeconds' => $now - $lastActivity,
-    ]);
-    unset($_SESSION[$sessionKey]);
-    clear_access_session_metadata();
-    return true;
+    if (!defined('ACCOUNT_SESSION_PROBE')) $_SESSION['auth_last_activity_at'] = time();
+    return false;
 }
 
 function safe_member_redirect_path(?string $target, string $fallback = 'ui/member.php'): string

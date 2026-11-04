@@ -144,6 +144,9 @@ if ($useAdminShell):
     };
 </script>
 
+<?php if ($currentAdmin !== null || $currentMember !== null): ?>
+<script src="<?php echo htmlspecialchars(app_url('assets/js/account-session.js')); ?>?v=1"></script>
+<?php endif; ?>
 <!-- Existing application JavaScript retained. -->
 <script
     src="<?php echo htmlspecialchars(app_url('assets/js/app.js')); ?>?v=<?php echo htmlspecialchars($appJsVersion); ?>"
