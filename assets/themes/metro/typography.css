@@ -56,3 +56,18 @@ body :is(table,.admin-schedule-grid,.member-dashboard-stats,.stat-number) { font
     .metro-footer .metro-newsletter input { flex:1 1 100%; width:100%; padding:var(--space-12); }
     .metro-footer .metro-newsletter button { width:100%; }
 }
+
+/* Managed page content inherits the shared type scale. */
+.privacy-policy-content, .privacy-wysiwyg-editor { font-family:var(--metro-font); line-height:1.7; overflow-wrap:anywhere; }
+.privacy-policy-content :is(ul,ol), .privacy-wysiwyg-editor :is(ul,ol) { padding-left:1.6em; }
+.privacy-policy-content ul, .privacy-wysiwyg-editor ul { list-style:disc; }
+.privacy-policy-content ol, .privacy-wysiwyg-editor ol { list-style:decimal; }
+.privacy-policy-content :is(h2,h3,h4) { margin-top:1.2em; margin-bottom:.5em; }
+.privacy-policy-content > :first-child { margin-top:0; }
+.privacy-policy-content a { text-decoration:underline; }
+.admin-quick-links summary { cursor:pointer; }
+.admin-quick-links summary::after { content:'+'; margin-left:auto; }
+.admin-quick-links[open] summary::after { content:'?'; }
+.admin-quick-links > a { margin-left:12px; }
+.privacy-policy-row { flex-wrap:wrap; overflow-wrap:anywhere; }
+.privacy-wysiwyg-editor { max-width:100%; }

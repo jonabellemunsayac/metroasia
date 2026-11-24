@@ -8,12 +8,14 @@ $active = 'admin-data-privacy';
 $pdo = db();
 data_privacy_ensure_table($pdo);
 
+$_SESSION['page_content_csrf'] ??= bin2hex(random_bytes(32));
 $message = null;
 $error = null;
 $editId = (int) ($_GET['edit'] ?? 0);
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     try {
+        page_content_verify_csrf();
         if (!admin_can_manage_operations($admin)) {
             throw new RuntimeException('Admin or Super Admin permission required.');
         }
@@ -44,11 +46,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if (!in_array($status, ['Draft', 'Active', 'Archived'], true)) {
                 throw new RuntimeException('Choose a valid policy status.');
             }
-            if ($content === '') {
+            if (trim(strip_tags($content)) === '') {
                 throw new RuntimeException('Policy content is required.');
             }
 
             $pdo->beginTransaction();
+            if ($id > 0) {
+                $exists = $pdo->prepare('SELECT id FROM data_privacy_policies WHERE id = ? FOR UPDATE');
+                $exists->execute([$id]);
+                if (!$exists->fetchColumn()) throw new RuntimeException('This version no longer exists. Reload the page.');
+            }
             if ($status === 'Active') {
                 $pdo->exec("UPDATE data_privacy_policies SET status = 'Archived' WHERE status = 'Active'");
             }
@@ -101,6 +108,11 @@ if ($editing === null) {
     ];
 }
 
+if ($error && ($_POST['action'] ?? '') === 'save') {
+    $editing = ['id' => (int) ($_POST['id'] ?? 0), 'title' => (string) ($_POST['title'] ?? ''),
+        'version' => (string) ($_POST['version'] ?? ''), 'status' => (string) ($_POST['status'] ?? 'Draft'),
+        'contentHtml' => data_privacy_sanitize_html((string) ($_POST['contentHtml'] ?? ''))];
+}
 include __DIR__ . '/../includes/header.php';
 ?>
 <main class="app-main admin-compact">
@@ -125,6 +137,7 @@ include __DIR__ . '/../includes/header.php';
     <section class="row g-3">
         <div class="col-xl-7">
             <form method="post" class="app-card" id="privacyPolicyForm">
+                <input type="hidden" name="csrf" value="<?php echo htmlspecialchars($_SESSION['page_content_csrf']); ?>">
                 <input type="hidden" name="action" value="save">
                 <input type="hidden" name="id" value="<?php echo (int) $editing['id']; ?>">
                 <textarea hidden name="contentHtml" id="privacyPolicyContentInput"><?php echo htmlspecialchars((string) $editing['contentHtml']); ?></textarea>
@@ -152,11 +165,11 @@ include __DIR__ . '/../includes/header.php';
                         <button type="button" data-editor-command="underline"><u>U</u></button>
                         <button type="button" data-editor-command="insertUnorderedList">Bullets</button>
                         <button type="button" data-editor-command="insertOrderedList">Numbers</button>
-                        <button type="button" data-editor-block="h3">Heading</button>
+                        <button type="button" data-editor-block="h2">Heading 2</button><button type="button" data-editor-block="h3">Heading 3</button><button type="button" data-editor-block="p">Paragraph</button>
                         <button type="button" data-editor-command="createLink">Link</button>
                         <button type="button" data-editor-command="removeFormat">Clear</button>
                     </div>
-                    <div id="privacyPolicyEditor" class="privacy-wysiwyg-editor" contenteditable="true"><?php echo (string) $editing['contentHtml']; ?></div>
+                    <div id="privacyPolicyEditor" class="privacy-wysiwyg-editor" contenteditable="true" role="textbox" aria-label="Page content" aria-multiline="true"><?php echo data_privacy_sanitize_html((string) $editing['contentHtml']); ?></div>
                 </div>
 
                 <div class="d-flex flex-wrap justify-content-between gap-2 mt-3">
@@ -196,7 +209,8 @@ include __DIR__ . '/../includes/header.php';
                                     </span>
                                     <a class="btn btn-outline-primary btn-sm" href="<?php echo htmlspecialchars(app_url('admin/data-privacy.php?edit=' . (int) $policy['id'])); ?>">Edit</a>
                                     <form method="post" onsubmit="return confirm('Delete this policy version?');">
-                                        <input type="hidden" name="action" value="delete">
+                                        <input type="hidden" name="csrf" value="<?php echo htmlspecialchars($_SESSION['page_content_csrf']); ?>">
+                <input type="hidden" name="action" value="delete">
                                         <input type="hidden" name="id" value="<?php echo (int) $policy['id']; ?>">
                                         <button class="btn btn-outline-danger btn-sm" type="submit">Delete</button>
                                     </form>
@@ -209,37 +223,5 @@ include __DIR__ . '/../includes/header.php';
         </div>
     </section>
 </main>
-<script>
-(() => {
-    const form = document.getElementById('privacyPolicyForm');
-    const editor = document.getElementById('privacyPolicyEditor');
-    const input = document.getElementById('privacyPolicyContentInput');
-    if (!form || !editor || !input) return;
-
-    document.querySelectorAll('[data-editor-command]').forEach(button => {
-        button.addEventListener('click', () => {
-            const command = button.dataset.editorCommand;
-            if (command === 'createLink') {
-                const url = window.prompt('Enter link URL');
-                if (!url) return;
-                document.execCommand(command, false, url);
-            } else {
-                document.execCommand(command, false, null);
-            }
-            editor.focus();
-        });
-    });
-
-    document.querySelectorAll('[data-editor-block]').forEach(button => {
-        button.addEventListener('click', () => {
-            document.execCommand('formatBlock', false, button.dataset.editorBlock);
-            editor.focus();
-        });
-    });
-
-    form.addEventListener('submit', () => {
-        input.value = editor.innerHTML.trim();
-    });
-})();
-</script>
+<script src="<?php echo htmlspecialchars(app_url('assets/js/page-content-editor.js')); ?>" defer></script>
 <?php include __DIR__ . '/../includes/footer.php'; ?>

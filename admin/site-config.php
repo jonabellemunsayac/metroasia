@@ -432,7 +432,12 @@ include __DIR__ . '/../includes/header.php';
                 <h2 class="mt-1 mb-1 fw-black">Public content and links</h2>
                 <p class="mb-0 small text-secondary fw-semibold">Update homepage gallery, address, contact map, Facebook URL, and Messenger link from the database.</p>
             </div>
-            <a href="<?php echo htmlspecialchars(app_url('ui/index.php')); ?>" class="btn btn-outline-primary btn-sm">View Site</a>
+            <div class="d-flex flex-wrap gap-2">
+                <?php if (admin_can_manage_operations($admin)): ?>
+                    <a href="<?php echo htmlspecialchars(app_url('admin/test-email.php')); ?>" class="btn btn-outline-primary btn-sm">Test Email</a>
+                <?php endif; ?>
+                <a href="<?php echo htmlspecialchars(app_url('ui/index.php')); ?>" class="btn btn-outline-primary btn-sm">View Site</a>
+            </div>
         </div>
     </section>
 

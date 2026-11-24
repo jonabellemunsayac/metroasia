@@ -2,6 +2,7 @@ Options -Indexes
 DirectoryIndex index.php ui/index.php
 
 RewriteEngine On
+RewriteRule ^config/mail(?:\.[^/]*)?\.php$ - [F,L,NC]
 RewriteRule ^$ ui/index.php [L]
 RewriteRule ^ui/?$ ui/index.php [L]
 RewriteRule ^admin/?$ admin/dashboard.php [L]

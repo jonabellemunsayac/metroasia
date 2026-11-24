@@ -430,8 +430,10 @@ function admin_menu_catalog(): array
         'admin-payment' => ['key' => 'admin-payment', 'label' => 'Payment Setup', 'sub' => 'GCash and BDO', 'path' => 'admin/payment.php', 'icon' => 'credit-card'],
         'admin-announcements' => ['key' => 'admin-announcements', 'label' => 'Announcements', 'sub' => 'Scheduled popup image', 'path' => 'admin/announcements.php', 'icon' => 'megaphone'],
         'admin-site-config' => ['key' => 'admin-site-config', 'label' => 'Site Config', 'sub' => 'Public content and links', 'path' => 'admin/site-config.php', 'icon' => 'settings'],
-        'admin-terms' => ['key' => 'admin-terms', 'label' => 'Terms & Conditions', 'sub' => 'Policy content', 'path' => 'admin/terms-conditions.php', 'icon' => 'file-text'],
-        'admin-data-privacy' => ['key' => 'admin-data-privacy', 'label' => 'Data Privacy', 'sub' => 'Policy content', 'path' => 'admin/data-privacy.php', 'icon' => 'file-lock-2'],
+        'admin-rules' => ['key' => 'admin-rules', 'label' => 'Rules', 'sub' => 'Venue policies', 'path' => 'admin/rules.php', 'icon' => 'list-checks'],
+        'admin-faqs' => ['key' => 'admin-faqs', 'label' => 'FAQs', 'sub' => 'Questions and answers', 'path' => 'admin/faqs.php', 'icon' => 'circle-help'],
+        'admin-terms' => ['key' => 'admin-terms', 'label' => 'Terms of Service', 'sub' => 'Policy content', 'path' => 'admin/terms-conditions.php', 'icon' => 'file-text'],
+        'admin-data-privacy' => ['key' => 'admin-data-privacy', 'label' => 'Privacy Policy', 'sub' => 'Policy content', 'path' => 'admin/data-privacy.php', 'icon' => 'file-lock-2'],
         'admin-members' => ['key' => 'admin-members', 'label' => 'Users / Members', 'sub' => 'Access and accounts', 'path' => 'admin/members.php', 'icon' => 'users'],
     ];
 }

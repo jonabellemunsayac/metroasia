@@ -57,9 +57,9 @@ if ($useAdminShell):
                 <section class="metro-footer-links">
                     <h3>Quick Links</h3>
                     <a href="<?php echo htmlspecialchars(app_url('ui/rules.php')); ?>">Rules</a>
-                    <span aria-disabled="true">Terms of Service</span>
-                    <span aria-disabled="true">Privacy Policy</span>
-                    <span aria-disabled="true">FAQs</span>
+                    <a href="<?php echo htmlspecialchars(app_url('ui/terms-and-condition.php')); ?>">Terms of Service</a>
+                    <a href="<?php echo htmlspecialchars(app_url('ui/privacy-policy.php')); ?>">Privacy Policy</a>
+                    <a href="<?php echo htmlspecialchars(app_url('ui/faqs.php')); ?>">FAQs</a>
                     <a href="<?php echo htmlspecialchars(app_url('ui/index.php#about')); ?>">About</a>
                     <a href="<?php echo htmlspecialchars(app_url('ui/index.php#contact-us')); ?>">Contact Us</a>
                 </section>

@@ -1,3 +1,4 @@
 uploads/
 logs/*.log
 config/database.php
+config/mail.local.php

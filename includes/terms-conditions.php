@@ -2,6 +2,7 @@
 declare(strict_types=1);
 
 require_once __DIR__ . '/../config/database.php';
+require_once __DIR__ . '/page-content.php';
 
 function terms_conditions_default_policy(): array
 {
@@ -43,16 +44,12 @@ function terms_conditions_ensure_table(PDO $pdo): void
             CONSTRAINT fk_terms_updated_by FOREIGN KEY (updated_by) REFERENCES admin_users(id)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci"
     );
+    page_content_seed($pdo, 'terms_conditions_policies', terms_conditions_default_policy());
 }
 
 function terms_conditions_sanitize_html(string $html): string
 {
-    $html = preg_replace('#<(script|style)\b[^>]*>.*?</\1>#is', '', $html) ?? '';
-    $html = strip_tags($html, '<p><br><strong><b><em><i><u><ul><ol><li><a><h2><h3><h4><blockquote>');
-    $html = preg_replace('/\s+on[a-z]+\s*=\s*(".*?"|\'.*?\'|[^\s>]+)/i', '', $html) ?? '';
-    $html = preg_replace('/href\s*=\s*("|\')\s*javascript:[^"\']*\1/i', 'href="#"', $html) ?? '';
-    $html = preg_replace('/<a\b(?![^>]*\btarget=)/i', '<a target="_blank" rel="noopener"', $html) ?? '';
-    return trim($html);
+    return page_content_sanitize_html($html);
 }
 
 function terms_conditions_policy_payload(array $row): array
@@ -81,7 +78,7 @@ function terms_conditions_active_policy(PDO $pdo = null): array
              LIMIT 1"
         );
         $row = $stmt->fetch();
-        return $row ? terms_conditions_policy_payload($row) : terms_conditions_default_policy();
+        return $row ? terms_conditions_policy_payload($row) : array_replace(terms_conditions_default_policy(), ['contentHtml' => '', 'status' => 'Draft', 'isActive' => false]);
     } catch (Throwable) {
         return terms_conditions_default_policy();
     }

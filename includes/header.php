@@ -151,7 +151,7 @@ if ($active === 'member' && $pageTitle !== '') {
         rel="stylesheet"
         href="<?php echo htmlspecialchars(app_url('assets/themes/metro/purple-gold.css')); ?>?v=<?php echo htmlspecialchars($assetVersion); ?>"
     >
-    <link rel="stylesheet" href="<?php echo htmlspecialchars(app_url('assets/themes/metro/typography.css')); ?>?v=<?php echo htmlspecialchars($assetVersion); ?>">
+    <link rel="stylesheet" href="<?php echo htmlspecialchars(app_url('assets/themes/metro/typography.css')); ?>?v=<?php echo htmlspecialchars(hash_file('sha256', __DIR__ . '/../assets/themes/metro/typography.css') ?: $assetVersion); ?>">
     <?php if ($isPublicHome): ?>
         <link rel="stylesheet" href="<?php echo htmlspecialchars(app_url('assets/themes/metro/home-sections.css')); ?>?v=<?php echo htmlspecialchars(hash_file('sha256', __DIR__ . '/../assets/themes/metro/home-sections.css') ?: $assetVersion); ?>">
         <link rel="stylesheet" href="<?php echo htmlspecialchars(app_url('assets/themes/metro/home-design-system.css')); ?>?v=<?php echo htmlspecialchars($assetVersion); ?>">
@@ -289,7 +289,9 @@ if ($active === 'member' && $pageTitle !== '') {
 
                 <nav class="admin-menu">
                     <p class="admin-menu-label">Management</p>
-                    <?php foreach ($adminNavItems as $item): ?>
+<?php $quickKeys = ['admin-rules', 'admin-terms', 'admin-data-privacy', 'admin-faqs'];
+$quickItems = array_values(array_filter($adminNavItems, static fn($item) => in_array($item['key'], $quickKeys, true))); ?>
+                    <?php foreach ($adminNavItems as $item): if (in_array($item['key'], $quickKeys, true)) continue; ?>
                         <a class="admin-nav-link<?php echo $item['key'] === $active ? ' active' : ''; ?>" href="<?php echo htmlspecialchars($item['href']); ?>">
                             <i data-lucide="<?php echo htmlspecialchars($item['icon']); ?>" class="icon-sm"></i>
                             <span>
@@ -298,6 +300,20 @@ if ($active === 'member' && $pageTitle !== '') {
                             </span>
                         </a>
                     <?php endforeach; ?>
+<?php if ($quickItems): ?>
+<details class="admin-quick-links" <?php echo in_array($active, $quickKeys, true) ? 'open' : ''; ?>>
+<summary class="admin-nav-link">Quick Links</summary>
+                    <?php foreach ($quickItems as $item): ?>
+                        <a class="admin-nav-link<?php echo $item['key'] === $active ? ' active' : ''; ?>" href="<?php echo htmlspecialchars($item['href']); ?>">
+                            <i data-lucide="<?php echo htmlspecialchars($item['icon']); ?>" class="icon-sm"></i>
+                            <span>
+                                <span class="d-block"><?php echo htmlspecialchars($item['label']); ?></span>
+                                <small><?php echo htmlspecialchars($item['sub']); ?></small>
+                            </span>
+                        </a>
+                    <?php endforeach; ?>
+</details>
+<?php endif; ?>
                 </nav>
             </div>
         </aside>
