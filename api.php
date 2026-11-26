@@ -3501,6 +3501,11 @@ if ($action === 'admin-status') {
         ];
         foreach ($statusRows as $statusRow) {
             $currentStatus = (string) $statusRow['status'];
+            // Grouped reservations may include slots cancelled previously.
+            // Treat repeat cancellation as a no-op and retain their audit data.
+            if ($nextStatus === 'Cancelled' && $currentStatus === 'Cancelled') {
+                continue;
+            }
             if (!in_array($nextStatus, $allowedTransitions[$currentStatus] ?? [], true)) {
                 booking_taken($pdo, true);
             }
@@ -3555,21 +3560,27 @@ if ($action === 'admin-status') {
                 $pdo->rollBack();
                 json_response(['ok' => false, 'message' => 'Cancellation reason is required.'], 422);
             }
-            $stmt = $pdo->prepare("UPDATE {$table} SET status = 'Cancelled', cancelled_by = ?, cancelled_at = NOW(), cancel_reason = ? WHERE id IN ({$idPlaceholders})");
+            $stmt = $pdo->prepare("UPDATE {$table} SET status = 'Cancelled', cancelled_by = ?, cancelled_at = NOW(), cancel_reason = ? WHERE id IN ({$idPlaceholders}) AND status IN ('Held', 'Booked')");
             $stmt->execute(array_merge([(int) $admin['id'], $reason], $reservationIds));
         }
 
         $pdo->commit();
     } catch (Throwable $exception) {
         if ($pdo->inTransaction()) $pdo->rollBack();
-        if (is_database_write_conflict($exception)) booking_taken($pdo,true);
+        if (is_database_write_conflict($exception)) {
+            if ($nextStatus === 'Cancelled') {
+                json_response(['ok' => false, 'message' => 'The reservation is being updated. Refresh its status and try cancelling again.',
+                    'availabilityChanged' => true, 'state' => get_state($pdo, true)], 409);
+            }
+            booking_taken($pdo,true);
+        }
         error_log('API admin-status failed: ' . $exception);
         json_response(['ok'=>false,'message'=>'Could not update reservation. Please try again.'],500);
     }
 
     json_response([
         'ok' => true,
-        'message' => $nextStatus === 'Booked' ? 'Reservation marked Booked.' : 'Reservation cancelled. The slot is available again.',
+        'message' => $nextStatus === 'Booked' ? 'Reservation marked Booked.' : 'Reservation cancelled.',
         'state' => get_state($pdo, true),
     ]);
 }

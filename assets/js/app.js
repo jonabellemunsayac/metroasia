@@ -5350,22 +5350,34 @@ async function submitCancelReservation(event) {
     const formData = new FormData(form);
     formData.set('status', 'Cancelled');
 
-    const response = await fetch(adminStateUrl('admin-status'), { method: 'POST', body: formData });
-    const payload = await response.json();
-    if (payload.availabilityChanged && payload.state) { state = payload.state; renderAll(); }
-    if (els.adminCancelReservationMessage) {
-        els.adminCancelReservationMessage.textContent = payload.message || 'Saved.';
-        els.adminCancelReservationMessage.className = `rounded-md p-2 text-xs font-bold mt-3 ${payload.ok ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-700'}`;
-    }
-    if (payload.ok) {
-        state = payload.state;
-        renderAll();
-        showAdminToast(payload.message || 'Reservation cancellation submitted successfully.');
-        if (window.bootstrap && els.adminCancelReservationModal) {
-            bootstrap.Modal.getInstance(els.adminCancelReservationModal)?.hide();
+    const submit = form.querySelector('[type="submit"]');
+    if (submit?.disabled) return;
+    if (submit) submit.disabled = true;
+    try {
+        const response = await fetch(adminStateUrl('admin-status'), { method: 'POST', body: formData });
+        const payload = await readApiResponse(response);
+        if (payload.availabilityChanged && payload.state) { state = payload.state; renderAll(); }
+        if (els.adminCancelReservationMessage) {
+            els.adminCancelReservationMessage.textContent = payload.message || 'Saved.';
+            els.adminCancelReservationMessage.className = `rounded-md p-2 text-xs font-bold mt-3 ${payload.ok ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-700'}`;
         }
-    } else if (response.status === 401) {
-        window.location.href = adminLoginUrl;
+        if (payload.ok) {
+            state = payload.state;
+            renderAll();
+            showAdminToast(payload.message || 'Reservation cancellation submitted successfully.');
+            if (window.bootstrap && els.adminCancelReservationModal) {
+                bootstrap.Modal.getInstance(els.adminCancelReservationModal)?.hide();
+            }
+        } else if (response.status === 401) {
+            window.location.href = adminLoginUrl;
+        }
+    } catch (error) {
+        if (els.adminCancelReservationMessage) {
+            els.adminCancelReservationMessage.textContent = 'Could not confirm cancellation. Refresh the reservation and check its status before trying again.';
+            els.adminCancelReservationMessage.className = 'rounded-md p-2 text-xs font-bold mt-3 bg-rose-50 text-rose-700';
+        }
+    } finally {
+        if (submit) submit.disabled = false;
     }
 }
 
